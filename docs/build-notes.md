@@ -22,7 +22,22 @@ One lesson per bullet. Update rather than duplicate; delete if proven wrong.
 - Ground every report claim in a tool result from your session; if unverified,
   say so explicitly.
 
+## Devvit client facts (verified from .d.ts, T9)
+- The real `RedisClient` does NOT structurally satisfy our `RedisLike`
+  (`SetOptions.expiration` is a `Date`, not seconds; `ZRangeOptions.by` is
+  required). Use the typed `redisLike` adapter exported from
+  `src/server/routes/api.ts` when constructing `Store` in routes — never cast.
+- Lock/NX check: use truthiness on `redis.set(..., {nx: true})`, not `=== 'OK'`.
+- `context.userId` is `T2 | undefined`; `reddit.getCurrentUsername()` returns
+  `string | undefined`.
+- Mission routes: pass `city.threat` to `evaluateMission` — safe within a day
+  because threat only changes at resolution, resolution bumps `day`, and
+  stale-day tokens are rejected.
+
 ## TypeScript gotchas
+- The SERVER tsconfig overrides `exactOptionalPropertyTypes` to false; the
+  CLIENT project has it true — client code must not assign `undefined` to
+  optional props (build opts objects conditionally).
 - The repo compiles with `exactOptionalPropertyTypes: true` (tools/tsconfig.base.json).
   `RequestInit.body` accepts `BodyInit | null` — pass `null`, not `undefined`,
   for a no-body fetch (hit in src/client/game/api.ts).
@@ -37,3 +52,11 @@ One lesson per bullet. Update rather than duplicate; delete if proven wrong.
   template client scenes until Task 16; do not delete before then.
 - Conventions: type aliases over interfaces, named exports, never cast types
   (exception: approved casts inside `src/shared/balance.ts`).
+
+## Testing
+- Vertical slice integration test lives at
+  `src/server/routes/api.integration.test.ts`. It drives the store + pure
+  game logic (role → actions → mission → votes → day rollover) end-to-end
+  against `makeFakeRedis` — Hono routes are NOT exercised (they need the
+  Devvit runtime). Extend this file (do not replace it) when new game flow
+  ships, so the slice-alive proof keeps up.
