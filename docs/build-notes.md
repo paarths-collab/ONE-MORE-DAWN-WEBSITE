@@ -22,6 +22,12 @@ One lesson per bullet. Update rather than duplicate; delete if proven wrong.
 - Ground every report claim in a tool result from your session; if unverified,
   say so explicitly.
 
+## TypeScript gotchas
+- The repo compiles with `exactOptionalPropertyTypes: true` (tools/tsconfig.base.json).
+  `RequestInit.body` accepts `BodyInit | null` — pass `null`, not `undefined`,
+  for a no-body fetch (hit in src/client/game/api.ts).
+- eslint has `no-unused-vars` OFF; non-null assertions (`x!`) match repo style.
+
 ## Project facts
 - Type contract: `src/shared/types.ts` (Task 3, verified). Balance numbers:
   `src/shared/balance.ts` only — no magic numbers elsewhere.
