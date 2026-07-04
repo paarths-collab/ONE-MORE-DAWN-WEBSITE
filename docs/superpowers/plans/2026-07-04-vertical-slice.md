@@ -19,6 +19,20 @@
 4. Factions, laws, raids, Council UI, Leaderboard scene: **Plan 2** (per spec build order). The resolver and types are built with those fields present but inert, so Plan 2 extends without migration.
 5. Mission tokens use per-token keys `mission:token:{tokenId}` with a Redis TTL instead of the spec's `mission:tokens` hash — hash fields cannot expire individually, so the hash would accumulate abandoned tokens forever. Per-token keys are safe here because the client always presents the tokenId (no enumeration needed), and TTL guarantees cleanup.
 
+**Execution protocol (Fable parallel mode, adopted during execution):**
+- Tasks with disjoint file sets run as parallel implementer agents under a
+  no-commit protocol: agents touch only their listed files, never run git,
+  and run targeted tests only. The controller runs the full gate
+  (type-check · lint · test · build) once per batch and commits each task
+  separately, in dependency order.
+- Verbatim-transcription tasks run at medium effort; judgment-heavy tasks
+  (T8 resolver, T14 routes, T16–18 scenes) and all reviewers run at high.
+- Spec reviews may be batched per parallel group (one reviewer verifies the
+  whole group against reference content + gates + commit hygiene).
+  Individual per-task quality reviews resume from T8 onward.
+- Every agent reads `docs/build-notes.md` (environment lessons) first;
+  the controller keeps it current.
+
 ---
 
 ## File Structure (created/modified by this plan)
