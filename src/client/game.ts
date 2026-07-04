@@ -1,32 +1,29 @@
-import { Boot } from './scenes/Boot';
-import { GameOver } from './scenes/GameOver';
-import { Game as MainGame } from './scenes/Game';
-import { MainMenu } from './scenes/MainMenu';
 import * as Phaser from 'phaser';
 import { AUTO, Game } from 'phaser';
-import { Preloader } from './scenes/Preloader';
+import { Boot } from './game/scenes/Boot';
+import { Preloader } from './game/scenes/Preloader';
+import { Dashboard } from './game/scenes/Dashboard';
+import { RoleSelect } from './game/scenes/RoleSelect';
+import { Actions } from './game/scenes/Actions';
+import { Vote } from './game/scenes/Vote';
+import { Mission } from './game/scenes/Mission';
+import { MissionEnd } from './game/scenes/MissionEnd';
+import { Timeline } from './game/scenes/Timeline';
+import { H, W } from './game/ui';
 
-//  Find out more information about the Game Config at:
-//  https://docs.phaser.io/api-documentation/typedef/types-core#gameconfig
 const config: Phaser.Types.Core.GameConfig = {
   type: AUTO,
   parent: 'game-container',
-  backgroundColor: '#028af8',
+  backgroundColor: '#121417',
   scale: {
-    // Keep a fixed game resolution but automatically scale it to fit within the available
-    // web-view / device while maintaining aspect ratio.
-    mode: Phaser.Scale.RESIZE,
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 1024,
-    height: 768,
+    width: W,
+    height: H,
   },
-  scene: [Boot, Preloader, MainMenu, MainGame, GameOver],
-};
-
-const StartGame = (parent: string) => {
-  return new Game({ ...config, parent });
+  scene: [Boot, Preloader, Dashboard, RoleSelect, Actions, Vote, Mission, MissionEnd, Timeline],
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-  StartGame('game-container');
+  new Game(config);
 });

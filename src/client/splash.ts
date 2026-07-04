@@ -1,4 +1,4 @@
-import { navigateTo, context, requestExpandedMode } from '@devvit/web/client';
+import { navigateTo, requestExpandedMode } from '@devvit/web/client';
 
 const docsLink = document.getElementById('docs-link') as HTMLDivElement;
 const playtestLink = document.getElementById('playtest-link') as HTMLDivElement;
@@ -24,7 +24,7 @@ discordLink.addEventListener('click', () => {
 const titleElement = document.getElementById('title') as HTMLHeadingElement;
 
 function init() {
-  titleElement.textContent = `Hey ${context.username ?? 'user'} 👋`;
+  titleElement.textContent = 'ONE MORE DAWN';
 }
 
 init();
