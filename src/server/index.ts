@@ -4,6 +4,7 @@ import { createServer, getServerPort } from '@devvit/web/server';
 import { api } from './routes/api';
 import { forms } from './routes/forms';
 import { menu } from './routes/menu';
+import { mission } from './routes/mission';
 import { triggers } from './routes/triggers';
 
 const app = new Hono();
@@ -14,6 +15,7 @@ internal.route('/form', forms);
 internal.route('/triggers', triggers);
 
 app.route('/api', api);
+app.route('/api/mission', mission);
 app.route('/internal', internal);
 
 serve({
