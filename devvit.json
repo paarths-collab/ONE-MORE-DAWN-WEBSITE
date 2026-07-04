@@ -20,23 +20,33 @@
   "menu": {
     "items": [
       {
-        "label": "Create a new post",
-        "description": "One More Dawn",
+        "label": "One More Dawn: create game post",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/post-create"
       },
       {
-        "label": "Example form",
-        "description": "Show a simple form",
+        "label": "One More Dawn: force-resolve day",
+        "description": "Resolve the current day now (testing)",
         "location": "subreddit",
         "forUserType": "moderator",
-        "endpoint": "/internal/menu/example-form"
+        "endpoint": "/internal/menu/force-resolve"
+      },
+      {
+        "label": "One More Dawn: reset city (new cycle)",
+        "description": "Wipe the city and start a new cycle",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/reset"
+      },
+      {
+        "label": "One More Dawn: seed demo state",
+        "description": "Load a rich day-5 demo city",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/seed-demo"
       }
     ]
-  },
-  "forms": {
-    "exampleForm": "/internal/form/example-submit"
   },
   "triggers": {
     "onAppInstall": "/internal/triggers/on-app-install"
