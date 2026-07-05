@@ -3,7 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Silkscreen:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="game.css" />
+    <style>
+      /* Pixel Village design system (docs/design/DESIGN_SYSTEM.md).
+         If the webview CSP blocks Google Fonts, the monospace fallback in
+         these stacks (and in Phaser text styles) renders instead. */
+      :root {
+        --pixel-font: 'Silkscreen', monospace;
+        --mono-font: 'JetBrains Mono', monospace;
+      }
+      #game-container {
+        background: #0c0a0a;
+      }
+    </style>
+    <script>
+      // Marks the document once web fonts have settled so scenes can re-render
+      // pixel text if they raced the font load. Safe no-op if unsupported.
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function () {
+          document.documentElement.classList.add('fonts-ready');
+        });
+      }
+    </script>
     <title>One More Dawn</title>
   </head>
 

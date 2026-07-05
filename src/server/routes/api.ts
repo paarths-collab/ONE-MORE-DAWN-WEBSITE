@@ -17,11 +17,13 @@ import type {
   StrategyRequest,
   StrategyResponse,
   TimelineResponse,
+  VillageResponse,
   VoteRequest,
   VoteResponse,
 } from '../../shared/types';
 import { hashString } from '../../shared/rng';
 import { validateAction, validateRoleChange } from '../game/actionRules';
+import { buildVillagers, buildZones } from '../game/village';
 import { bumpRoleRep, effectiveEnergy, freshPlayer, resetPlayerForDay } from '../game/dayLogic';
 import { runLazyResolution } from '../game/lazyResolve';
 import { resolveDay } from '../game/resolver';
@@ -471,4 +473,56 @@ api.get('/leaderboard', async (c) => {
   });
 
   return c.json<LeaderboardResponse>({ type: 'leaderboard', contributors, scouts, factions });
+});
+
+/**
+ * Everything the Pixel Village HUD needs in one privacy-masked call: town
+ * vitals, live zone tallies, and real villagers (masked). Read-only for
+ * players, but runs lazy resolution like /init so the village works as a
+ * first-open landing view even before the city exists.
+ */
+api.get('/village', async (c) => {
+  const { postId } = context;
+  if (!postId) {
+    return c.json<ApiError>({ status: 'error', message: 'postId missing from context' }, 400);
+  }
+  const user = requireUser();
+  if (!user) {
+    return c.json<ApiError>({ status: 'error', message: 'Log in to Reddit to play' }, 401);
+  }
+
+  const store = getStore();
+  const { city } = await runLazyResolution(store, redisLike, new Date(), deriveWorldSeed());
+
+  const [players, dayActions, timeline] = await Promise.all([
+    store.getAllPlayers(),
+    store.getDayActions(city.day),
+    store.getTimeline(5),
+  ]);
+
+  const activeLaw =
+    city.activeLaw && city.lawExpiresDay >= city.day
+      ? BALANCE.laws[city.activeLaw as FactionId]
+      : null;
+
+  return c.json<VillageResponse>({
+    type: 'village',
+    villageName: 'THE LAST CITY',
+    subreddit: context.subredditName ?? 'the sub',
+    cycle: city.cycle,
+    day: city.day,
+    status: city.status,
+    prosperity: city.morale,
+    pills: { food: city.food, power: city.power, medicine: city.medicine, threat: city.threat },
+    raidInDays: Math.max(
+      0,
+      Math.ceil((BALANCE.raid.triggerThreshold - city.threat) / BALANCE.passiveThreatRise),
+    ),
+    activeLawLabel: activeLaw?.label ?? null,
+    zones: buildZones(dayActions),
+    villagers: buildVillagers(players, city.day),
+    onlineCount: players.filter((p) => p.lastActiveDay === city.day).length,
+    totalCount: players.length,
+    notices: timeline.map((e) => e.headline),
+  });
 });

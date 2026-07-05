@@ -219,6 +219,37 @@ export type MissionCompleteResponse = {
 
 export type TimelineResponse = { type: 'timeline'; entries: TimelineEntry[] };
 
+// ---------- Pixel Village (GET /api/village) ----------
+
+export type VillageZone = { id: ActionType; name: string; count: number };
+
+export type Villager = {
+  maskedName: string; // e.g. "ali•••"
+  role: Role | null;
+  faction: FactionId | null;
+  color: number; // stable per user, for the avatar body
+  online: boolean; // acted today
+  since: string; // "day N" (lastActiveDay)
+};
+
+export type VillageResponse = {
+  type: 'village';
+  villageName: string; // "THE LAST CITY"
+  subreddit: string; // from context.subredditName
+  cycle: number;
+  day: number;
+  status: CityStatus;
+  prosperity: number; // city.morale
+  pills: { food: number; power: number; medicine: number; threat: number };
+  raidInDays: number;
+  activeLawLabel: string | null;
+  zones: VillageZone[]; // one per ActionType, with today's tally
+  villagers: Villager[]; // up to ~20, online first
+  onlineCount: number;
+  totalCount: number;
+  notices: string[]; // recent timeline event lines (up to 5)
+};
+
 // ---------- Factions & laws (Plan 2) ----------
 
 export type LawDef = {

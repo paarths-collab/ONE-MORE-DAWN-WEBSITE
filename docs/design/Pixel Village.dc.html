@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#070606;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px 0;}
+#pv{--bg0:#0C0A0A;--bg1:#131010;--card:#1B1717;--card2:#231D1D;--line:#2F2828;--line2:#403636;--ink:#E8E2D6;--mut:#8F8578;--red:#A03030;--redbg:#2A1212;--redline:#5E2020;--gold:#E8C34A;--goldbg:#2A2312;--goldline:#6E5B1E;--green:#4CAF50;--greenbg:#152914;--greenline:#2E5B2C;--blue:#6C8BE0;--bluebg:#161F33;--blueline:#2C3E66;}
+@keyframes pvBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes pvBoat{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-4px) rotate(1deg)}}
+@keyframes pvBubble{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+@keyframes pvPulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes pvRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pvToast{0%{opacity:0;transform:translate(-50%,8px)}12%{opacity:1;transform:translate(-50%,0)}86%{opacity:1}100%{opacity:0}}
+@keyframes pvSmoke{0%{transform:translateY(0);opacity:.65}100%{transform:translateY(-16px);opacity:0}}
+@keyframes pvShim{0%,100%{filter:brightness(1)}50%{filter:brightness(1.3)}}
+@keyframes pvFall{0%{transform:translate(0,-12px);opacity:0}8%{opacity:.7}100%{transform:translate(26px,820px);opacity:0}}
+@keyframes pvWave{0%{background-position:0 0}100%{background-position:48px 0}}
+*::-webkit-scrollbar{width:8px;height:8px}*::-webkit-scrollbar-thumb{background:#332C2C;border-radius:8px}
+</style>
+</helmet>
+
+<div id="pv" style="width:1300px;height:800px;background:var(--bg0);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 0 0 8px #0a0808,0 40px 90px -30px rgba(0,0,0,.9);color:var(--ink);position:relative;font-family:'JetBrains Mono',monospace;">
+
+  <!-- ================================================== -->
+  <!-- ============ PIXEL VILLAGE (full-bleed) ========== -->
+  <!-- ================================================== -->
+  <sc-if value="{{ isPixel }}" hint-placeholder-val="{{ true }}">
+  <div style="position:absolute;left:0;right:0;top:0;bottom:0;background:repeating-linear-gradient(0deg, {{ groundA }} 0 24px, {{ groundB }} 24px 48px),repeating-linear-gradient(90deg,transparent 0 24px,rgba(0,0,0,.06) 24px 48px);">
+
+    <!-- paths -->
+    <div style="position:absolute;left:0;right:0;top:380px;height:56px;background: {{ pathC }};border-top:3px solid {{ pathE }};border-bottom:3px solid {{ pathE }};"></div>
+    <div style="position:absolute;top:0;bottom:100px;left:610px;width:56px;background: {{ pathC }};border-left:3px solid {{ pathE }};border-right:3px solid {{ pathE }};"></div>
+
+    <!-- shoreline + water -->
+    <div style="position:absolute;left:0;right:0;top:688px;height:14px;background:#D9C79B;border-top:3px solid #B8A578;"></div>
+    <div style="position:absolute;left:0;right:0;top:702px;bottom:0;background:repeating-linear-gradient(90deg,#3A78A0 0 24px,#346C90 24px 48px);animation:pvWave 4s linear infinite;"></div>
+    <!-- dock -->
+    <div style="position:absolute;left:940px;top:672px;width:70px;height:96px;background:repeating-linear-gradient(0deg,#8F6A42 0 10px,#7A5632 10px 13px);border:3px solid #5A4632;z-index:805;"></div>
+    <div style="position:absolute;left:1030px;top:700px;z-index:806;animation:pvBoat 3s ease-in-out infinite;">{{ icBoat }}</div>
+
+    <!-- decor -->
+    <sc-for list="{{ decor }}" as="d" hint-placeholder-count="45">
+      <div style="position:absolute;left: {{ d.x }}px;top: {{ d.y }}px;z-index: {{ d.z }};animation: {{ d.anim }};filter: {{ d.fil }};">{{ d.iconEl }}</div>
+    </sc-for>
+
+    <!-- buildings with ribbons -->
+    <sc-for list="{{ zones }}" as="z" hint-placeholder-count="5">
+      <div style="position:absolute;left: {{ z.x }}px;top: {{ z.y }}px;z-index: {{ z.zi }};">
+        <div style="position:absolute;top:-32px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:7px;background:rgba(20,14,8,.92);border:2px solid var(--gold);border-radius:6px;padding:4px 11px;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.45);">
+          <span style="display:flex;">{{ z.iconRb }}</span>
+          <span style="font:700 9px Silkscreen,monospace;color:var(--gold);">{{ z.name }}</span>
+          <span style="font:700 9px 'JetBrains Mono',monospace;color:var(--ink);">{{ z.count }}</span>
+        </div>
+        <span style="display:flex;">{{ z.bodyEl }}</span>
+      </div>
+    </sc-for>
+
+    <!-- notice board -->
+    <div onClick="{{ toggleBoard }}" style="position:absolute;left:920px;top:500px;z-index:528;cursor:pointer;">{{ icBoard }}</div>
+
+    <!-- villagers -->
+    <sc-for list="{{ villagers }}" as="v" hint-placeholder-count="12">
+      <div onClick="{{ v.select }}" style="position:absolute;left:0;top:0;transform: translate({{ v.x }}px, {{ v.y }}px);z-index: {{ v.z }};transition:transform 1.1s linear;cursor:pointer;will-change:transform;">
+        <div style="position:relative;width:30px;height:44px;margin-left:-15px;margin-top:-40px;">
+          <div style="position:absolute;top:-15px;left:50%;transform:translateX(-50%);background:rgba(10,8,8,.9);border:1px solid {{ v.tagLine }};color: {{ v.tagColor }};font:700 8px Silkscreen,monospace;padding:2px 6px;border-radius:3px;white-space:nowrap;">{{ v.first }}</div>
+          <sc-if value="{{ v.showBubble }}" hint-placeholder-val="">
+            <div style="position:absolute;top:-32px;right:-10px;background:var(--card2);border:1.5px solid var(--line2);border-radius:6px;width:22px;height:20px;display:flex;align-items:center;justify-content:center;animation:pvBubble .3s;">{{ v.statusEl }}</div>
+          </sc-if>
+          <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:26px;animation:pvBob 1.2s ease-in-out infinite;border-radius:5px;box-shadow: {{ v.ring }};">
+            <div style="width:16px;height:10px;margin:0 auto;background: {{ v.hair }};border:2px solid #0E0C0C;border-bottom:none;border-radius:5px 5px 0 0;"></div>
+            <div style="width:14px;height:7px;margin:0 auto;background:#D9A878;border-left:2px solid #0E0C0C;border-right:2px solid #0E0C0C;"></div>
+            <div style="width:22px;height:15px;margin:0 auto;margin-top:-1px;background: {{ v.color }};border:2px solid #0E0C0C;border-radius:4px;"></div>
+          </div>
+          <div style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:20px;height:6px;background:rgba(0,0,0,.3);border-radius:50%;"></div>
+        </div>
+      </div>
+    </sc-for>
+
+    <!-- animals -->
+    <sc-for list="{{ animals }}" as="a" hint-placeholder-count="4">
+      <div onClick="{{ a.poke }}" style="position:absolute;left:0;top:0;transform: translate({{ a.x }}px, {{ a.y }}px);z-index: {{ a.z }};transition:transform 1.2s linear;cursor:pointer;will-change:transform;">
+        <div style="margin-left:-8px;margin-top:-10px;animation:pvBob 1.5s ease-in-out infinite;">{{ a.iconEl }}</div>
+      </div>
+    </sc-for>
+
+    <!-- night overlay -->
+    <sc-if value="{{ isNight }}" hint-placeholder-val="">
+      <div style="position:absolute;left:0;right:0;top:0;bottom:0;background:rgba(14,18,42,.5);z-index:840;pointer-events:none;"></div>
+    </sc-if>
+
+    <!-- falling particles -->
+    <sc-for list="{{ particles }}" as="pt" hint-placeholder-count="6">
+      <div style="position:absolute;top:0;left: {{ pt.left }}px;width:5px;height:5px;background: {{ pt.color }};z-index:860;animation:pvFall 9s linear infinite;animation-delay: {{ pt.delay }};opacity:0;pointer-events:none;"></div>
+    </sc-for>
+
+    <!-- ============ HUD ============ -->
+    <!-- top-left: level + name + prosperity -->
+    <div style="position:absolute;left:14px;top:12px;display:flex;align-items:center;z-index:940;">
+      <div style="width:54px;height:54px;border-radius:50%;background:var(--card2);border:3px solid var(--gold);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.5);z-index:2;">
+        <span style="font:700 14px Silkscreen,monospace;color:var(--gold);line-height:1;">{{ villageCycle }}</span>
+        <span style="font:700 6px Silkscreen,monospace;color:var(--mut);">CYCLE</span>
+      </div>
+      <div style="margin-left:-8px;display:flex;flex-direction:column;gap:3px;">
+        <div style="background:rgba(20,14,8,.92);border:2px solid var(--goldline);border-radius:0 8px 8px 0;padding:4px 12px 4px 16px;">
+          <span style="font:700 11px Silkscreen,monospace;color:var(--ink);">{{ villageName }}</span>
+          <span style="font:500 9px 'JetBrains Mono',monospace;color:var(--mut);margin-left:6px;">{{ villageSub }}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-left:16px;">
+          <div style="width:150px;height:10px;background:rgba(20,14,8,.9);border:2px solid var(--goldline);border-radius:99px;overflow:hidden;"><div style="width: {{ prosperity }}%;height:100%;background:linear-gradient(90deg,#B8912E,var(--gold));"></div></div>
+          <span style="font:700 7px Silkscreen,monospace;color:var(--gold);text-shadow:0 1px 2px #000;">PROSPERITY</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- top-center: resource pills -->
+    <div style="position:absolute;left:50%;top:14px;transform:translateX(-50%);display:flex;gap:8px;z-index:940;">
+      <sc-for list="{{ pills }}" as="p" hint-placeholder-count="4">
+        <div style="display:flex;align-items:center;gap:7px;background:rgba(20,14,8,.92);border:2px solid var(--goldline);border-radius:99px;padding:5px 13px 5px 9px;box-shadow:0 3px 10px rgba(0,0,0,.4);">
+          <span style="display:flex;">{{ p.iconEl }}</span>
+          <span style="font:800 13px 'JetBrains Mono',monospace;color:var(--gold);">{{ p.val }}</span>
+          <span style="font:700 7px Silkscreen,monospace;color:var(--mut);">{{ p.label }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- top-right: village switcher + day/night -->
+    <div style="position:absolute;right:14px;top:12px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;z-index:940;">
+      <div style="display:flex;gap:5px;">
+        <sc-for list="{{ villageList }}" as="w" hint-placeholder-count="3">
+          <div onClick="{{ w.go }}" style="display:flex;align-items:center;gap:6px;padding:5px 9px;border-radius:6px;cursor:pointer;background:rgba(20,14,8,.92);border:2px solid {{ w.line }};">
+            <span style="width:10px;height:10px;border-radius:2px;background: {{ w.swatch }};border:1px solid #0E0C0C;"></span>
+            <span style="font:700 9px 'JetBrains Mono',monospace;color: {{ w.color }};">{{ w.sub }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div onClick="{{ toggleNight }}" style="display:flex;align-items:center;gap:8px;background:rgba(20,14,8,.92);border:2px solid var(--goldline);border-radius:6px;padding:6px 11px;cursor:pointer;">
+        <span style="display:flex;">{{ icDayNight }}</span>
+        <span style="font:700 8.5px Silkscreen,monospace;color:var(--gold);">{{ dayNightLabel }}</span>
+      </div>
+    </div>
+
+    <!-- prominent VIEW toggle -->
+    <div style="position:absolute;left:50%;top:78px;transform:translateX(-50%);display:flex;background:rgba(20,14,8,.94);border:2px solid var(--goldline);border-radius:9px;padding:3px;gap:3px;z-index:944;box-shadow:0 4px 12px rgba(0,0,0,.5);">
+      <div style="display:flex;align-items:center;gap:7px;padding:7px 15px;border-radius:6px;background:var(--goldbg);border:1px solid var(--gold);">
+        <span style="display:flex;">{{ icMapV }}</span><span style="font:700 10px Silkscreen,monospace;color:var(--gold);">VILLAGE</span>
+      </div>
+      <div onClick="{{ setNormal }}" style="display:flex;align-items:center;gap:7px;padding:7px 15px;border-radius:6px;cursor:pointer;background:transparent;border:1px solid transparent;">
+        <span style="display:flex;">{{ icGridMut }}</span><span style="font:700 10px Silkscreen,monospace;color:var(--mut);">DASHBOARD</span>
+      </div>
+    </div>
+
+    <!-- bottom HUD bar -->
+    <div style="position:absolute;left:12px;right:12px;bottom:10px;display:flex;align-items:flex-end;gap:8px;z-index:945;">
+      <sc-for list="{{ bottomBtns }}" as="b" hint-placeholder-count="4">
+        <div onClick="{{ b.go }}" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
+          <div style="width:52px;height:52px;background:rgba(20,14,8,.94);border:2px solid {{ b.line }};border-radius:9px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.5);">{{ b.iconEl }}</div>
+          <span style="font:700 7px Silkscreen,monospace;color: {{ b.color }};text-shadow:0 1px 2px #000;">{{ b.label }}</span>
+        </div>
+      </sc-for>
+      <div style="flex:1;"></div>
+      <div style="display:flex;align-items:center;gap:8px;background:rgba(20,14,8,.94);border:2px solid var(--line2);border-radius:8px;padding:9px 13px;width:210px;margin-bottom:14px;">
+        <span style="display:flex;">{{ icSearch }}</span>
+        <span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--mut);">SEARCH VILLAGERS…</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;background:rgba(20,14,8,.94);border:2px solid var(--goldline);border-radius:8px;padding:9px 12px;margin-bottom:14px;">
+        <span style="display:flex;">{{ icLockGoldSm }}</span>
+        <span style="font:700 8px 'JetBrains Mono',monospace;color:var(--gold);">SANDBOXED · MASKED</span>
+      </div>
+    </div>
+
+    <!-- floating inspector -->
+    <sc-if value="{{ selected }}" hint-placeholder-val="">
+      <div style="position:absolute;right:14px;top:108px;width:248px;background:rgba(18,13,8,.96);border:2px solid var(--goldline);border-radius:10px;padding:14px;z-index:946;animation:pvRise .25s;box-shadow:0 14px 40px rgba(0,0,0,.6);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;">
+          <span style="font:700 9px Silkscreen,monospace;color:var(--gold);">VILLAGER FILE</span>
+          <div onClick="{{ clearSelect }}" style="width:22px;height:22px;border-radius:4px;background:var(--bg0);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:700 10px 'JetBrains Mono',monospace;color:var(--mut);cursor:pointer;">×</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;">
+          <div style="width:48px;height:52px;background:var(--card2);border:1.5px solid {{ selLine }};border-radius:7px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:28px;">
+              <div style="width:18px;height:10px;margin:0 auto;background: {{ selHair }};border:2px solid #0E0C0C;border-bottom:none;border-radius:5px 5px 0 0;"></div>
+              <div style="width:15px;height:7px;margin:0 auto;background:#D9A878;border-left:2px solid #0E0C0C;border-right:2px solid #0E0C0C;"></div>
+              <div style="width:24px;height:15px;margin:0 auto;margin-top:-1px;background: {{ selColor }};border:2px solid #0E0C0C;border-radius:4px;"></div>
+            </div>
+          </div>
+          <div><div style="font:700 11px Silkscreen,monospace;color:var(--ink);">{{ selName }}</div><div style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--mut);margin-top:2px;">{{ selRole }} · {{ selZone }}</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--bg0);border:1px solid {{ selStatusLine }};border-radius:6px;padding:7px 11px;margin:11px 0;">
+          <span style="display:flex;">{{ selStatusEl }}</span>
+          <span style="font:700 9.5px 'JetBrains Mono',monospace;color: {{ selStatusColor }};letter-spacing:.5px;">{{ selStatusLabel }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 2px;"><span style="font:500 9px 'JetBrains Mono',monospace;color:var(--mut);">SINCE</span><span style="font:700 9px 'JetBrains Mono',monospace;color:var(--ink);">{{ selSince }}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 2px;"><span style="font:500 9px 'JetBrains Mono',monospace;color:var(--mut);">CONTACT</span><span style="font:700 9px 'JetBrains Mono',monospace;color:var(--gold);">{{ selEmail }}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 2px;"><span style="font:500 9px 'JetBrains Mono',monospace;color:var(--mut);">ID</span><span style="font:700 9px 'JetBrains Mono',monospace;color:var(--gold);">{{ selId }}</span></div>
+        <div onClick="{{ waveAt }}" style="display:flex;align-items:center;justify-content:center;gap:8px;min-height:38px;background:var(--greenbg);border:1.5px solid var(--green);border-radius:7px;margin-top:9px;cursor:pointer;">
+          <span style="display:flex;">{{ icHandGreen }}</span>
+          <span style="font:700 10px 'JetBrains Mono',monospace;color:var(--green);letter-spacing:1px;">SEND WAVE</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- notice board popup -->
+    <sc-if value="{{ showBoard }}" hint-placeholder-val="">
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:960;background:var(--card2);border:2px solid var(--goldline);border-radius:8px;padding:14px 16px;width:270px;box-shadow:0 16px 40px rgba(0,0,0,.7);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <span style="font:700 10px Silkscreen,monospace;color:var(--gold);">NOTICE BOARD</span>
+          <div onClick="{{ toggleBoard }}" style="width:22px;height:22px;border-radius:4px;background:var(--bg0);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:700 10px 'JetBrains Mono',monospace;color:var(--mut);cursor:pointer;">×</div>
+        </div>
+        <sc-for list="{{ notices }}" as="nt" hint-placeholder-count="3">
+          <div style="display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line);">
+            <span style="width:6px;height:6px;background:var(--gold);margin-top:3px;flex-shrink:0;"></span>
+            <span style="font:500 9.5px/1.5 'JetBrains Mono',monospace;color:var(--ink);">{{ nt.t }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ================================================== -->
+  <!-- ================ DASHBOARD VIEW ================== -->
+  <!-- ================================================== -->
+  <sc-if value="{{ isNormal }}" hint-placeholder-val="">
+  <div style="position:absolute;left:0;right:0;top:0;bottom:0;display:flex;">
+    <!-- sidebar -->
+    <div style="width:216px;background:var(--bg1);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:20px 14px 16px;flex-shrink:0;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:7px;padding-bottom:14px;border-bottom:1px solid var(--line);">
+        <div style="width:58px;height:58px;border-radius:50%;background:var(--card2);border:2px solid var(--red);display:flex;align-items:center;justify-content:center;">{{ icAvatar }}</div>
+        <div style="font:700 12px Silkscreen,monospace;color:var(--ink);">OVERSEER</div>
+        <div style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--mut);">o•••@sandbox.local</div>
+      </div>
+      <div style="font:700 8.5px Silkscreen,monospace;color:var(--mut);margin:13px 4px 6px;">VILLAGES</div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <sc-for list="{{ villageList }}" as="w" hint-placeholder-count="3">
+          <div onClick="{{ w.go }}" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;background: {{ w.bg }};border:1px solid {{ w.line }};">
+            <span style="width:12px;height:12px;border-radius:3px;background: {{ w.swatch }};border:1px solid #0E0C0C;flex-shrink:0;"></span>
+            <span style="font:700 10px 'JetBrains Mono',monospace;color: {{ w.color }};flex:1;">{{ w.sub }}</span>
+            <span style="font:600 9px 'JetBrains Mono',monospace;color:var(--mut);">{{ w.online }}◦</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font:700 8.5px Silkscreen,monospace;color:var(--mut);margin:14px 4px 6px;">NAVIGATE</div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <sc-for list="{{ nav }}" as="n" hint-placeholder-count="5">
+          <div onClick="{{ n.go }}" style="display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:6px;cursor:pointer;background: {{ n.bg }};border-left:3px solid {{ n.edge }};">
+            <span style="display:flex;width:16px;">{{ n.iconEl }}</span>
+            <span style="font:700 10.5px 'JetBrains Mono',monospace;color: {{ n.color }};letter-spacing:.5px;">{{ n.label }}</span>
+            <sc-if value="{{ n.soon }}" hint-placeholder-val="">
+              <span style="margin-left:auto;font:700 7px Silkscreen,monospace;color:var(--mut);border:1px solid var(--line2);border-radius:3px;padding:1px 4px;">SOON</span>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex:1;"></div>
+      <div style="display:flex;align-items:center;gap:8px;background:var(--goldbg);border:1px solid var(--goldline);border-radius:6px;padding:8px 11px;margin-bottom:10px;">
+        <span style="display:flex;">{{ icLockGold }}</span>
+        <span style="font:700 8.5px 'JetBrains Mono',monospace;color:var(--gold);line-height:1.4;">SANDBOXED · MOCK DATA<br>NO LIVE TRACKING</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:9px;background:var(--redbg);border:1px solid var(--redline);border-radius:6px;padding:10px;cursor:pointer;">
+        <span style="font:700 10.5px 'JetBrains Mono',monospace;color:#D66;letter-spacing:1px;">EXIT VILLAGE</span>
+      </div>
+    </div>
+
+    <!-- main -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+      <div style="display:flex;align-items:center;gap:16px;padding:16px 22px 13px;border-bottom:1px solid var(--line);background:var(--bg1);">
+        <div style="width:46px;height:46px;background:var(--card2);border:1px solid var(--line2);border-radius:8px;display:flex;align-items:center;justify-content:center;">{{ icTitle }}</div>
+        <div>
+          <div style="font:700 19px Silkscreen,monospace;color:var(--ink);letter-spacing:1px;">{{ villageName }}</div>
+          <div style="font:500 10px 'JetBrains Mono',monospace;color:var(--mut);">{{ villageSub }} · cycle {{ villageCycle }} · every villager is a real user</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;background:var(--bg0);border:1px solid var(--goldline);border-radius:8px;padding:8px 14px;margin-left:8px;">
+          <span style="display:flex;">{{ icBoltGold }}</span>
+          <span style="font:500 10px 'JetBrains Mono',monospace;color:var(--mut);">ONLINE:</span>
+          <span style="font:800 15px 'JetBrains Mono',monospace;color:var(--gold);">{{ onlineCount }}/{{ totalCount }}</span>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;background:var(--bg0);border:1px solid var(--line2);border-radius:8px;padding:3px;gap:3px;">
+          <div onClick="{{ setPixel }}" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:6px;cursor:pointer;background:transparent;">
+            <span style="display:flex;">{{ icMapMut }}</span><span style="font:700 10.5px 'JetBrains Mono',monospace;color:var(--mut);">VILLAGE</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:6px;background:var(--goldbg);border:1px solid var(--goldline);">
+            <span style="display:flex;">{{ icGridV }}</span><span style="font:700 10.5px 'JetBrains Mono',monospace;color:var(--gold);">DASHBOARD</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1;display:flex;min-height:0;">
+        <div style="flex:1;padding:16px;min-width:0;overflow:auto;background:var(--bg0);">
+          <div style="animation:pvRise .3s;min-width:700px;">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
+              <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+                <div style="background:var(--card);border:1px solid var(--line2);border-top:3px solid {{ s.edge }};border-radius:8px;padding:13px 15px;">
+                  <div style="display:flex;align-items:center;gap:9px;"><span style="display:flex;">{{ s.iconEl }}</span><span style="font:700 9.5px 'JetBrains Mono',monospace;color:var(--mut);letter-spacing:.5px;">{{ s.label }}</span></div>
+                  <div style="font:800 25px 'JetBrains Mono',monospace;color: {{ s.valColor }};margin-top:7px;">{{ s.value }}</div>
+                  <div style="font:600 9.5px 'JetBrains Mono',monospace;color:var(--mut);margin-top:2px;">{{ s.delta }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:14px;">
+              <div style="background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:15px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                  <span style="font:700 12px Silkscreen,monospace;color:var(--ink);">VILLAGERS</span>
+                  <span style="font:600 9.5px 'JetBrains Mono',monospace;color:var(--mut);">{{ totalCount }} TOTAL · PRIVACY-MASKED</span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:470px;overflow:auto;padding-right:4px;">
+                  <sc-for list="{{ villagers }}" as="v" hint-placeholder-count="12">
+                    <div onClick="{{ v.select }}" style="display:flex;align-items:center;gap:10px;background:var(--bg0);border:1px solid {{ v.cardBorder }};border-radius:7px;padding:9px 11px;cursor:pointer;">
+                      <div style="position:relative;width:26px;flex-shrink:0;">
+                        <div style="width:14px;height:8px;margin:0 auto;background: {{ v.hair }};border:2px solid #0E0C0C;border-bottom:none;border-radius:4px 4px 0 0;"></div>
+                        <div style="width:12px;height:5px;margin:0 auto;background:#D9A878;border-left:2px solid #0E0C0C;border-right:2px solid #0E0C0C;"></div>
+                        <div style="width:20px;height:11px;margin:0 auto;margin-top:-1px;background: {{ v.color }};border:2px solid #0E0C0C;border-radius:3px;"></div>
+                        <span style="position:absolute;bottom:-1px;right:-2px;width:9px;height:9px;border-radius:50%;background: {{ v.statusColor }};border:2px solid var(--bg0);"></span>
+                      </div>
+                      <div style="min-width:0;flex:1;">
+                        <div style="font:700 11.5px 'JetBrains Mono',monospace;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ v.name }}</div>
+                        <div style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--mut);">{{ v.role }} · {{ v.zoneName }}</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <div style="background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:15px;">
+                  <div style="font:700 12px Silkscreen,monospace;color:var(--ink);margin-bottom:13px;">ZONE OCCUPANCY</div>
+                  <div style="display:flex;flex-direction:column;gap:11px;">
+                    <sc-for list="{{ zones }}" as="z" hint-placeholder-count="5">
+                      <div>
+                        <div style="display:flex;align-items:center;gap:9px;margin-bottom:5px;">
+                          <span style="display:flex;">{{ z.iconSm }}</span>
+                          <span style="font:700 10.5px 'JetBrains Mono',monospace;color:var(--ink);flex:1;">{{ z.name }}</span>
+                          <span style="font:600 10px 'JetBrains Mono',monospace;color:var(--gold);">{{ z.count }}/{{ z.cap }}</span>
+                        </div>
+                        <div style="height:9px;background:var(--bg0);border:1px solid var(--line);border-radius:99px;overflow:hidden;"><div style="width: {{ z.pct }}%;height:100%;background: {{ z.color }};transition:width .4s;"></div></div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="background:var(--card);border:1px solid var(--greenline);border-radius:8px;padding:15px;flex:1;">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="display:flex;">{{ icShieldGreen }}</span><span style="font:700 12px Silkscreen,monospace;color:var(--green);">PRESENCE &amp; PRIVACY</span></div>
+                  <div style="display:flex;flex-direction:column;gap:10px;">
+                    <sc-for list="{{ privacy }}" as="p" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:flex-start;gap:10px;"><span style="display:flex;margin-top:1px;">{{ p.iconEl }}</span><span style="font:500 10.5px/1.5 'JetBrains Mono',monospace;color:var(--mut);">{{ p.text }}</span></div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- right rail -->
+        <div style="width:280px;background:var(--bg1);border-left:1px solid var(--line);flex-shrink:0;display:flex;flex-direction:column;">
+          <sc-if value="{{ selected }}" hint-placeholder-val="">
+            <div style="padding:17px;animation:pvRise .25s;overflow:auto;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <span style="font:700 10px Silkscreen,monospace;color:var(--mut);">VILLAGER FILE</span>
+                <div onClick="{{ clearSelect }}" style="width:24px;height:24px;border-radius:5px;background:var(--card2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:700 11px 'JetBrains Mono',monospace;color:var(--mut);cursor:pointer;">×</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:13px;">
+                <div style="width:56px;height:60px;background:var(--card2);border:1.5px solid {{ selLine }};border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                  <div style="width:32px;">
+                    <div style="width:20px;height:12px;margin:0 auto;background: {{ selHair }};border:2px solid #0E0C0C;border-bottom:none;border-radius:6px 6px 0 0;"></div>
+                    <div style="width:17px;height:8px;margin:0 auto;background:#D9A878;border-left:2px solid #0E0C0C;border-right:2px solid #0E0C0C;"></div>
+                    <div style="width:27px;height:18px;margin:0 auto;margin-top:-1px;background: {{ selColor }};border:2px solid #0E0C0C;border-radius:4px;"></div>
+                  </div>
+                </div>
+                <div><div style="font:700 13px Silkscreen,monospace;color:var(--ink);">{{ selName }}</div><div style="font:500 10.5px 'JetBrains Mono',monospace;color:var(--mut);margin-top:2px;">{{ selRole }}</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;background:var(--bg0);border:1px solid {{ selStatusLine }};border-radius:6px;padding:8px 12px;margin:13px 0;">
+                <span style="display:flex;">{{ selStatusEl }}</span>
+                <span style="font:700 10.5px 'JetBrains Mono',monospace;color: {{ selStatusColor }};letter-spacing:.5px;">{{ selStatusLabel }}</span>
+              </div>
+              <div style="border:1px solid var(--line);border-radius:7px;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;padding:9px 12px;background:var(--card);"><span style="font:500 10px 'JetBrains Mono',monospace;color:var(--mut);">VILLAGE</span><span style="font:700 10px 'JetBrains Mono',monospace;color:var(--ink);">{{ villageSub }}</span></div>
+                <div style="display:flex;justify-content:space-between;padding:9px 12px;"><span style="font:500 10px 'JetBrains Mono',monospace;color:var(--mut);">ZONE</span><span style="font:700 10px 'JetBrains Mono',monospace;color:var(--ink);">{{ selZone }}</span></div>
+                <div style="display:flex;justify-content:space-between;padding:9px 12px;background:var(--card);"><span style="font:500 10px 'JetBrains Mono',monospace;color:var(--mut);">SINCE</span><span style="font:700 10px 'JetBrains Mono',monospace;color:var(--ink);">{{ selSince }}</span></div>
+                <div style="display:flex;justify-content:space-between;padding:9px 12px;"><span style="font:500 10px 'JetBrains Mono',monospace;color:var(--mut);">CONTACT</span><span style="font:700 10px 'JetBrains Mono',monospace;color:var(--gold);">{{ selEmail }}</span></div>
+                <div style="display:flex;justify-content:space-between;padding:9px 12px;background:var(--card);"><span style="font:500 10px 'JetBrains Mono',monospace;color:var(--mut);">ID</span><span style="font:700 10px 'JetBrains Mono',monospace;color:var(--gold);">{{ selId }}</span></div>
+              </div>
+              <div onClick="{{ waveAt }}" style="display:flex;align-items:center;justify-content:center;gap:9px;min-height:42px;background:var(--greenbg);border:1.5px solid var(--green);border-radius:7px;margin-top:13px;cursor:pointer;">
+                <span style="display:flex;">{{ icHandGreen }}</span>
+                <span style="font:700 11px 'JetBrains Mono',monospace;color:var(--green);letter-spacing:1px;">SEND WAVE</span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:8px;margin-top:11px;padding:9px 11px;background:var(--goldbg);border:1px solid var(--goldline);border-radius:6px;">
+                <span style="display:flex;margin-top:1px;">{{ icLockGoldSm }}</span>
+                <span style="font:500 9px/1.5 'JetBrains Mono',monospace;color:var(--gold);">Presence-only action. No profile data leaves this sandbox.</span>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noSelection }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:17px;display:flex;flex-direction:column;min-height:0;flex:1;">
+              <div style="font:700 10px Silkscreen,monospace;color:var(--mut);margin-bottom:14px;">LIVE ACTIVITY</div>
+              <div style="display:flex;flex-direction:column;gap:11px;overflow:auto;">
+                <sc-for list="{{ feed }}" as="f" hint-placeholder-count="7">
+                  <div style="display:flex;gap:10px;">
+                    <div style="width:28px;height:28px;border-radius:6px;background:var(--card2);border:1px solid {{ f.line }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">{{ f.iconEl }}</div>
+                    <div style="min-width:0;">
+                      <div style="font:500 10.5px/1.45 'JetBrains Mono',monospace;color:var(--ink);"><b style="color: {{ f.whoColor }};">{{ f.who }}</b> {{ f.what }}</div>
+                      <div style="font:500 9px 'JetBrains Mono',monospace;color:var(--mut);margin-top:2px;">{{ f.ago }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="flex:1;"></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:7px;margin-top:12px;">
+                <span style="display:flex;">{{ icPersonMut }}</span>
+                <span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--mut);">Select a villager to open their file</span>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- toast -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="">
+    <div style="position:absolute;bottom:86px;left:50%;transform:translateX(-50%);background:var(--card2);border:1.5px solid var(--green);color:var(--ink);font:700 11px 'JetBrains Mono',monospace;padding:10px 18px;border-radius:7px;box-shadow:0 10px 30px rgba(0,0,0,.6);animation:pvToast 2.4s ease forwards;z-index:999;white-space:nowrap;">{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1360,&quot;height&quot;:860},&quot;defaultView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;pixel&quot;,&quot;normal&quot;],&quot;default&quot;:&quot;pixel&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;View&quot;},&quot;defaultVillage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;meadowbrook&quot;,&quot;nightdocks&quot;,&quot;emberpeak&quot;],&quot;default&quot;:&quot;meadowbrook&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;View&quot;}}">
+class Component extends DCLogic {
+  MAPS = {
+    house: ['...##...', '..####..', '.######.', '########', '.##..##.', '.##..##.', '.##..##.', '.######.'],
+    person: ['..####..', '..####..', '..####..', '...##...', '.######.', '########', '#.####.#', '..#..#..'],
+    grid: ['###.###.', '###.###.', '###.###.', '........', '###.###.', '###.###.', '###.###.', '........'],
+    wrench: ['....###.', '...#..#.', '...#####', '..###...', '.###....', '###.....', '##......', '#.......'],
+    lock: ['..####..', '.#....#.', '.#....#.', '########', '########', '###..###', '###..###', '########'],
+    shield: ['########', '#oooooo#', '#oooooo#', '.#oooo#.', '.#oooo#.', '..#oo#..', '...##...', '........'],
+    book: ['.######.', '.#.##.#.', '.#.##.#.', '.#.##.#.', '.#.##.#.', '.#.##.#.', '.######.', '........'],
+    cup: ['........', '.#####..', '.#####o.', '.#####o.', '.#####..', '..###...', '.#####..', '........'],
+    hall: ['...##...', '.######.', '########', '##.##.##', '##.##.##', '##.##.##', '########', '########'],
+    fountain: ['...##...', '..####..', '...##...', '.######.', '..####..', '.######.', '########', '........'],
+    chat: ['.######.', '########', '##.#.###', '########', '.######.', '..##....', '.##.....', '........'],
+    bolt: ['....##..', '...##...', '..###...', '.#####..', '...##...', '..##....', '.##.....', '##......'],
+    moon: ['..####..', '.##.....', '##......', '##......', '##......', '.##.....', '..####..', '........'],
+    zz: ['######..', '....#...', '...#....', '..#.....', '.#......', '######..', '........', '........'],
+    pine: ['...##...', '..####..', '.######.', '..####..', '.######.', '########', '...oo...', '...oo...'],
+    hand: ['.#.#.#..', '.#.#.#..', '.#.#.#..', '.######.', 'o######.', '.######.', '.#####..', '..###...'],
+    clock: ['.######.', '#...#..#', '#...#..#', '#...##.#', '#......#', '#......#', '.######.', '........'],
+    eye: ['........', '..####..', '.#....#.', '#..##..#', '#..##..#', '.#....#.', '..####..', '........'],
+    search: ['.####...', '#....#..', '#....#..', '#....#..', '.####...', '....##..', '.....##.', '......##'],
+    tree: ['..####..', '.######.', '########', '########', '.######.', '..####..', '...oo...', '...oo...'],
+    bush: ['........', '..####..', '.######.', '########'],
+    rock: ['........', '..###...', '.#####..', '#######.'],
+    fence: ['#.#.#.#.', '########', '#.#.#.#.', '########', '#.#.#.#.'],
+    flower: ['.##..##.', '.##..##.', '..o..o..', '..o..o..'],
+    cottage: ['.....rr.....', '...rrrrrr...', '..rrrrrrrr..', '.rrrrrrrrrr.', 'rrrrrrrrrrrr', '.wwwwwwwwww.', '.woowwwddww.', '.woowwwddww.', '.wwwwwwddww.', '.wwwwwwwwww.'],
+    lamp: ['.hhh....', '.hhh....', '..p.....', '..p.....', '..p.....', '..p.....', '.ppp....'],
+    chicken: ['..r...', '.###..', '.###r.', '####..', '.o.o..'],
+    dog: ['.##.....', '.##...#.', '########', '########', '.#..#.#.'],
+    well: ['.rrrrrr.', 'rrrrrrrr', '.#....#.', '.#.ww.#.', '.#.ww.#.', '.######.'],
+    barrel: ['.####.', '######', '#oooo#', '######', '#oooo#', '.####.'],
+    bench: ['########', 'o......o', '########', '.#....#.', '.#....#.'],
+    farm: ['spspspspspsp', 'ssssssssssss', 'spspspspspsp', 'ssssssssssss', 'spspspspspsp', 'ssssssssssss'],
+    smoke: ['.##.', '####', '.##.'],
+    board: ['##########', '#oooooooo#', '#oxoxooxo#', '#oooooooo#', '##########', '...##.....', '...##.....'],
+    sun: ['...##...', '.#.##.#.', '..####..', '########', '..####..', '.#.##.#.', '...##...', '........'],
+    boat: ['..s.......', '..ss......', '..sss.....', '..s.......', '#########.', '.#######..'],
+  };
+
+  icm(name, s, pal) {
+    const map = this.MAPS[name];
+    if (!map) return null;
+    const shadows = [];
+    map.forEach((row, y) => {
+      for (let x = 0; x < row.length; x++) {
+        const c = pal[row[x]];
+        if (c) shadows.push((x * s) + 'px ' + (y * s) + 'px 0 0 ' + c);
+      }
+    });
+    return React.createElement('div', { style: { width: (map[0].length * s) + 'px', height: (map.length * s) + 'px', flexShrink: 0, position: 'relative' } },
+      React.createElement('div', { style: { position: 'absolute', left: 0, top: 0, width: s + 'px', height: s + 'px', boxShadow: shadows.join(','), marginLeft: '-' + s + 'px', marginTop: '-' + s + 'px', transform: 'translate(' + s + 'px,' + s + 'px)' } }));
+  }
+  ic(name, s, c1, c2) { return this.icm(name, s, { '#': c1, o: c2 || c1 }); }
+
+  ZONES = [
+    { key: 'plaza', name: 'PLAZA', map: 'fountain', x: 575, y: 350, color: '#6C8BE0', line: '#2C3E66', cap: 8, cx: 630, cy: 445, bh: 70, kind: 'fountain' },
+    { key: 'library', name: 'LIBRARY', map: 'book', x: 150, y: 120, color: '#B08BD9', line: '#4A3766', cap: 6, cx: 198, cy: 235, bh: 80, kind: 'cottage', roof: '#7A56B8' },
+    { key: 'cafe', name: 'CAFE', map: 'cup', x: 980, y: 120, color: '#E0954E', line: '#66421F', cap: 6, cx: 1028, cy: 235, bh: 80, kind: 'cottage', roof: '#C4762E' },
+    { key: 'workshop', name: 'WORKSHOP', map: 'wrench', x: 140, y: 470, color: '#4CAF50', line: '#2E5B2C', cap: 6, cx: 188, cy: 585, bh: 80, kind: 'cottage', roof: '#3E8F44' },
+    { key: 'hall', name: 'TOWN HALL', map: 'hall', x: 990, y: 460, color: '#D96B6B', line: '#5E2020', cap: 8, cx: 1038, cy: 578, bh: 80, kind: 'cottage', roof: '#C05050' },
+  ];
+
+  STATUSES = [
+    { key: 'talking', map: 'chat', label: 'CHATTING IN GROUP', color: '#6C8BE0', line: '#2C3E66' },
+    { key: 'active', map: 'bolt', label: 'ACTIVE', color: '#4CAF50', line: '#2E5B2C' },
+    { key: 'away', map: 'moon', label: 'AWAY', color: '#E8C34A', line: '#6E5B1E' },
+    { key: 'idle', map: 'zz', label: 'IDLE', color: '#8F8578', line: '#3B3232' },
+  ];
+
+  VCONF = [
+    { key: 'meadowbrook', name: 'MEADOWBROOK', sub: 'r/meadowbrook', cycle: 12, count: 12, offset: 0, waves: 34,
+      groundA: '#6FAE54', groundB: '#63A04A', pathC: '#C9A96B', pathE: '#A8894E', tree: '#2E7A3A', swatch: '#2E7A3A' },
+    { key: 'nightdocks', name: 'NIGHTDOCKS', sub: 'r/nightdocks', cycle: 7, count: 9, offset: 6, waves: 18,
+      groundA: '#4E8A80', groundB: '#447C73', pathC: '#8A94A0', pathE: '#6E7885', tree: '#1F5C55', swatch: '#2E6E68' },
+    { key: 'emberpeak', name: 'EMBERPEAK', sub: 'r/emberpeak', cycle: 21, count: 10, offset: 12, waves: 25,
+      groundA: '#B08A50', groundB: '#A17C45', pathC: '#8F6538', pathE: '#75522C', tree: '#6E7A2E', swatch: '#8F6A2E' },
+  ];
+
+  constructor(props) {
+    super(props);
+    const first = ['Aria', 'Kai', 'Noor', 'Milo', 'Sena', 'Diego', 'Yuki', 'Priya', 'Leo', 'Zara', 'Omar', 'Nina', 'Ravi', 'Tess', 'Iker', 'Lena', 'Jax', 'Mara'];
+    const last = ['Chen', 'Silva', 'Khan', 'Park', 'Rossi', 'Adeyemi', 'Tanaka', 'Mehta', 'Novak', 'Haddad', 'Lund', 'Okafor', 'Costa', 'Vidal', 'Sato', 'Iqbal', 'Moreau', 'Diaz'];
+    const roles = ['Designer', 'Developer', 'Writer', 'Researcher', 'Community', 'Mentor', 'Student', 'PM', 'Artist', 'Analyst', 'Guide', 'Maker', 'Modder', 'Curator', 'Streamer', 'Editor', 'Builder', 'Scout'];
+    const colors = ['#B04A4A', '#4A7AB0', '#4CAF50', '#E8C34A', '#9B59D0', '#2BB0C4', '#E0678E', '#5468FF', '#6BAF3F', '#D0762B', '#7A5FE0', '#3AB89A', '#C4574F', '#5E8FD0', '#8FAF3F', '#D09B2B', '#B05FA0', '#4FA0B0'];
+    const hairs = ['#3A2C22', '#6B4A2E', '#22303A', '#5A3A2A', '#2C2C2C', '#7A5230', '#402A38', '#1F2A22', '#4A3020', '#332A44', '#5A2E2E', '#26343F', '#3A2C22', '#6B4A2E', '#22303A', '#5A3A2A', '#2C2C2C', '#7A5230'];
+    const villages = this.VCONF.map((vc, vi) => {
+      const villagers = [];
+      for (let i = 0; i < vc.count; i++) {
+        const k = (i + vc.offset) % 18;
+        const home = this.ZONES[i % 5];
+        const st = this.STATUSES[(i + vi) % 4];
+        const x = Math.max(50, Math.min(1250, home.cx + (Math.random() - 0.5) * 180));
+        const y = Math.max(110, Math.min(655, home.cy + (Math.random() - 0.5) * 120));
+        villagers.push({
+          id: vi * 100 + i, first: first[k].toUpperCase(), name: first[k] + ' ' + last[k], role: roles[k],
+          color: colors[k], hair: hairs[k], home: i % 5, status: st.key,
+          x, y, tx: x, ty: y,
+          since: ['MAR 2024', 'JAN 2025', 'AUG 2024', 'NOV 2023', 'FEB 2025', 'JUN 2024'][k % 6],
+          email: first[k][0].toLowerCase() + '•••@' + ['acme.io', 'meadow.gg', 'guild.dev', 'studio.co'][k % 4],
+          vid: 'VLG-' + String(1000 + k * 37).slice(0, 4) + '-••••',
+        });
+      }
+      const animals = ['chicken', 'chicken', 'chicken', 'dog'].map((k, ai) => {
+        const x = 150 + Math.random() * 1000, y = 130 + Math.random() * 480;
+        return { id: vi * 100 + 50 + ai, kind: k, x, y, tx: x, ty: y };
+      });
+      return { villagers, animals };
+    });
+    this.state = { view: null, vIdx: null, selectedId: null, toast: null, night: false, showBoard: false, villages };
+  }
+
+  componentDidMount() {
+    this._t = setInterval(() => {
+      this.setState(st => ({
+        villages: st.villages.map(vg => ({
+          villagers: vg.villagers.map(v => {
+            let { x, y, tx, ty } = v;
+            const dx = tx - x, dy = ty - y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 10) {
+              if (Math.random() < 0.4) {
+                const home = this.ZONES[v.home];
+                tx = Math.max(50, Math.min(1250, home.cx + (Math.random() - 0.5) * 320));
+                ty = Math.max(110, Math.min(655, home.cy + (Math.random() - 0.5) * 200));
+              }
+            } else {
+              const step = Math.min(30, dist);
+              x += dx / dist * step; y += dy / dist * step;
+            }
+            return { ...v, x, y, tx, ty };
+          }),
+          animals: vg.animals.map(a => {
+            let { x, y, tx, ty } = a;
+            const dx = tx - x, dy = ty - y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 8) {
+              if (Math.random() < 0.35) { tx = 100 + Math.random() * 1100; ty = 130 + Math.random() * 500; }
+            } else { const step = Math.min(18, dist); x += dx / dist * step; y += dy / dist * step; }
+            return { ...a, x, y, tx, ty };
+          }),
+        })),
+      }));
+    }, 1100);
+  }
+  componentWillUnmount() { clearInterval(this._t); clearTimeout(this._toastT); }
+
+  showToast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._toastT);
+    this._toastT = setTimeout(() => this.setState({ toast: null }), 2400);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const view = s.view || this.props.defaultView || 'pixel';
+    const isPixel = view === 'pixel', isNormal = view === 'normal';
+    const ink = '#E8E2D6', mut = '#8F8578', gold = '#E8C34A', green = '#4CAF50';
+
+    const vIdx = s.vIdx == null ? Math.max(0, this.VCONF.findIndex(v => v.key === (this.props.defaultVillage || 'meadowbrook'))) : s.vIdx;
+    const vc = this.VCONF[vIdx];
+    const vill = s.villages[vIdx].villagers;
+    const night = s.night;
+
+    const stMap = {}; this.STATUSES.forEach(t => stMap[t.key] = t);
+
+    const villagers = vill.map(v => {
+      const st = stMap[v.status];
+      const sel = s.selectedId === v.id;
+      return {
+        ...v,
+        z: Math.round(v.y),
+        select: () => this.setState({ selectedId: v.id }),
+        showBubble: v.status === 'talking' || v.status === 'away',
+        statusEl: this.ic(st.map, 1.4, st.color),
+        statusColor: st.color,
+        tagLine: sel ? gold : '#3B3232',
+        tagColor: sel ? gold : ink,
+        ring: sel ? '0 0 0 2px #E8C34A, 0 0 14px rgba(232,195,74,.6)' : 'none',
+        cardBorder: sel ? gold : '#2F2828',
+        zoneName: this.ZONES[v.home].name,
+      };
+    });
+
+    const zones = this.ZONES.map((z, i) => {
+      const count = vill.filter(v => v.home === i).length;
+      let bodyEl;
+      if (z.kind === 'fountain') {
+        bodyEl = React.createElement('div', { style: { width: '110px', height: '70px', background: 'radial-gradient(#C4C0B4, #9A968A)', border: '3px solid #6E6A60', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(0,0,0,.3)' } },
+          this.ic('fountain', 5, '#4A90C4', '#B8E0F0'));
+      } else {
+        bodyEl = this.icm('cottage', 8, { r: z.roof, w: '#D9C09A', o: '#FFE28A', d: '#5A3A2A' });
+      }
+      return {
+        ...z, count, pct: Math.min(100, Math.round(count / z.cap * 100)), zi: z.y + z.bh,
+        bodyEl,
+        iconRb: this.ic(z.map, 1.5, gold),
+        iconSm: this.ic(z.map, 1.6, z.color),
+      };
+    });
+
+    // ----- decor -----
+    const trunk = '#5A4632';
+    const decor = [];
+    const addD = (map, x, y, sc, el, anim, fil, zo) => {
+      const h = this.MAPS[map].length * sc;
+      decor.push({ x, y, z: zo != null ? zo : Math.round(y + h), iconEl: el, anim: anim || 'none', fil: fil || 'none' });
+    };
+    const cotPal = (roof) => ({ r: roof, w: '#D9C09A', o: night ? '#FFE28A' : '#F0D080', d: '#5A3A2A' });
+    [[380, 140, '#8F4A3A'], [760, 120, '#4A5A6E'], [350, 545, '#6E5B1E'], [800, 540, '#8F4A3A'], [55, 315, '#4A5A6E'], [1175, 320, '#6E5B1E']]
+      .forEach(c => addD('cottage', c[0], c[1], 5, this.icm('cottage', 5, cotPal(c[2]))));
+    [[418, 128], [798, 108], [388, 533], [838, 528]]
+      .forEach(c => addD('smoke', c[0], c[1], 2, this.ic('smoke', 2, '#B8B4A8'), 'pvSmoke 2.6s ease-out infinite'));
+    [[60, 70, 2.6], [320, 58, 2.2], [520, 66, 2.4], [725, 58, 2.4], [905, 66, 2.6], [1150, 64, 2.6], [1240, 196, 2.4], [80, 606, 2.4], [400, 626, 2.2], [680, 608, 2.4], [1228, 596, 2.6], [470, 285, 2.2]]
+      .forEach(t => addD('pine', t[0], t[1], t[2], this.ic('pine', t[2], vc.tree, trunk)));
+    [[900, 290, 2.4], [280, 300, 2.2], [560, 560, 2.4], [1120, 180, 2.2]]
+      .forEach(t => addD('tree', t[0], t[1], t[2], this.ic('tree', t[2], vc.tree, trunk)));
+    [[260, 215, 2], [1120, 215, 2], [480, 545, 2], [730, 565, 1.8], [620, 180, 2]]
+      .forEach(t => addD('bush', t[0], t[1], t[2], this.ic('bush', t[2], vc.tree)));
+    [[580, 135, 1.8], [200, 448, 1.6], [1080, 448, 1.6]]
+      .forEach(t => addD('rock', t[0], t[1], t[2], this.ic('rock', t[2], '#8A857A')));
+    [[450, 300, 1.6], [820, 305, 1.6], [300, 455, 1.4], [950, 435, 1.4], [505, 600, 1.6], [705, 175, 1.4]]
+      .forEach(t => addD('flower', t[0], t[1], t[2], this.ic('flower', t[2], '#D0678E', '#3E7A34')));
+    [[300, 352, 2.2], [344, 352, 2.2], [388, 352, 2.2], [860, 442, 2.2], [904, 442, 2.2], [948, 442, 2.2]]
+      .forEach(t => addD('fence', t[0], t[1], t[2], this.ic('fence', t[2], '#8A6A45')));
+    addD('well', 730, 318, 3.5, this.icm('well', 3.5, { r: '#8F4A3A', '#': '#8A857A', w: '#3A78A0' }));
+    addD('farm', 1115, 615, 5, this.icm('farm', 5, { s: '#6E5236', p: '#3E8F44' }));
+    addD('barrel', 255, 552, 2.5, this.icm('barrel', 2.5, { '#': '#6E4A32', o: '#8F6A42' }));
+    addD('barrel', 952, 652, 2.5, this.icm('barrel', 2.5, { '#': '#6E4A32', o: '#8F6A42' }));
+    addD('bench', 520, 332, 2.5, this.icm('bench', 2.5, { '#': '#6E543A', o: '#4A3826' }));
+    addD('bench', 742, 448, 2.5, this.icm('bench', 2.5, { '#': '#6E543A', o: '#4A3826' }));
+    const lampPal = { h: night ? '#FFD86A' : '#7A756B', p: '#4A4038' };
+    [[560, 318], [700, 318], [560, 452], [700, 452]].forEach(t =>
+      addD('lamp', t[0], t[1], 2.6, this.icm('lamp', 2.6, lampPal), 'none', night ? 'drop-shadow(0 0 10px rgba(255,216,106,.85))' : 'none', night ? 850 : null));
+
+    const onlineOf = (list) => list.filter(v => v.status !== 'idle').length;
+    const onlineCount = onlineOf(vill);
+    const sel = vill.find(v => v.id === s.selectedId);
+    const selSt = sel ? stMap[sel.status] : null;
+
+    const villageList = this.VCONF.map((w, i) => ({
+      sub: w.sub, swatch: w.swatch,
+      online: onlineOf(s.villages[i].villagers),
+      go: () => { this.setState({ vIdx: i, selectedId: null }); this.showToast('TRAVELLED TO ' + w.sub.toUpperCase()); },
+      bg: i === vIdx ? 'var(--goldbg)' : 'transparent',
+      line: i === vIdx ? 'var(--gold)' : 'var(--line2)',
+      color: i === vIdx ? gold : mut,
+    }));
+
+    const nav = [
+      { label: 'VILLAGE', map: 'house', active: isPixel, go: () => this.setState({ view: 'pixel' }) },
+      { label: 'DASHBOARD', map: 'grid', active: isNormal, go: () => this.setState({ view: 'normal' }) },
+      { label: 'ZONES', map: 'hall', soon: true, go: () => this.showToast('ZONES — coming in the next pass') },
+      { label: 'EVENTS', map: 'clock', soon: true, go: () => this.showToast('EVENTS — coming in the next pass') },
+      { label: 'ADMIN', map: 'wrench', soon: true, go: () => this.showToast('ADMIN — coming in the next pass') },
+    ].map(n => ({
+      ...n,
+      iconEl: this.ic(n.map, 1.8, n.active ? '#D66' : (n.soon ? '#5C544A' : mut)),
+      bg: n.active ? 'var(--redbg)' : 'transparent',
+      edge: n.active ? 'var(--red)' : 'transparent',
+      color: n.active ? '#E88888' : (n.soon ? '#5C544A' : mut),
+    }));
+
+    const pills = [
+      { label: 'VILLAGERS', map: 'person', val: vc.count },
+      { label: 'ONLINE', map: 'bolt', val: onlineCount },
+      { label: 'WAVES', map: 'hand', val: vc.waves },
+      { label: 'ZONES', map: 'grid', val: 5 },
+    ].map(p => ({ ...p, iconEl: this.ic(p.map, 1.5, gold) }));
+
+    const bottomBtns = [
+      { label: 'DASHBOARD', map: 'grid', go: () => this.setState({ view: 'normal' }), hot: true },
+      { label: 'NOTICES', map: 'board', go: () => this.setState({ showBoard: !s.showBoard }) },
+      { label: 'EVENTS', map: 'clock', go: () => this.showToast('EVENTS — coming in the next pass') },
+      { label: 'ADMIN', map: 'wrench', go: () => this.showToast('ADMIN — coming in the next pass') },
+    ].map(b => ({
+      ...b,
+      iconEl: b.map === 'board' ? this.icm('board', 2.2, { '#': '#8A6A45', o: '#D9C79B', x: '#6E4A32' }) : this.ic(b.map, 2.2, b.hot ? gold : mut),
+      line: b.hot ? 'var(--gold)' : 'var(--line2)',
+      color: b.hot ? gold : ink,
+    }));
+
+    const stats = [
+      { label: 'VILLAGERS', map: 'person', value: vc.count, delta: '+2 this week', edge: '#6C8BE0', valColor: ink },
+      { label: 'ONLINE NOW', map: 'bolt', value: onlineCount, delta: 'peak today: ' + (onlineCount + 2), edge: green, valColor: green },
+      { label: 'ACTIVE ZONES', map: 'grid', value: 5, delta: 'all districts open', edge: gold, valColor: gold },
+      { label: 'WAVES TODAY', map: 'hand', value: vc.waves, delta: '+8 vs yesterday', edge: '#B08BD9', valColor: ink },
+    ].map(t => ({ ...t, iconEl: this.ic(t.map, 1.6, mut) }));
+
+    const privacy = [
+      { map: 'eye', text: 'Presence is opt-in — villagers choose to appear on the map' },
+      { map: 'lock', text: 'Emails & IDs are masked everywhere in this interface' },
+      { map: 'house', text: 'Only in-village position is shared — never real location' },
+      { map: 'shield', text: 'No external network calls · fully sandboxed demo' },
+    ].map(p => ({ ...p, iconEl: this.ic(p.map, 1.5, green) }));
+
+    const phrases = [
+      ['entered the LIBRARY', 'book', '#B08BD9', '#4A3766'],
+      ['waved at a neighbor', 'hand', green, '#2E5B2C'],
+      ['started a group chat in the PLAZA', 'chat', '#6C8BE0', '#2C3E66'],
+      ['went AWAY', 'moon', gold, '#6E5B1E'],
+      ['joined the WORKSHOP', 'wrench', green, '#2E5B2C'],
+      ['entered the CAFE', 'cup', '#E0954E', '#66421F'],
+      ['came online', 'bolt', green, '#2E5B2C'],
+    ];
+    const agos = ['2 MIN AGO', '4 MIN AGO', '9 MIN AGO', '12 MIN AGO', '18 MIN AGO', '25 MIN AGO', '31 MIN AGO'];
+    const feed = phrases.map((p, i) => {
+      const who = vill[(i * 3 + 1) % vill.length];
+      return { who: who.first, what: p[0], ago: agos[i], iconEl: this.ic(p[1], 1.5, p[2]), line: p[3], whoColor: p[2] };
+    });
+
+    const animals = (s.villages[vIdx].animals || []).map(a => ({
+      ...a, z: Math.round(a.y),
+      iconEl: a.kind === 'dog' ? this.ic('dog', 2.2, '#8F6A42') : this.icm('chicken', 2.2, { '#': '#F2EEE4', r: '#C0492F', o: '#E8A030' }),
+      poke: () => this.showToast(a.kind === 'dog' ? 'WOOF! — the village dog wags its tail' : 'BOK! — the chicken scurries off'),
+    }));
+    const particles = [0, 1, 2, 3, 4, 5].map(i => ({
+      left: 90 + i * 200 + (i % 2) * 50,
+      delay: (i * 1.6) + 's',
+      color: night ? '#DCE8FF' : vc.tree,
+    }));
+
+    return {
+      isPixel, isNormal, villagers, zones, nav, stats, privacy, feed, decor, villageList, pills, bottomBtns,
+      villageName: vc.name, villageSub: vc.sub, villageCycle: vc.cycle,
+      groundA: vc.groundA, groundB: vc.groundB, pathC: vc.pathC, pathE: vc.pathE,
+      prosperity: 62,
+      onlineCount, totalCount: vc.count, toast: s.toast,
+      setPixel: () => this.setState({ view: 'pixel' }),
+      setNormal: () => this.setState({ view: 'normal' }),
+      animals, particles,
+      isNight: night,
+      toggleNight: () => this.setState({ night: !night }),
+      icDayNight: this.ic(night ? 'sun' : 'moon', 1.6, gold),
+      dayNightLabel: night ? 'DAY' : 'NIGHT',
+      showBoard: s.showBoard,
+      toggleBoard: () => this.setState({ showBoard: !s.showBoard }),
+      icBoard: this.icm('board', 4, { '#': '#6E543A', o: '#D9C79B', x: '#8F6A42' }),
+      notices: [{ t: 'HARVEST FESTIVAL — PLAZA, SUNDAY DUSK' }, { t: 'LIBRARY LATE HOURS ALL WEEK' }, { t: 'WORKSHOP NEEDS 3 VOLUNTEERS' }],
+      icBoat: this.icm('boat', 3, { '#': '#8F6A42', s: '#E8E2D6' }),
+      selected: !!sel, noSelection: !sel,
+      clearSelect: () => this.setState({ selectedId: null }),
+      selName: sel ? sel.name.toUpperCase() : '', selRole: sel ? sel.role : '',
+      selColor: sel ? sel.color : '', selHair: sel ? sel.hair : '', selLine: sel ? sel.color : '',
+      selZone: sel ? this.ZONES[sel.home].name : '', selSince: sel ? sel.since : '',
+      selEmail: sel ? sel.email : '', selId: sel ? sel.vid : '',
+      selStatusEl: selSt ? this.ic(selSt.map, 1.6, selSt.color) : null,
+      selStatusColor: selSt ? selSt.color : '', selStatusLine: selSt ? selSt.line : '', selStatusLabel: selSt ? selSt.label : '',
+      waveAt: () => this.showToast('WAVE SENT — presence-only ping, nothing shared'),
+      icAvatar: this.ic('person', 3.6, '#D9A878', '#B04A4A'),
+      icTitle: this.ic('house', 3.4, gold),
+      icBoltGold: this.ic('bolt', 1.6, gold),
+      icLockGold: this.ic('lock', 1.6, gold), icLockGoldSm: this.ic('lock', 1.3, gold),
+      icMapV: this.ic('house', 1.5, gold),
+      icMapMut: this.ic('house', 1.5, mut),
+      icGridV: this.ic('grid', 1.5, gold),
+      icGridMut: this.ic('grid', 1.5, mut),
+      icSearch: this.ic('search', 1.5, mut),
+      icShieldGreen: this.ic('shield', 1.7, green, '#1F3D1E'),
+      icHandGreen: this.ic('hand', 1.7, green),
+      icPersonMut: this.ic('person', 1.5, mut),
+    };
+  }
+}
+</script>
+</body>
+</html>

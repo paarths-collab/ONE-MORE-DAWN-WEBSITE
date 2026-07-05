@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=JetBrains+Mono:wght@500;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#4a463f;font-family:Nunito,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+#omd-root{--bg:#DAD3C4;--wa:#D7CBB0;--wb:#BEB093;--panel:#F6EFE0;--panel2:#E9DFC9;--pill:#FBF6EC;--line:#E0D5BF;--ink:#2B2622;--muted:#8A7F6E;--accent:#B4632F;--accentb:#8F4A1F;--onacc:#FFF3E4;--good:#6E8B4F;--goodb:#54703A;--warn:#C98A2E;--danger:#C0492F;--dangerb:#96331F;--dangerbg:#F6E3DC;--dangerline:#E7C3B7;--sh:rgba(70,50,25,.45);--round:18px;}
+#omd-root[data-theme="arctic"]{--bg:#C3D0D9;--wa:#C6D3DC;--wb:#A2B4C1;--panel:#EEF4F8;--panel2:#DBE7EE;--pill:#F4F9FC;--line:#C7D6DF;--ink:#20303A;--muted:#6E828F;--accent:#C77F2E;--accentb:#9E611E;--onacc:#FFF7EC;--good:#5E8F86;--goodb:#456C64;--warn:#C99A3E;--danger:#BE4A3A;--dangerb:#8F3324;--dangerbg:#F0DBD6;--dangerline:#DCB8AE;--sh:rgba(30,50,65,.4);--round:18px;}
+#omd-root[data-theme="clean"]{--bg:#E7E7E9;--wa:#E4E4E7;--wb:#CFCFD4;--panel:#FFFFFF;--panel2:#F1F1F3;--pill:#FFFFFF;--line:#E6E6EA;--ink:#1C1C1E;--muted:#8A8A90;--accent:#E0663B;--accentb:#BF4D28;--onacc:#FFFFFF;--good:#4E9E6A;--goodb:#3B7D52;--warn:#E0A030;--danger:#E0503B;--dangerb:#B93B29;--dangerbg:#FCE7E2;--dangerline:#F4C8BE;--sh:rgba(0,0,0,.24);--round:22px;}
+@keyframes omdPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.9)}}
+@keyframes omdRing{0%{transform:scale(.7);opacity:.9}100%{transform:scale(2.2);opacity:0}}
+@keyframes omdRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes omdToast{0%{opacity:0;transform:translate(-50%,10px)}12%{opacity:1;transform:translate(-50%,0)}88%{opacity:1}100%{opacity:0}}
+@keyframes omdFlash{0%,100%{background:var(--dangerbg)}50%{background:#F3C9BF}}
+*::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<div id="omd-root" data-theme="{{ A.theme }}" style="width:880px;height:414px;position:relative;border-radius:38px;overflow:hidden;background:linear-gradient(160deg,var(--wa),var(--wb));box-shadow:0 40px 90px -30px rgba(0,0,0,.7),0 0 0 6px #16130f,0 0 0 8px #2c261d;font-family:Nunito,system-ui,sans-serif;user-select:none;">
+
+  <!-- ===================== CITY WORLD (backdrop) ===================== -->
+  <div style="position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 20%,var(--wa),var(--wb));">
+    <div style="position:absolute;left:120px;top:96px;font-size:52px;filter:grayscale(.35) contrast(.9);opacity:.9;">🏚️</div>
+    <div style="position:absolute;left:230px;top:150px;font-size:64px;filter:grayscale(.4) contrast(.9);opacity:.92;">🏢</div>
+    <div style="position:absolute;left:360px;top:110px;font-size:58px;filter:grayscale(.4);opacity:.9;">🏭</div>
+    <div style="position:absolute;left:470px;top:170px;font-size:60px;filter:grayscale(.35);opacity:.92;">🏬</div>
+    <div style="position:absolute;left:600px;top:120px;font-size:54px;filter:grayscale(.4);opacity:.9;">🏚️</div>
+    <div style="position:absolute;left:300px;top:250px;font-size:34px;opacity:.55;">🌲</div>
+    <div style="position:absolute;left:540px;top:270px;font-size:34px;opacity:.5;">🌲</div>
+    <div style="position:absolute;left:180px;top:280px;font-size:30px;opacity:.5;">🌾</div>
+    <!-- survivor pin -->
+    <div style="position:absolute;left:436px;top:224px;width:46px;height:46px;">
+      <div style="position:absolute;inset:0;border-radius:50%;border:2px solid var(--accent);animation:omdRing 1.8s ease-out infinite;"></div>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--panel);border:2px solid var(--accent);border-radius:50%;font-size:20px;box-shadow:0 4px 10px var(--sh);">🧭</div>
+    </div>
+    <div style="position:absolute;right:14px;bottom:12px;font:600 8.5px 'JetBrains Mono',monospace;color:var(--muted);opacity:.6;letter-spacing:.5px;">▚ ISOMETRIC CITY VIEW · art drops here</div>
+  </div>
+
+  <!-- ===================== TOP-LEFT RESOURCE PILLS ===================== -->
+  <div style="position:absolute;top:12px;left:14px;display:flex;gap:6px;">
+    <sc-for list="{{ A.pills }}" as="p" hint-placeholder-count="6">
+      <div style="display:flex;align-items:center;gap:5px;background:var(--pill);border:1.5px solid var(--line);border-radius:99px;padding:4px 10px 4px 6px;box-shadow:0 3px 0 var(--line),0 5px 8px var(--sh);">
+        <span style="font-size:15px;line-height:1;">{{ p.icon }}</span>
+        <span style="font:800 13px 'JetBrains Mono',monospace;color: {{ p.color }};">{{ p.val }}</span>
+        <span style="font:800 10px 'JetBrains Mono',monospace;color: {{ p.color }};">{{ p.trend }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- ===================== TOP-RIGHT DAY + BUTTONS ===================== -->
+  <div style="position:absolute;top:12px;right:14px;display:flex;align-items:center;gap:8px;">
+    <div style="display:flex;flex-direction:column;align-items:flex-end;background:var(--pill);border:1.5px solid var(--line);border-radius:14px;padding:4px 12px;box-shadow:0 3px 0 var(--line),0 5px 8px var(--sh);">
+      <span style="font:700 15px Cinzel,serif;color:var(--ink);letter-spacing:1px;line-height:1.05;">DAY 4</span>
+      <span style="font:700 8px 'JetBrains Mono',monospace;color:var(--muted);letter-spacing:.5px;">r/OneMoreDawnDev</span>
+    </div>
+    <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:var(--panel);border:1.5px solid var(--line);border-radius:50%;font-size:18px;box-shadow:0 3px 0 var(--line),0 5px 8px var(--sh);cursor:pointer;">⚙️</div>
+  </div>
+
+  <!-- ===================== RAID WARNING ===================== -->
+  <div style="position:absolute;top:56px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:7px;background:var(--dangerbg);border:1.5px solid var(--dangerline);border-radius:99px;padding:5px 14px;box-shadow:0 4px 10px var(--sh);">
+    <span style="font-size:14px;animation:omdPulse 1.2s infinite;">⚠️</span>
+    <span style="font:800 11px Nunito,sans-serif;color:var(--danger);letter-spacing:.3px;">RAID PROJECTED IN 2 DAYS</span>
+  </div>
+
+  <!-- ===================== LEFT CLUSTER: role + crisis ===================== -->
+  <div style="position:absolute;left:14px;bottom:14px;display:flex;flex-direction:column;gap:10px;align-items:center;">
+    <div onClick="{{ A.goRole }}" style="width:58px;height:58px;position:relative;cursor:pointer;">
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(var(--panel),var(--panel2));border:2px solid var(--line);border-radius:50%;font-size:26px;box-shadow:inset 0 2px 0 rgba(255,255,255,.5),0 4px 0 var(--line),0 7px 10px var(--sh);">{{ A.roleIcon }}</div>
+      <div style="position:absolute;-bottom:0;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--pill);font:800 8px Nunito;padding:2px 7px;border-radius:99px;white-space:nowrap;">{{ A.roleName }}</div>
+    </div>
+    <div onClick="{{ A.goVote }}" style="width:58px;height:58px;position:relative;cursor:pointer;">
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(var(--accent),var(--accentb));border-radius:16px;box-shadow:inset 0 2px 0 rgba(255,255,255,.4),0 4px 0 var(--accentb),0 7px 12px var(--sh);">
+        <span style="font-size:22px;line-height:1;">🚪</span>
+        <span style="font:800 8px Nunito;color:var(--onacc);margin-top:1px;">CRISIS</span>
+      </div>
+      <div style="position:absolute;top:-3px;right:-3px;width:15px;height:15px;background:var(--danger);border:2px solid var(--pill);border-radius:50%;animation:omdPulse 1.3s infinite;"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ENERGY READOUT ===================== -->
+  <div style="position:absolute;right:96px;bottom:150px;display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--pill);border:1.5px solid var(--line);border-radius:14px;padding:6px 10px;box-shadow:0 3px 0 var(--line),0 5px 8px var(--sh);">
+    <div style="display:flex;gap:3px;">
+      <sc-for list="{{ A.energyDots }}" as="d" hint-placeholder-count="3">
+        <span style="width:12px;height:12px;border-radius:50%;background: {{ d.bg }};border:1.5px solid var(--accentb);"></span>
+      </sc-for>
+    </div>
+    <span style="font:800 8px Nunito;color:var(--muted);letter-spacing:.5px;">ENERGY {{ A.energy }}/3</span>
+  </div>
+
+  <!-- ===================== RIGHT ACTION CLUSTER ===================== -->
+  <div style="position:absolute;right:14px;bottom:14px;display:flex;gap:9px;align-items:flex-end;">
+    <sc-for list="{{ A.navBtns }}" as="b" hint-placeholder-count="5">
+      <div onClick="{{ b.go }}" style="width:62px;height:62px;position:relative;cursor:pointer;">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background: {{ b.bg }};border-radius:16px;box-shadow: {{ b.shadow }};">
+          <span style="font-size:23px;line-height:1;">{{ b.icon }}</span>
+          <span style="font:800 8.5px Nunito; color: {{ b.labelColor }};margin-top:2px;">{{ b.label }}</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- ===================== TOAST ===================== -->
+  <sc-if value="{{ A.toast }}" hint-placeholder-val="">
+    <div style="position:absolute;top:88px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--pill);font:800 12px Nunito;padding:9px 18px;border-radius:99px;box-shadow:0 8px 20px var(--sh);animation:omdToast 2.4s ease forwards;z-index:60;white-space:nowrap;">{{ A.toast }}</div>
+  </sc-if>
+
+  <!-- ===================== OVERLAY (screens) ===================== -->
+  <sc-if value="{{ A.overlayOpen }}" hint-placeholder-val="">
+    <div style="position:absolute;inset:0;background:rgba(20,15,8,.4);backdrop-filter:blur(2px);z-index:40;" onClick="{{ A.closeOverlay }}"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:378px;background:var(--panel);border-radius:26px 26px 38px 38px;z-index:50;box-shadow:0 -18px 40px var(--sh);display:flex;flex-direction:column;animation:omdRise .28s ease;overflow:hidden;">
+      <!-- overlay header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;border-bottom:1.5px solid var(--line);">
+        <div style="display:flex;align-items:center;gap:9px;">
+          <span style="font-size:20px;">{{ A.ovIcon }}</span>
+          <span style="font:700 17px Cinzel,serif;color:var(--ink);letter-spacing:1px;">{{ A.ovTitle }}</span>
+        </div>
+        <div onClick="{{ A.closeOverlay }}" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--panel2);border:1.5px solid var(--line);border-radius:50%;font-size:14px;color:var(--muted);cursor:pointer;">✕</div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:14px 18px 18px;">
+
+        <!-- ============ ACTIONS ============ -->
+        <sc-if value="{{ A.isActions }}" hint-placeholder-val="">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <span style="font:700 12px Nunito;color:var(--muted);">Spend energy to help the city today.</span>
+            <div style="display:flex;gap:3px;margin-left:auto;">
+              <sc-for list="{{ A.energyDots }}" as="d" hint-placeholder-count="3"><span style="width:13px;height:13px;border-radius:50%;background: {{ d.bg }};border:1.5px solid var(--accentb);"></span></sc-for>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;">
+            <sc-for list="{{ A.actionCards }}" as="c" hint-placeholder-count="4">
+              <div onClick="{{ c.go }}" style="position:relative;background:var(--pill);border:1.5px solid var(--line);border-radius:16px;padding:13px 13px 12px;cursor:pointer;box-shadow:0 4px 0 var(--line),0 6px 12px var(--sh);">
+                <sc-if value="{{ c.recommended }}" hint-placeholder-val="">
+                  <div style="position:absolute;top:-9px;right:10px;background:var(--good);color:#fff;font:800 8px Nunito;padding:3px 8px;border-radius:99px;box-shadow:0 3px 6px var(--sh);">👑 COUNCIL PICK</div>
+                </sc-if>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:30px;">{{ c.icon }}</span>
+                  <div>
+                    <div style="font:800 14px Nunito;color:var(--ink);">{{ c.title }}</div>
+                    <div style="font:800 13px 'JetBrains Mono',monospace;color: {{ c.effColor }};margin-top:1px;">{{ c.effect }}</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;margin-top:9px;padding-top:8px;border-top:1px dashed var(--line);">
+                  <span style="font-size:13px;">{{ c.roleIcon }}</span>
+                  <span style="font:700 10px Nunito;color:var(--muted);">Best with {{ c.role }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- ============ VOTE ============ -->
+        <sc-if value="{{ A.isVote }}" hint-placeholder-val="">
+          <p style="font:700 12.5px/1.5 Nunito;color:var(--ink);margin:0 0 12px;">Thirty souls wait outside the wall. Hungry. Some coughing. <span style="color:var(--muted);">The guards want orders.</span></p>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <sc-for list="{{ A.voteOptions }}" as="o" hint-placeholder-count="3">
+              <div onClick="{{ o.go }}" style="display:flex;align-items:center;gap:12px;background:var(--pill);border:2px solid {{ o.border }};border-radius:15px;padding:11px 13px;cursor:pointer;box-shadow:0 3px 0 var(--line);">
+                <span style="font-size:26px;">{{ o.icon }}</span>
+                <div style="flex:1;">
+                  <div style="display:flex;align-items:center;gap:8px;"><span style="font:800 13px Nunito;color:var(--ink);">{{ o.title }}</span><sc-if value="{{ o.mine }}" hint-placeholder-val=""><span style="font:800 8px Nunito;color:var(--good);border:1px solid var(--good);border-radius:99px;padding:1px 6px;">YOUR VOTE</span></sc-if></div>
+                  <div style="font:700 11px 'JetBrains Mono',monospace;color:var(--muted);margin-top:2px;">{{ o.effects }}</div>
+                </div>
+                <sc-if value="{{ A.voted }}" hint-placeholder-val="">
+                  <div style="width:52px;text-align:right;"><div style="font:800 15px 'JetBrains Mono',monospace;color:var(--ink);">{{ o.pct }}%</div><div style="height:5px;width:52px;background:var(--line);border-radius:99px;margin-top:3px;overflow:hidden;"><div style="width: {{ o.pct }}%;height:100%;background:var(--accent);border-radius:99px;transition:width .5s;"></div></div></div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ A.voted }}" hint-placeholder-val="">
+            <div style="text-align:center;font:700 11px Nunito;color:var(--muted);margin-top:12px;">The city is deciding together · tap another to change</div>
+          </sc-if>
+        </sc-if>
+
+        <!-- ============ COUNCIL ============ -->
+        <sc-if value="{{ A.isCouncil }}" hint-placeholder-val="">
+          <div style="font:700 10px 'JetBrains Mono',monospace;color:var(--muted);letter-spacing:1px;margin-bottom:9px;">TODAY'S COUNCIL PLAN — TAP TO BACK ONE</div>
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ A.planOptions }}" as="p" hint-placeholder-count="3">
+              <div onClick="{{ p.go }}" style="cursor:pointer;background:var(--pill);border:2px solid {{ p.border }};border-radius:14px;padding:11px 13px;box-shadow:0 3px 0 var(--line);">
+                <div style="display:flex;align-items:center;gap:9px;">
+                  <span style="font-size:22px;">{{ p.icon }}</span>
+                  <span style="font:800 13px Nunito;color:var(--ink);flex:1;">{{ p.title }}</span>
+                  <sc-if value="{{ p.mine }}" hint-placeholder-val=""><span style="font:800 8px Nunito;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 6px;">BACKED</span></sc-if>
+                  <span style="font:800 15px 'JetBrains Mono',monospace;color:var(--ink);">{{ p.pct }}%</span>
+                </div>
+                <div style="height:7px;background:var(--line);border-radius:99px;margin-top:8px;overflow:hidden;"><div style="width: {{ p.pct }}%;height:100%;background: {{ p.fill }};border-radius:99px;transition:width .5s;"></div></div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:9px;background:var(--panel2);border-radius:12px;padding:10px 12px;margin-top:12px;">
+            <span style="font-size:18px;">💬</span>
+            <span style="font:700 11px Nunito;color:var(--muted);flex:1;">Strategy happens in the comments — not a chat.</span>
+            <span style="font:800 11px Nunito;color:var(--accent);">Open ↗</span>
+          </div>
+        </sc-if>
+
+        <!-- ============ ROLE ============ -->
+        <sc-if value="{{ A.isRole }}" hint-placeholder-val="">
+          <div style="font:700 11px Nunito;color:var(--muted);margin-bottom:10px;">One tap chooses. You can change again in 3 days.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;">
+            <sc-for list="{{ A.roleCards }}" as="r" hint-placeholder-count="6">
+              <div onClick="{{ r.go }}" style="cursor:pointer;background:var(--pill);border:2px solid {{ r.border }};border-radius:14px;padding:11px 9px;text-align:center;box-shadow:0 3px 0 var(--line);">
+                <div style="font-size:28px;">{{ r.icon }}</div>
+                <div style="font:800 13px Nunito;color:var(--ink);margin-top:3px;">{{ r.name }}</div>
+                <div style="font:700 9.5px/1.3 Nunito;color:var(--muted);margin-top:3px;">{{ r.bonus }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- ============ MISSION ============ -->
+        <sc-if value="{{ A.isMission }}" hint-placeholder-val="">
+          <sc-if value="{{ A.mResult }}" hint-placeholder-val="">
+            <!-- RESULT -->
+            <div style="text-align:center;padding:6px 0;">
+              <div style="font-size:46px;">{{ A.mResultIcon }}</div>
+              <div style="font:700 20px Cinzel,serif;color: {{ A.mResultColor }};letter-spacing:1px;margin-top:4px;">{{ A.mResultTitle }}</div>
+              <div style="font:700 11px Nunito;color:var(--muted);margin-top:3px;">{{ A.mResultSub }}</div>
+              <div style="display:flex;justify-content:center;gap:10px;margin:16px 0;">
+                <div style="background:var(--pill);border:1.5px solid var(--line);border-radius:14px;padding:10px 16px;"><div style="font-size:22px;">🍞</div><div style="font:800 15px 'JetBrains Mono',monospace;color:var(--good);">+{{ A.mLootFood }}</div></div>
+                <div style="background:var(--pill);border:1.5px solid var(--line);border-radius:14px;padding:10px 16px;"><div style="font-size:22px;">🩹</div><div style="font:800 15px 'JetBrains Mono',monospace;color:var(--good);">+{{ A.mLootMeds }}</div></div>
+                <div style="background:var(--pill);border:1.5px solid var(--line);border-radius:14px;padding:10px 16px;"><div style="font-size:22px;">🔩</div><div style="font:800 15px 'JetBrains Mono',monospace;color:var(--good);">+{{ A.mLootScrap }}</div></div>
+              </div>
+              <div onClick="{{ A.bankMission }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:220px;min-height:46px;background:linear-gradient(var(--accent),var(--accentb));color:var(--onacc);font:800 14px Nunito;border-radius:14px;box-shadow:inset 0 2px 0 rgba(255,255,255,.35),0 4px 0 var(--accentb),0 7px 12px var(--sh);cursor:pointer;">🏙️ Deliver to the city</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ A.mPlaying }}" hint-placeholder-val="">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:6px;background: {{ A.mAirBg }};border:1.5px solid var(--line);border-radius:12px;padding:6px 12px;">
+                <span style="font-size:15px; animation: {{ A.mAirAnim }};">🫧</span>
+                <span style="font:800 15px 'JetBrains Mono',monospace;color: {{ A.mAirColor }};">AIR {{ A.mAirText }}</span>
+              </div>
+              <div style="font:700 11px Nunito;color:var(--muted);flex:1;">{{ A.mHint }}</div>
+              <div style="display:flex;gap:5px;">
+                <span style="font:800 11px 'JetBrains Mono',monospace;color:var(--good);">🍞{{ A.mLootFood }}</span>
+                <span style="font:800 11px 'JetBrains Mono',monospace;color:var(--good);">🩹{{ A.mLootMeds }}</span>
+                <span style="font:800 11px 'JetBrains Mono',monospace;color:var(--good);">🔩{{ A.mLootScrap }}</span>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;background:var(--panel2);padding:8px;border-radius:14px;">
+              <sc-for list="{{ A.mCells }}" as="cell" hint-placeholder-count="24">
+                <div onClick="{{ cell.go }}" style="aspect-ratio:1.35;display:flex;align-items:center;justify-content:center;font-size:20px;border-radius:9px;background: {{ cell.bg }};border:2px solid {{ cell.border }};cursor: {{ cell.cursor }};box-shadow: {{ cell.glow }};transition:background .15s;">{{ cell.icon }}</div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </sc-if>
+
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- theme tag -->
+  <div style="position:absolute;left:50%;bottom:4px;transform:translateX(-50%);font:700 7.5px 'JetBrains Mono',monospace;color:var(--muted);opacity:.55;letter-spacing:1px;">THEME · {{ A.themeLabel }}</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:940,&quot;height&quot;:470},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;warm&quot;,&quot;arctic&quot;,&quot;clean&quot;],&quot;default&quot;:&quot;warm&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Look&quot;}}">
+class Component extends DCLogic {
+  state = {
+    screen: 'city',
+    pop: 118, food: 37, power: 42, meds: 11, morale: 48, threat: 71,
+    energy: 3,
+    role: 'scout',
+    voted: null,
+    votes: { A: 42, B: 18, C: 40 },
+    plan: null,
+    plans: { raid: 48, food: 31, power: 21 },
+    toast: null,
+    // mission
+    px: 0, py: 1,
+    crates: [{ x: 1, y: 2, t: 'food', a: 2 }, { x: 3, y: 3, t: 'meds', a: 1 }, { x: 4, y: 0, t: 'scrap', a: 2 }],
+    lootFood: 0, lootMeds: 0, lootScrap: 0,
+    mAir: 75, mPlaying: false, mResult: null,
+  };
+
+  componentWillUnmount() { clearInterval(this._t); this._toastT && clearTimeout(this._toastT); }
+
+  clamp(v) { return Math.max(0, Math.min(100, v)); }
+
+  showToast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._toastT);
+    this._toastT = setTimeout(() => this.setState({ toast: null }), 2350);
+  }
+
+  setScreen(s) {
+    if (s === 'mission') { this.startMission(); return; }
+    clearInterval(this._t);
+    this.setState({ screen: s });
+  }
+  closeOverlay() { clearInterval(this._t); this.setState({ screen: 'city' }); }
+
+  // ---- actions ----
+  doAction(id) {
+    if (this.state.energy <= 0) { this.showToast('⚡ No energy left — rest until dawn'); return; }
+    const s = this.state;
+    const map = {
+      grow: { food: this.clamp(s.food + 8), toast: '🍞 +8 Food · the greenhouse holds' },
+      repair: { power: this.clamp(s.power + 10), toast: '⚡ +10 Power · generator steadies' },
+      treat: { meds: this.clamp(s.meds + 6), toast: '🩹 +6 Medicine · the sick rest easier' },
+      guard: { threat: this.clamp(s.threat - 12), morale: this.clamp(s.morale + 3), toast: '🛡️ −12 Threat · the wall holds' },
+    };
+    const d = map[id];
+    this.setState({ ...d, energy: s.energy - 1 });
+    this.showToast(d.toast);
+  }
+
+  // ---- vote ----
+  doVote(key) {
+    const base = { A: 42, B: 18, C: 40 };
+    const bump = { ...base };
+    bump[key] = base[key] + 8;
+    const total = bump.A + bump.B + bump.C;
+    const votes = { A: Math.round(bump.A / total * 100), B: Math.round(bump.B / total * 100), C: Math.round(bump.C / total * 100) };
+    votes.C = 100 - votes.A - votes.B;
+    this.setState({ voted: key, votes });
+    this.showToast('🗳️ Vote cast · the city shifts');
+  }
+
+  // ---- council ----
+  doPlan(key) {
+    const base = { raid: 48, food: 31, power: 21 };
+    const bump = { ...base }; bump[key] = base[key] + 9;
+    const total = bump.raid + bump.food + bump.power;
+    const plans = { raid: Math.round(bump.raid / total * 100), food: Math.round(bump.food / total * 100), power: 0 };
+    plans.power = 100 - plans.raid - plans.food;
+    this.setState({ plan: key, plans });
+    this.showToast('🏛️ You backed the plan');
+  }
+
+  // ---- role ----
+  doRole(id) { this.setState({ role: id }); this.showToast('Role chosen · civic duty accepted'); }
+
+  // ---- mission ----
+  startMission() {
+    clearInterval(this._t);
+    this.setState({
+      screen: 'mission', mPlaying: true, mResult: null, mAir: 75,
+      px: 0, py: 1, lootFood: 0, lootMeds: 0, lootScrap: 0,
+      crates: [{ x: 1, y: 2, t: 'food', a: 2 }, { x: 3, y: 3, t: 'meds', a: 1 }, { x: 4, y: 0, t: 'scrap', a: 2 }],
+    });
+    this._t = setInterval(() => {
+      this.setState(st => {
+        if (!st.mPlaying) return {};
+        const a = st.mAir - 1;
+        if (a <= 0) { clearInterval(this._t); return { mAir: 0, mPlaying: false, mResult: 'fail' }; }
+        return { mAir: a };
+      });
+    }, 1000);
+  }
+
+  moveTo(x, y) {
+    const s = this.state;
+    if (!s.mPlaying) return;
+    if (Math.abs(x - s.px) + Math.abs(y - s.py) !== 1) return;
+    if (this.isWall(x, y)) return;
+    let patch = { px: x, py: y };
+    // crate?
+    const crate = s.crates.find(c => c.x === x && c.y === y);
+    if (crate) {
+      patch.crates = s.crates.filter(c => c !== crate);
+      if (crate.t === 'food') patch.lootFood = s.lootFood + crate.a;
+      if (crate.t === 'meds') patch.lootMeds = s.lootMeds + crate.a;
+      if (crate.t === 'scrap') patch.lootScrap = s.lootScrap + crate.a;
+      this.showToast('📦 +' + crate.a + ' ' + crate.t);
+    }
+    // hazard?
+    if (this.isHazard(x, y)) { patch.mAir = Math.max(0, s.mAir - 10); this.showToast('⚠️ Hazard! −10 air'); }
+    // exit?
+    if (x === 5 && y === 2) {
+      clearInterval(this._t);
+      patch.mPlaying = false; patch.mResult = 'success';
+    }
+    this.setState(patch);
+  }
+
+  isWall(x, y) { return [[2, 0], [2, 3], [3, 1]].some(w => w[0] === x && w[1] === y); }
+  isHazard(x, y) { return [[4, 2], [1, 0]].some(w => w[0] === x && w[1] === y); }
+
+  bankMission() {
+    const s = this.state;
+    const win = s.mResult === 'success';
+    const mult = win ? 1 : 0.5;
+    this.setState({
+      screen: 'city', mResult: null,
+      food: this.clamp(s.food + Math.floor(s.lootFood * mult)),
+      meds: this.clamp(s.meds + Math.floor(s.lootMeds * mult)),
+    });
+    this.showToast(win ? '🏙️ Haul delivered at dawn' : '🩹 Half the haul recovered');
+  }
+
+  renderVals() {
+    const s = this.state;
+    const scr = s.screen;
+    const theme = this.props.theme || 'warm';
+    const themeLabel = { warm: 'FIELD REPORT', arctic: 'ARCTIC FROST', clean: 'CLEAN NEUTRAL' }[theme];
+
+    const roleMap = {
+      scout: { icon: '🧭', name: 'Scout' }, engineer: { icon: '🔧', name: 'Engineer' },
+      medic: { icon: '⛑️', name: 'Medic' }, farmer: { icon: '🌾', name: 'Farmer' },
+      guard: { icon: '🛡️', name: 'Guard' }, speaker: { icon: '📣', name: 'Speaker' },
+    };
+
+    const navDefs = [
+      { id: 'actions', icon: '⚡', label: 'Actions' },
+      { id: 'mission', icon: '🎒', label: 'Expedition' },
+      { id: 'vote', icon: '🗳️', label: 'Vote' },
+      { id: 'council', icon: '🏛️', label: 'Council' },
+    ];
+    const navBtns = navDefs.map(n => {
+      const active = scr === n.id;
+      return {
+        ...n,
+        go: () => this.setScreen(n.id),
+        bg: active ? 'linear-gradient(var(--accent),var(--accentb))' : 'linear-gradient(var(--panel),var(--panel2))',
+        labelColor: active ? 'var(--onacc)' : 'var(--muted)',
+        shadow: active
+          ? 'inset 0 2px 0 rgba(255,255,255,.4),0 4px 0 var(--accentb),0 7px 12px var(--sh)'
+          : 'inset 0 2px 0 rgba(255,255,255,.5),0 4px 0 var(--line),0 7px 10px var(--sh)',
+      };
+    });
+
+    const pills = [
+      { icon: '👥', val: s.pop, trend: '', color: 'var(--ink)' },
+      { icon: '🍞', val: s.food, trend: '↓', color: 'var(--danger)' },
+      { icon: '⚡', val: s.power, trend: '↓', color: 'var(--danger)' },
+      { icon: '🩹', val: s.meds, trend: '→', color: 'var(--muted)' },
+      { icon: '🙂', val: s.morale, trend: '↓', color: 'var(--danger)' },
+      { icon: '☠️', val: s.threat, trend: '↑', color: 'var(--danger)' },
+    ];
+
+    const energyDots = [0, 1, 2].map(i => ({ bg: i < s.energy ? 'var(--warn)' : 'var(--line)' }));
+
+    const actionCards = [
+      { id: 'grow', icon: '🌾', title: 'Grow Food', effect: '+8 🍞', effColor: 'var(--good)', role: 'Farmer', roleIcon: '🌾', recommended: false },
+      { id: 'repair', icon: '🔧', title: 'Repair Generator', effect: '+10 ⚡', effColor: 'var(--good)', role: 'Engineer', roleIcon: '🔧', recommended: false },
+      { id: 'treat', icon: '⛑️', title: 'Treat Sick', effect: '+6 🩹', effColor: 'var(--good)', role: 'Medic', roleIcon: '⛑️', recommended: false },
+      { id: 'guard', icon: '🛡️', title: 'Guard Wall', effect: '−12 ☠️ +2 🛡️', effColor: 'var(--good)', role: 'Guard', roleIcon: '🛡️', recommended: true },
+    ].map(c => ({ ...c, go: () => this.doAction(c.id) }));
+
+    const voteDefs = [
+      { key: 'A', icon: '🤝', title: 'Let them in', effects: '+30 👥  −20 🍞  +🙂  risk: sickness' },
+      { key: 'B', icon: '⛔', title: 'Turn them away', effects: '+🛡️ defense  −🙂 morale' },
+      { key: 'C', icon: '🔍', title: 'Inspect first', effects: '+15 👥  −8 🍞  +☠️ threat' },
+    ];
+    const voteOptions = voteDefs.map(o => ({
+      ...o, pct: s.votes[o.key], mine: s.voted === o.key,
+      border: s.voted === o.key ? 'var(--accent)' : 'var(--line)',
+      go: () => this.doVote(o.key),
+    }));
+
+    const planDefs = [
+      { key: 'raid', icon: '🛡️', title: 'Prepare for Raid', fill: 'var(--danger)' },
+      { key: 'food', icon: '🍞', title: 'Stockpile Food', fill: 'var(--warn)' },
+      { key: 'power', icon: '⚡', title: 'Repair Power', fill: 'var(--good)' },
+    ];
+    const planOptions = planDefs.map(p => ({
+      ...p, pct: s.plans[p.key], mine: s.plan === p.key,
+      border: s.plan === p.key ? 'var(--accent)' : 'var(--line)',
+      go: () => this.doPlan(p.key),
+    }));
+
+    const roleDefs = [
+      { id: 'scout', icon: '🧭', name: 'Scout', bonus: '+15s air · reveals crates' },
+      { id: 'engineer', icon: '🔧', name: 'Engineer', bonus: 'Repairs power faster' },
+      { id: 'medic', icon: '⛑️', name: 'Medic', bonus: 'Treats sickness better' },
+      { id: 'farmer', icon: '🌾', name: 'Farmer', bonus: 'Grows more food' },
+      { id: 'guard', icon: '🛡️', name: 'Guard', bonus: 'Reduces threat faster' },
+      { id: 'speaker', icon: '📣', name: 'Speaker', bonus: 'Improves morale' },
+    ];
+    const roleCards = roleDefs.map(r => ({
+      ...r, border: s.role === r.id ? 'var(--accent)' : 'var(--line)',
+      go: () => this.doRole(r.id),
+    }));
+
+    // mission cells
+    const mCells = [];
+    for (let y = 0; y < 4; y++) {
+      for (let x = 0; x < 6; x++) {
+        const isPlayer = s.px === x && s.py === y;
+        const isExit = x === 5 && y === 2;
+        const wall = this.isWall(x, y);
+        const hazard = this.isHazard(x, y);
+        const crate = s.crates.find(c => c.x === x && c.y === y);
+        const adj = Math.abs(x - s.px) + Math.abs(y - s.py) === 1 && !wall;
+        let icon = '', bg = 'var(--panel)', border = 'var(--line)', glow = 'none';
+        if (wall) { icon = '🧱'; bg = 'var(--panel2)'; }
+        else if (isPlayer) { icon = roleMap[s.role].icon; bg = 'var(--accent)'; border = 'var(--accentb)'; }
+        else if (isExit) { icon = '🚪'; border = 'var(--good)'; glow = '0 0 0 2px var(--good), 0 0 10px var(--good)'; }
+        else if (crate) { icon = '📦'; }
+        else if (hazard) { icon = '⚠️'; bg = 'var(--dangerbg)'; border = 'var(--dangerline)'; }
+        if (adj && !isPlayer) { border = 'var(--accent)'; glow = '0 0 0 2px var(--accent)'; }
+        mCells.push({
+          icon, bg, border, glow,
+          cursor: adj && !isPlayer ? 'pointer' : 'default',
+          go: adj && !isPlayer ? () => this.moveTo(x, y) : () => { },
+        });
+      }
+    }
+    const panic = s.mAir <= 20;
+    const airText = String(Math.floor(s.mAir / 60)).padStart(2, '0') + ':' + String(s.mAir % 60).padStart(2, '0');
+
+    const ovMap = {
+      actions: { icon: '⚡', title: 'ACTIONS' },
+      vote: { icon: '🗳️', title: 'THE CONVOY AT THE GATE' },
+      council: { icon: '🏛️', title: 'THE COUNCIL' },
+      role: { icon: '🎖️', title: 'CHOOSE YOUR ROLE' },
+      mission: { icon: '🎒', title: 'EXPEDITION' },
+    };
+    const ov = ovMap[scr] || { icon: '', title: '' };
+
+    return {
+      A: {
+        theme, themeLabel,
+        pills, navBtns, energyDots, actionCards, voteOptions, planOptions, roleCards, mCells,
+        energy: s.energy, voted: s.voted,
+        roleIcon: roleMap[s.role].icon, roleName: roleMap[s.role].name,
+        toast: s.toast,
+        // nav handlers
+        goVote: () => this.setScreen('vote'),
+        goRole: () => this.setScreen('role'),
+        closeOverlay: () => this.closeOverlay(),
+        // overlay flags
+        overlayOpen: scr !== 'city',
+        ovIcon: ov.icon, ovTitle: ov.title,
+        isActions: scr === 'actions', isVote: scr === 'vote', isCouncil: scr === 'council',
+        isRole: scr === 'role', isMission: scr === 'mission',
+        // mission view
+        mPlaying: s.mPlaying, mResult: s.mResult,
+        mAirText: airText, mAirColor: panic ? 'var(--danger)' : 'var(--ink)',
+        mAirBg: panic ? 'var(--dangerbg)' : 'var(--pill)',
+        mAirAnim: panic ? 'omdPulse .6s infinite' : 'none',
+        mHint: panic ? 'AIR LOW — reach the exit!' : 'Tap a glowing tile to move · reach 🚪 to bank',
+        mLootFood: s.lootFood, mLootMeds: s.lootMeds, mLootScrap: s.lootScrap,
+        mResultIcon: s.mResult === 'success' ? '🏆' : '🩸',
+        mResultTitle: s.mResult === 'success' ? 'HAUL BANKED' : 'WOUNDED RETURN',
+        mResultColor: s.mResult === 'success' ? 'var(--good)' : 'var(--danger)',
+        mResultSub: s.mResult === 'success' ? 'You reached the exit. Delivered to the city at dawn.' : 'You stumbled back. Half the loot recovered · −1 energy tomorrow.',
+        bankMission: () => this.bankMission(),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -107,6 +107,20 @@ describe('Store', () => {
     expect(loaded).toEqual({ ...legacy, roleRep: {}, title: null });
   });
 
+  it('getAllPlayers returns every saved profile, legacy JSON backfilled', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    await store.savePlayer(player);
+    // Second profile written as legacy JSON (pre-reward-layer shape) directly.
+    const { roleRep: _rr, title: _t, ...legacy } = { ...player, userId: 't2_old', username: 'oldie' };
+    await redis.hSet('players', { t2_old: JSON.stringify(legacy) });
+    const all = await store.getAllPlayers();
+    expect(all).toHaveLength(2);
+    const byId = Object.fromEntries(all.map((p) => [p.userId, p]));
+    expect(byId['t2_abc']).toEqual(player);
+    expect(byId['t2_old']).toEqual({ ...legacy, roleRep: {}, title: null });
+  });
+
   it('does not clobber stored roleRep/title when present', async () => {
     const store = new Store(makeFakeRedis());
     await store.savePlayer({ ...player, roleRep: { scout: 30 }, title: 'Runner' });

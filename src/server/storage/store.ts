@@ -53,13 +53,24 @@ export class Store {
   }
 
   // ----- players -----
+  /**
+   * Backfill fields added after launch: stored JSON from earlier builds lacks
+   * roleRep/title — default-fill on parse so every read path sees the full
+   * shape. The ONE place legacy player JSON gets normalized.
+   */
+  private revivePlayer(parsed: PlayerProfile): PlayerProfile {
+    return { ...parsed, roleRep: parsed.roleRep ?? {}, title: parsed.title ?? null };
+  }
+
   async getPlayer(userId: string): Promise<PlayerProfile | undefined> {
     const raw = await this.redis.hGet(KEYS.players, userId);
     if (!raw) return undefined;
-    // Backfill fields added after launch: stored JSON from earlier builds lacks
-    // roleRep/title — default-fill on parse so every read path sees the full shape.
-    const parsed = JSON.parse(raw) as PlayerProfile;
-    return { ...parsed, roleRep: parsed.roleRep ?? {}, title: parsed.title ?? null };
+    return this.revivePlayer(JSON.parse(raw) as PlayerProfile);
+  }
+
+  async getAllPlayers(): Promise<PlayerProfile[]> {
+    const raw = await this.redis.hGetAll(KEYS.players);
+    return Object.values(raw).map((j) => this.revivePlayer(JSON.parse(j) as PlayerProfile));
   }
 
   async savePlayer(player: PlayerProfile): Promise<void> {
