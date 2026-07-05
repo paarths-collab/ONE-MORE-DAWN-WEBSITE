@@ -1,7 +1,7 @@
 import { BALANCE } from '../../shared/balance';
 import { getCrisis, pickNextCrisis } from '../../shared/crises';
 import type {
-  CityState, ResourceDelta, Role, TimelineEntry,
+  CityState, FactionId, ResourceDelta, Role, TimelineEntry,
 } from '../../shared/types';
 
 /** Aggregates for the day being resolved. All plain data from Redis hashes. */
@@ -13,6 +13,70 @@ export type DayInputs = {
   roleCounts: Partial<Record<Role, number>>;
   /** number of users who took any action today (for scarcity scaling — Plan 2 P4) */
   activeUserCount: number;
+  /** today's faction influence tally (actionType/mission-driven) */
+  factionInfluence: Partial<Record<FactionId, number>>;
+};
+
+type LawId = FactionId;
+
+/** Is the city's law active for the day being resolved? */
+const activeLawId = (city: CityState): LawId | null => {
+  if (!city.activeLaw) return null;
+  if (city.lawExpiresDay < city.day) return null; // expired
+  return city.activeLaw as LawId;
+};
+
+/**
+ * Production/consumption multipliers implied by the currently active law.
+ * Only one law is ever active, so buff/cost pairs never stack across laws.
+ * Defaults are no-op (1 / 1 / 1 / 1 / 0).
+ *
+ * Law "cost" clauses with no in-slice mechanic to attach to are display-only
+ * until Plan 3: builders' "morale actions cost +1 energy" (no per-action
+ * energy model in the resolver) and seekers' "injury risk +10%" (a
+ * mission-time concern the resolver never sees). Those are intentionally
+ * NOT modeled here.
+ */
+const lawMultipliers = (city: CityState) => {
+  const mult = {
+    repairMult: 1, // repair_power output scale
+    treatMult: 1, // treat_sick output scale
+    threatRiseMult: 1, // passive threat rise scale
+    foodConsumeMult: 1, // consumption scale
+    missionFoodBonus: 0, // extra food per mission run
+  };
+  switch (activeLawId(city)) {
+    case 'builders': // Emergency Engineering: repair actions +25% power
+      mult.repairMult = 1.25;
+      break;
+    case 'wardens': // Wall Watch: threat rises 25% slower; food consumption +10%
+      mult.threatRiseMult = 0.75;
+      mult.foodConsumeMult = 1.1;
+      break;
+    case 'seekers': // Ruins Charter: expedition loot +1 per crate (~+1 food per run)
+      mult.missionFoodBonus = 1;
+      break;
+    case 'hearth': // Common Table: treat_sick +50% medicine; repair -25% power
+      mult.treatMult = 1.5;
+      mult.repairMult = 0.75;
+      break;
+    default:
+      break;
+  }
+  return mult;
+};
+
+const FACTION_ORDER: FactionId[] = ['builders', 'wardens', 'seekers', 'hearth'];
+
+/** Highest-influence faction today (ties break by FACTION_ORDER); null if none. */
+const winningFaction = (influence: Partial<Record<FactionId, number>>): FactionId | null => {
+  let leader: FactionId | null = null;
+  let best = 0;
+  for (const f of FACTION_ORDER) {
+    const v = influence[f] ?? 0;
+    if (v > best) { best = v; leader = f; }
+  }
+  return leader;
 };
 
 export type ResolveResult = { city: CityState; entry: TimelineEntry };
@@ -47,20 +111,29 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
   const a = (type: string) => inputs.actions[type] ?? 0;
   const m = (field: string) => inputs.missions[field] ?? 0;
 
+  // Law modifiers from yesterday's winning faction (applied to today's day).
+  const law = lawMultipliers(city);
+
   // --- 1. action + mission production ---
-  let food = city.food + a('grow_food') * (BALANCE.actionEffects.grow_food.food ?? 0) + m('totalFood');
+  let food =
+    city.food +
+    a('grow_food') * (BALANCE.actionEffects.grow_food.food ?? 0) +
+    m('totalFood') +
+    m('totalRuns') * law.missionFoodBonus; // seekers: +1 food per run
   let power =
     city.power +
-    a('repair_power') * (BALANCE.actionEffects.repair_power.power ?? 0) +
+    a('repair_power') * (BALANCE.actionEffects.repair_power.power ?? 0) * law.repairMult +
     m('totalScrap') - // scrap feeds the generators
     BALANCE.passivePowerDecay -
     inputs.activeUserCount * BALANCE.scaling.activePlayerPowerDrain;
   let medicine =
-    city.medicine + a('treat_sick') * (BALANCE.actionEffects.treat_sick.medicine ?? 0) + m('totalMedicine');
+    city.medicine +
+    a('treat_sick') * (BALANCE.actionEffects.treat_sick.medicine ?? 0) * law.treatMult +
+    m('totalMedicine');
   let defense = city.defense + a('guard_wall') * (BALANCE.actionEffects.guard_wall.defense ?? 0);
   let threat =
     city.threat +
-    BALANCE.passiveThreatRise +
+    BALANCE.passiveThreatRise * law.threatRiseMult + // wardens: threat rises slower
     a('guard_wall') * (BALANCE.actionEffects.guard_wall.threat ?? 0) +
     m('totalRuns') * BALANCE.mission.missionThreatNoise +
     inputs.activeUserCount * BALANCE.scaling.activePlayerThreatRise;
@@ -97,9 +170,11 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
   }
 
   // --- 3. consumption + penalties ---
-  const consumed =
-    Math.ceil(population * BALANCE.foodPerPopulation) +
-    Math.ceil(inputs.activeUserCount * BALANCE.scaling.activePlayerFoodDrain);
+  const consumed = Math.ceil(
+    (Math.ceil(population * BALANCE.foodPerPopulation) +
+      Math.ceil(inputs.activeUserCount * BALANCE.scaling.activePlayerFoodDrain)) *
+      law.foodConsumeMult, // wardens: +10% food consumption
+  );
   food -= consumed;
   if (food < 0) {
     const missing = -food;
@@ -128,7 +203,10 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     events.push(`${BALANCE.morale.desertersPerDay} citizens slipped away in the night.`);
   }
 
-  // --- 4. clamp + fall check ---
+  // --- 4. clamp ---
+  // Section ordering (P3): clamp -> raid -> fall check -> next crisis -> faction law -> timeline.
+  // The raid runs AFTER clamping (so it acts on final threat) but BEFORE the
+  // fall check, because a raid's population loss can itself topple the city.
   const next: CityState = {
     ...city,
     day: city.day + 1,
@@ -142,14 +220,59 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     crisisId: city.crisisId,
     status: city.status,
   };
-  if (next.population <= BALANCE.fall.populationThreshold) {
-    next.status = 'fallen';
-    events.push('The last fires went out. The city has fallen.');
+
+  // --- 4b. Red Signal raid ---
+  if (next.threat >= BALANCE.raid.triggerThreshold) {
+    // Each guard action today softens every raid loss (floored at 0 per-loss).
+    const dampen = (inputs.actions['guard_wall'] ?? 0) * BALANCE.raid.guardDampenPerAction;
+    const foodLoss = Math.max(0, BALANCE.raid.foodLoss - dampen);
+    const powerLoss = Math.max(0, BALANCE.raid.powerLoss - dampen);
+    const moraleLoss = Math.max(0, BALANCE.raid.moraleLoss - dampen);
+    const populationLoss = Math.max(0, BALANCE.raid.populationLoss - dampen);
+
+    next.food = clampStock(next.food - foodLoss);
+    next.power = clampPct(next.power - powerLoss);
+    next.morale = clampPct(next.morale - moraleLoss);
+    next.population = Math.max(0, next.population - populationLoss);
+    next.threat = BALANCE.raid.postRaidThreat;
+
+    const raidFelled = next.population <= BALANCE.fall.populationThreshold;
+    events.push(
+      raidFelled
+        ? 'The Red Signal came in the night. The city could not hold — it fell.'
+        : 'The Red Signal came in the night. The city held, but paid in blood.',
+    );
   }
 
-  // --- 5. next crisis ---
+  // --- 4c. fall check (after raid, which can itself cause a fall) ---
+  if (next.population <= BALANCE.fall.populationThreshold) {
+    if (next.status === 'alive') {
+      // Only the non-raid fall gets the generic epitaph; the raid already spoke.
+      const felledByRaid = next.threat === BALANCE.raid.postRaidThreat &&
+        events.some((e) => /red signal/i.test(e));
+      if (!felledByRaid) events.push('The last fires went out. The city has fallen.');
+    }
+    next.status = 'fallen';
+  }
+
+  // --- 5. next crisis (uses FINAL alive status) ---
   if (next.status === 'alive') {
     next.crisisId = pickNextCrisis(city).id;
+  }
+
+  // --- 5b. faction winner shapes tomorrow's law ---
+  const winnerFaction = winningFaction(inputs.factionInfluence);
+  if (winnerFaction) {
+    next.activeLaw = winnerFaction;
+    next.lawExpiresDay = next.day + BALANCE.lawLifespanDays;
+    const label = BALANCE.laws[winnerFaction].label;
+    events.push(`The ${winnerFaction} faction shaped tomorrow's law: ${label} enacted.`);
+  } else {
+    // No faction acted: carry yesterday's law only if it is still within its
+    // lifespan for tomorrow; otherwise clear it to null.
+    const carry = city.lawExpiresDay >= next.day ? city.activeLaw : null;
+    next.activeLaw = carry;
+    next.lawExpiresDay = carry ? city.lawExpiresDay : 0;
   }
 
   // --- 6. timeline entry (deltas vs yesterday) ---

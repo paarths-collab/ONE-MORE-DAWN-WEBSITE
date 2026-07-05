@@ -16,6 +16,7 @@ const noInputs: DayInputs = {
   crisisVotes: {},
   roleCounts: {},
   activeUserCount: 0,
+  factionInfluence: {},
 };
 
 describe('resolveDay', () => {
@@ -104,6 +105,7 @@ describe('resolveDay', () => {
       crisisVotes: { b: 4 },
       roleCounts: { speaker: 2 },
       activeUserCount: 3,
+      factionInfluence: {},
     };
     expect(resolveDay(city(), inputs)).toEqual(resolveDay(city(), inputs));
   });
@@ -135,5 +137,51 @@ describe('resolveDay', () => {
       { ...noInputs, actions: { treat_sick: 20 } },
     );
     expect(next.medicine).toBeLessThanOrEqual(BALANCE.scaling.medicineStoreCap);
+  });
+
+  it('winning faction sets tomorrow\'s law', () => {
+    const { city: next } = resolveDay(city(), { ...noInputs, factionInfluence: { builders: 5, wardens: 2 } });
+    expect(next.activeLaw).toBe('builders');
+    expect(next.lawExpiresDay).toBe(next.day + BALANCE.lawLifespanDays);
+  });
+
+  it('faction ties break by faction order (builders first)', () => {
+    const { city: next } = resolveDay(city(), { ...noInputs, factionInfluence: { wardens: 3, builders: 3 } });
+    expect(next.activeLaw).toBe('builders');
+  });
+
+  it('an active builders law boosts repair output', () => {
+    const withLaw = { ...city(), activeLaw: 'builders', lawExpiresDay: 99 };
+    const withoutLaw = { ...city(), activeLaw: null, lawExpiresDay: 0 };
+    const p1 = resolveDay(withLaw as CityState, { ...noInputs, actions: { repair_power: 4 } }).city.power;
+    const p2 = resolveDay(withoutLaw as CityState, { ...noInputs, actions: { repair_power: 4 } }).city.power;
+    expect(p1).toBeGreaterThan(p2);
+  });
+
+  it('an expired law does not apply', () => {
+    const expired = { ...city({ day: 5 }), activeLaw: 'builders', lawExpiresDay: 4 } as CityState;
+    const p1 = resolveDay(expired, { ...noInputs, actions: { repair_power: 4 } }).city.power;
+    const noLaw = resolveDay({ ...city({ day: 5 }), activeLaw: null, lawExpiresDay: 0 } as CityState, { ...noInputs, actions: { repair_power: 4 } }).city.power;
+    expect(p1).toBe(noLaw);
+  });
+
+  it('raid fires at threat >= 100 and resets threat', () => {
+    const { city: next, entry } = resolveDay(city({ threat: 100, food: 80, population: 120 }), noInputs);
+    expect(next.threat).toBe(BALANCE.raid.postRaidThreat);
+    expect(next.food).toBeLessThan(80);
+    expect(entry.events.some((e) => /red signal/i.test(e))).toBe(true);
+  });
+
+  it('guard actions dampen raid damage', () => {
+    // threat 130: +6 passive - 5*5 guard = 111, still >= 100 so the raid still
+    // fires for BOTH cities — this isolates dampening from raid-prevention.
+    const bare = resolveDay(city({ threat: 130, food: 80 }), noInputs).city.food;
+    const guarded = resolveDay(city({ threat: 130, food: 80 }), { ...noInputs, actions: { guard_wall: 5 } }).city.food;
+    expect(guarded).toBeGreaterThanOrEqual(bare); // guards reduce food loss
+  });
+
+  it('stays deterministic with faction + raid inputs', () => {
+    const inp = { ...noInputs, factionInfluence: { seekers: 4 }, actions: { guard_wall: 1 } };
+    expect(resolveDay(city({ threat: 100 }), inp)).toEqual(resolveDay(city({ threat: 100 }), inp));
   });
 });
