@@ -1,0 +1,1247 @@
+/* ==========================================================================
+   ONE MORE DAWN — command-center dashboard design system.
+   Source of truth: docs/design/One More Dawn UI.dc.html (warm board-game HUD).
+   Three themes via [data-theme] on .omd-root: warm (default) / arctic / clean.
+   ========================================================================== */
+
+.omd-root {
+  /* warm (default) */
+  --bg: #dad3c4;
+  --wa: #d7cbb0;
+  --wb: #beb093;
+  --panel: #f6efe0;
+  --panel2: #e9dfc9;
+  --pill: #fbf6ec;
+  --line: #e0d5bf;
+  --ink: #2b2622;
+  --muted: #8a7f6e;
+  --accent: #b4632f;
+  --accentb: #8f4a1f;
+  --onacc: #fff3e4;
+  --good: #6e8b4f;
+  --goodb: #54703a;
+  --warn: #c98a2e;
+  --danger: #c0492f;
+  --dangerb: #96331f;
+  --dangerbg: #f6e3dc;
+  --dangerline: #e7c3b7;
+  --sh: rgba(70, 50, 25, 0.45);
+  --round: 18px;
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Nunito', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+.omd-root[data-theme='arctic'] {
+  --bg: #c3d0d9;
+  --wa: #c6d3dc;
+  --wb: #a2b4c1;
+  --panel: #eef4f8;
+  --panel2: #dbe7ee;
+  --pill: #f4f9fc;
+  --line: #c7d6df;
+  --ink: #20303a;
+  --muted: #6e828f;
+  --accent: #c77f2e;
+  --accentb: #9e611e;
+  --onacc: #fff7ec;
+  --good: #5e8f86;
+  --goodb: #456c64;
+  --warn: #c99a3e;
+  --danger: #be4a3a;
+  --dangerb: #8f3324;
+  --dangerbg: #f0dbd6;
+  --dangerline: #dcb8ae;
+  --sh: rgba(30, 50, 65, 0.4);
+  --round: 18px;
+}
+.omd-root[data-theme='clean'] {
+  --bg: #e7e7e9;
+  --wa: #e4e4e7;
+  --wb: #cfcfd4;
+  --panel: #ffffff;
+  --panel2: #f1f1f3;
+  --pill: #ffffff;
+  --line: #e6e6ea;
+  --ink: #1c1c1e;
+  --muted: #8a8a90;
+  --accent: #e0663b;
+  --accentb: #bf4d28;
+  --onacc: #ffffff;
+  --good: #4e9e6a;
+  --goodb: #3b7d52;
+  --warn: #e0a030;
+  --danger: #e0503b;
+  --dangerb: #b93b29;
+  --dangerbg: #fce7e2;
+  --dangerline: #f4c8be;
+  --sh: rgba(0, 0, 0, 0.24);
+  --round: 22px;
+}
+
+@keyframes omdPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.9);
+  }
+}
+@keyframes omdRise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes omdToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes omdFlash {
+  0%,
+  100% {
+    background: var(--dangerbg);
+  }
+  50% {
+    background: #f3c9bf;
+  }
+}
+
+.omd-root,
+.omd-root *,
+.omd-root *::before,
+.omd-root *::after {
+  box-sizing: border-box;
+}
+
+.omd-root {
+  background:
+    radial-gradient(120% 60% at 50% 0%, var(--wa), transparent 70%),
+    linear-gradient(160deg, var(--wa), var(--wb));
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.omd-shell {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: clamp(10px, 2.4vw, 22px) clamp(10px, 2.4vw, 22px) 90px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---------- helpers ---------- */
+.omd-mono {
+  font-family: var(--font-mono);
+}
+.tone-good {
+  color: var(--good);
+}
+.tone-warn {
+  color: var(--warn);
+}
+.tone-danger {
+  color: var(--danger);
+}
+.tone-muted {
+  color: var(--muted);
+}
+.tone-ink {
+  color: var(--ink);
+}
+
+/* ---------- boot ---------- */
+.omd-boot {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  padding: 24px;
+  color: var(--muted);
+  font: 700 14px var(--font-body);
+}
+.omd-boot-title {
+  font: 700 22px var(--font-display);
+  letter-spacing: 2px;
+  color: var(--ink);
+}
+.omd-boot--err {
+  color: var(--danger);
+}
+
+/* ---------- top bar ---------- */
+.omd-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.omd-top-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.omd-top-name {
+  font: 700 clamp(17px, 3.6vw, 24px) var(--font-display);
+  letter-spacing: 2px;
+  color: var(--ink);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.omd-top-sub {
+  font: 700 10px var(--font-mono);
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+.omd-top-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.omd-daychip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  background: var(--pill);
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 4px 12px;
+  box-shadow: 0 3px 0 var(--line), 0 5px 8px var(--sh);
+}
+.omd-daychip-day {
+  font: 700 15px var(--font-display);
+  letter-spacing: 1px;
+  color: var(--ink);
+  line-height: 1.05;
+  white-space: nowrap;
+}
+.omd-daychip-sub {
+  font: 700 8px var(--font-mono);
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+.omd-iconbtn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  font-size: 17px;
+  box-shadow: 0 3px 0 var(--line), 0 5px 8px var(--sh);
+  cursor: pointer;
+  padding: 0;
+  color: var(--ink);
+  flex: none;
+}
+.omd-iconbtn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--line), 0 3px 6px var(--sh);
+}
+
+/* ---------- resource pills ---------- */
+.omd-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.omd-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--pill);
+  border: 1.5px solid var(--line);
+  border-radius: 99px;
+  padding: 4px 10px 4px 7px;
+  box-shadow: 0 3px 0 var(--line), 0 5px 8px var(--sh);
+}
+.omd-pill-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+.omd-pill-val {
+  font: 800 13px var(--font-mono);
+}
+.omd-pill-trend {
+  font: 800 10px var(--font-mono);
+}
+.omd-pill-label {
+  font: 800 8px var(--font-body);
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+/* ---------- alert strip ---------- */
+.omd-alerts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.omd-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--dangerbg);
+  border: 1.5px solid var(--dangerline);
+  border-radius: 99px;
+  padding: 6px 14px;
+  box-shadow: 0 4px 10px var(--sh);
+  font: 800 11px var(--font-body);
+  color: var(--danger);
+  letter-spacing: 0.3px;
+}
+.omd-alert-icon {
+  font-size: 14px;
+  animation: omdPulse 1.2s infinite;
+}
+.omd-alert--now {
+  animation: omdFlash 1.1s infinite;
+}
+.omd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--pill);
+  border: 1.5px solid var(--line);
+  border-radius: 99px;
+  padding: 5px 12px;
+  box-shadow: 0 3px 0 var(--line);
+  font: 700 10.5px var(--font-body);
+  color: var(--ink);
+}
+.omd-chip small {
+  font: 700 9.5px var(--font-body);
+  color: var(--muted);
+}
+
+/* ---------- panel grid ---------- */
+.omd-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-items: start;
+}
+@media (min-width: 720px) {
+  .omd-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .omd-span2 {
+    grid-column: span 2;
+  }
+}
+@media (min-width: 1100px) {
+  .omd-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.omd-panel {
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  border-radius: var(--round);
+  box-shadow: 0 3px 0 var(--line), 0 5px 8px var(--sh);
+  overflow: hidden;
+  animation: omdRise 0.28s ease;
+}
+.omd-panel--danger {
+  border-color: var(--dangerline);
+  background: linear-gradient(var(--panel), var(--dangerbg));
+}
+.omd-panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 12px 14px 8px;
+  border-bottom: 1.5px solid var(--line);
+}
+.omd-panel-icon {
+  font-size: 16px;
+  align-self: center;
+}
+.omd-panel-title {
+  font: 700 13px var(--font-display);
+  letter-spacing: 1.2px;
+  color: var(--ink);
+}
+.omd-panel-sub {
+  margin-left: auto;
+  font: 700 9px var(--font-mono);
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  text-align: right;
+}
+.omd-panel-body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+/* ---------- meters (city vitals) ---------- */
+.omd-meter {
+  display: grid;
+  grid-template-columns: 86px 1fr 74px;
+  align-items: center;
+  gap: 8px;
+}
+.omd-meter-label {
+  font: 800 10px var(--font-body);
+  color: var(--muted);
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.omd-meter-track {
+  position: relative;
+  height: 12px;
+  background: var(--line);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.omd-meter-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s;
+}
+.omd-meter-ghost {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--ink);
+  opacity: 0.45;
+}
+.omd-meter-num {
+  font: 800 12px var(--font-mono);
+  text-align: right;
+  white-space: nowrap;
+}
+.omd-meter-num small {
+  font: 800 9px var(--font-mono);
+  color: var(--muted);
+}
+.omd-forecast-note {
+  font: 700 9.5px var(--font-mono);
+  color: var(--muted);
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.omd-forecast-mark {
+  display: inline-block;
+  width: 3px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--ink);
+  opacity: 0.45;
+}
+
+/* ---------- vote options / plan bars ---------- */
+.omd-vote {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  background: var(--pill);
+  border: 2px solid var(--line);
+  border-radius: 15px;
+  padding: 10px 12px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--line);
+  font-family: var(--font-body);
+  color: var(--ink);
+}
+.omd-vote:disabled {
+  cursor: default;
+}
+.omd-vote--mine {
+  border-color: var(--accent);
+}
+.omd-vote-letter {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel2);
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  font: 700 13px var(--font-display);
+  color: var(--ink);
+}
+.omd-vote--mine .omd-vote-letter {
+  background: linear-gradient(var(--accent), var(--accentb));
+  color: var(--onacc);
+  border-color: var(--accentb);
+}
+.omd-vote-main {
+  flex: 1;
+  min-width: 0;
+}
+.omd-vote-title {
+  font: 800 13px var(--font-body);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.omd-vote-desc {
+  font: 700 10.5px var(--font-body);
+  color: var(--muted);
+  margin-top: 1px;
+}
+.omd-vote-effects {
+  font: 700 10.5px var(--font-mono);
+  color: var(--muted);
+  margin-top: 3px;
+}
+.omd-vote-tally {
+  width: 56px;
+  flex: none;
+  text-align: right;
+}
+.omd-vote-pct {
+  font: 800 14px var(--font-mono);
+  color: var(--ink);
+}
+.omd-vote-count {
+  font: 700 8.5px var(--font-mono);
+  color: var(--muted);
+}
+.omd-minibar {
+  height: 5px;
+  width: 100%;
+  background: var(--line);
+  border-radius: 99px;
+  margin-top: 3px;
+  overflow: hidden;
+}
+.omd-minibar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 0.5s;
+}
+.omd-tag {
+  font: 800 8px var(--font-body);
+  border-radius: 99px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.omd-tag--mine {
+  color: var(--good);
+  border: 1px solid var(--good);
+}
+.omd-tag--backed {
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.omd-tag--lead {
+  color: var(--onacc);
+  background: var(--good);
+  border: 1px solid var(--goodb);
+}
+.omd-tag--star {
+  color: var(--accentb);
+  border: 1px solid var(--accent);
+  background: var(--pill);
+}
+
+/* labeled horizontal bar rows (council plans, factions) */
+.omd-bar {
+  width: 100%;
+  text-align: left;
+  background: var(--pill);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  padding: 9px 12px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--line);
+  font-family: var(--font-body);
+  color: var(--ink);
+}
+.omd-bar--static {
+  cursor: default;
+}
+.omd-bar--mine {
+  border-color: var(--accent);
+}
+.omd-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.omd-bar-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.omd-bar-title {
+  font: 800 12.5px var(--font-body);
+  color: var(--ink);
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.omd-bar-val {
+  font: 800 13px var(--font-mono);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.omd-bar-val small {
+  font: 700 9px var(--font-mono);
+  color: var(--muted);
+}
+.omd-bar-track {
+  height: 7px;
+  background: var(--line);
+  border-radius: 99px;
+  margin-top: 7px;
+  overflow: hidden;
+}
+.omd-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s;
+}
+
+/* ---------- buttons ---------- */
+.omd-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  border: 0;
+  cursor: pointer;
+  font: 800 13px var(--font-body);
+  transition: transform 0.06s;
+}
+.omd-btn--primary {
+  background: linear-gradient(var(--accent), var(--accentb));
+  color: var(--onacc);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), 0 4px 0 var(--accentb), 0 7px 12px var(--sh);
+}
+.omd-btn--ghost {
+  background: var(--pill);
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+  box-shadow: 0 3px 0 var(--line), 0 5px 8px var(--sh);
+}
+.omd-btn--danger {
+  background: linear-gradient(var(--danger), var(--dangerb));
+  color: var(--onacc);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.3), 0 4px 0 var(--dangerb), 0 7px 12px var(--sh);
+}
+.omd-btn:not(:disabled):active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--accentb);
+}
+.omd-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+  filter: saturate(0.5);
+}
+
+/* action cards */
+.omd-actiongrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 420px) {
+  .omd-actiongrid {
+    grid-template-columns: 1fr;
+  }
+}
+.omd-action {
+  position: relative;
+  text-align: left;
+  background: var(--pill);
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  padding: 11px 12px 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--line), 0 6px 12px var(--sh);
+  font-family: var(--font-body);
+  color: var(--ink);
+}
+.omd-action:not(:disabled):active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--line);
+}
+.omd-action:disabled {
+  cursor: default;
+  opacity: 0.55;
+  filter: saturate(0.4);
+}
+.omd-action-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.omd-action-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+.omd-action-title {
+  font: 800 13px var(--font-body);
+  color: var(--ink);
+}
+.omd-action-effect {
+  font: 800 12px var(--font-mono);
+  color: var(--good);
+  margin-top: 1px;
+}
+.omd-action-foot {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--line);
+  font: 700 9.5px var(--font-body);
+  color: var(--muted);
+}
+.omd-action-badge {
+  position: absolute;
+  top: -9px;
+  right: 10px;
+  background: var(--good);
+  color: #fff;
+  font: 800 8px var(--font-body);
+  padding: 3px 8px;
+  border-radius: 99px;
+  box-shadow: 0 3px 6px var(--sh);
+}
+.omd-action-badge--star {
+  background: linear-gradient(var(--accent), var(--accentb));
+  color: var(--onacc);
+}
+
+/* ---------- energy dots ---------- */
+.omd-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.omd-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--line);
+  border: 1.5px solid var(--accentb);
+}
+.omd-dot--on {
+  background: var(--warn);
+}
+.omd-energy {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: var(--pill);
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 6px 10px;
+  box-shadow: 0 3px 0 var(--line);
+}
+.omd-energy-label {
+  font: 800 8px var(--font-body);
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+/* ---------- role panel ---------- */
+.omd-role-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.omd-role-orb {
+  width: 58px;
+  height: 58px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(var(--panel), var(--panel2));
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  font-size: 26px;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 4px 0 var(--line), 0 7px 10px var(--sh);
+}
+.omd-role-name {
+  font: 700 16px var(--font-display);
+  letter-spacing: 1px;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.omd-role-title {
+  font: 800 10.5px var(--font-body);
+  color: var(--accent);
+}
+.omd-role-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.omd-rolegrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+}
+@media (max-width: 420px) {
+  .omd-rolegrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.omd-rolecard {
+  background: var(--pill);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  padding: 11px 8px;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--line);
+  font-family: var(--font-body);
+  color: var(--ink);
+}
+.omd-rolecard:not(:disabled):active {
+  transform: translateY(2px);
+}
+.omd-rolecard--active {
+  border-color: var(--accent);
+}
+.omd-rolecard-icon {
+  font-size: 27px;
+  line-height: 1;
+}
+.omd-rolecard-name {
+  font: 800 12.5px var(--font-body);
+  margin-top: 3px;
+}
+.omd-rolecard-bonus {
+  font: 700 9.5px/1.3 var(--font-body);
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* ---------- role gate (first visit) ---------- */
+.omd-gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.omd-gate-card {
+  width: min(560px, 100%);
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  border-radius: 22px;
+  box-shadow: 0 3px 0 var(--line), 0 18px 40px var(--sh);
+  padding: 22px 18px;
+  text-align: center;
+  animation: omdRise 0.3s ease;
+}
+.omd-gate-title {
+  font: 700 20px var(--font-display);
+  letter-spacing: 2px;
+  color: var(--ink);
+}
+.omd-gate-sub {
+  font: 700 11.5px var(--font-body);
+  color: var(--muted);
+  margin: 6px 0 14px;
+}
+
+/* ---------- roster ---------- */
+.omd-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 230px;
+  overflow-y: auto;
+}
+.omd-cit {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--pill);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 6px 10px;
+}
+.omd-cit-avatar {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 7px;
+  border: 1.5px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+.omd-cit-name {
+  font: 800 11.5px var(--font-mono);
+  color: var(--ink);
+}
+.omd-cit-role {
+  font: 700 9.5px var(--font-body);
+  color: var(--muted);
+}
+.omd-cit-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 8.5px var(--font-mono);
+  color: var(--muted);
+}
+.omd-onlinedot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+  flex: none;
+}
+.omd-onlinedot--on {
+  background: var(--good);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent);
+  animation: omdPulse 2s infinite;
+}
+
+/* ---------- activity feed ---------- */
+.omd-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.omd-feed-entry {
+  border-left: 3px solid var(--line);
+  padding-left: 10px;
+}
+.omd-feed-entry--raid {
+  border-left-color: var(--danger);
+}
+.omd-feed-day {
+  font: 700 11px var(--font-display);
+  letter-spacing: 0.8px;
+  color: var(--ink);
+}
+.omd-feed-line {
+  font: 700 10.5px var(--font-body);
+  color: var(--muted);
+  margin-top: 2px;
+}
+.omd-feed-line--raid {
+  color: var(--danger);
+}
+
+/* ---------- leaderboard ---------- */
+.omd-lb-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 420px) {
+  .omd-lb-cols {
+    grid-template-columns: 1fr;
+  }
+}
+.omd-lb-head {
+  font: 700 9px var(--font-mono);
+  color: var(--muted);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.omd-lb-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--line);
+  font: 700 11px var(--font-body);
+  color: var(--ink);
+  min-width: 0;
+}
+.omd-lb-row:last-child {
+  border-bottom: 0;
+}
+.omd-lb-medal {
+  width: 18px;
+  flex: none;
+  text-align: center;
+  font-size: 12px;
+}
+.omd-lb-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.omd-lb-score {
+  font: 800 11px var(--font-mono);
+  color: var(--accent);
+}
+
+/* ---------- toasts ---------- */
+.omd-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 90;
+  pointer-events: none;
+  width: max-content;
+  max-width: 92vw;
+}
+.omd-toast {
+  background: var(--ink);
+  color: var(--pill);
+  font: 800 12px var(--font-body);
+  padding: 9px 18px;
+  border-radius: 99px;
+  box-shadow: 0 8px 20px var(--sh);
+  animation: omdToastIn 0.22s ease;
+  max-width: 100%;
+  text-align: center;
+}
+
+/* ---------- modal / sheet ---------- */
+.omd-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 15, 8, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+@media (min-width: 720px) {
+  .omd-overlay {
+    align-items: center;
+    padding: 24px;
+  }
+}
+.omd-sheet {
+  width: min(620px, 100%);
+  max-height: min(86vh, 640px);
+  background: var(--panel);
+  border-radius: 26px 26px 0 0;
+  box-shadow: 0 -18px 40px var(--sh);
+  display: flex;
+  flex-direction: column;
+  animation: omdRise 0.28s ease;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+@media (min-width: 720px) {
+  .omd-sheet {
+    border-radius: 24px;
+    border: 1.5px solid var(--line);
+    box-shadow: 0 3px 0 var(--line), 0 24px 60px var(--sh);
+  }
+}
+.omd-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1.5px solid var(--line);
+}
+.omd-sheet-titlebox {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.omd-sheet-title {
+  font: 700 16px var(--font-display);
+  letter-spacing: 1px;
+  color: var(--ink);
+}
+.omd-sheet-x {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel2);
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+}
+.omd-sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* dawn report */
+.omd-dawn-sun {
+  text-align: center;
+  font-size: 42px;
+  line-height: 1;
+}
+.omd-dawn-head {
+  font: 700 10px var(--font-mono);
+  color: var(--muted);
+  letter-spacing: 1.4px;
+  margin-bottom: 5px;
+}
+.omd-dawn-line {
+  font: 700 12px/1.5 var(--font-body);
+  color: var(--ink);
+}
+.omd-dawn-box {
+  background: var(--panel2);
+  border-radius: 14px;
+  padding: 11px 13px;
+}
+
+/* ---------- fallen city ---------- */
+.omd-fallen {
+  min-height: 100vh;
+  background: radial-gradient(120% 80% at 50% 0%, #2e2620, #17120d);
+  color: #d8cfc0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-family: var(--font-body);
+}
+.omd-fallen-card {
+  width: min(560px, 100%);
+  text-align: center;
+  animation: omdRise 0.4s ease;
+}
+.omd-fallen-title {
+  font: 700 clamp(22px, 5vw, 30px) var(--font-display);
+  letter-spacing: 3px;
+  color: #e8ddc8;
+  margin-top: 10px;
+}
+.omd-fallen-sub {
+  font: 700 12px var(--font-body);
+  color: #9a8f7d;
+  margin-top: 8px;
+}
+.omd-fallen-feed {
+  margin-top: 18px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 14px 16px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.omd-fallen-feed .omd-feed-day {
+  color: #d8cfc0;
+}
+.omd-fallen-feed .omd-feed-line {
+  color: #9a8f7d;
+}
+.omd-fallen-feed .omd-feed-line--raid {
+  color: #d97b62;
+}
+
+/* misc */
+.omd-note {
+  font: 700 10.5px var(--font-body);
+  color: var(--muted);
+}
+.omd-note--center {
+  text-align: center;
+}
+.omd-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.omd-spread {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.omd-lawcard {
+  background: var(--panel2);
+  border-radius: 14px;
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.omd-lawcard-name {
+  font: 800 12.5px var(--font-body);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.omd-lawcard-line {
+  font: 700 10.5px var(--font-mono);
+}
+.omd-footer-tag {
+  text-align: center;
+  font: 700 8.5px var(--font-mono);
+  color: var(--muted);
+  opacity: 0.7;
+  letter-spacing: 1px;
+  padding-bottom: 8px;
+}

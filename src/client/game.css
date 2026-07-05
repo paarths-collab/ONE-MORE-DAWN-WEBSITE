@@ -19,3 +19,8 @@ body {
 /* React boot placeholder */
 .pv-boot{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#8f8578;font-family:var(--mono-font);padding:24px;}
 .pv-boot--err{color:#d66666;}
+
+/* One More Dawn dashboard: let the React root own scrolling inside the
+   fixed-height webview (#app stays overflow:hidden). */
+#game-container:has(.omd-root){background:#dad3c4;}
+#game-container > .omd-root{height:100vh;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
