@@ -41,6 +41,8 @@ export type PlayerProfile = {
   roleChangedDay: number;
   faction: FactionId | null; // Plan 2; derived, null in slice
   factionRep: number; // Plan 2; 0 in slice
+  roleRep: Partial<Record<Role, number>>; // lifetime rep per role (reward layer)
+  title: string | null; // derived from the CURRENT role's rep tier
   energyUsedToday: number;
   lastActiveDay: number;
   injuredUntilDay: number; // player is injured while city.day <= injuredUntilDay
@@ -112,6 +114,15 @@ export type CrateContents = { crateId: string; loot: Partial<Record<LootKind, nu
 
 export type MissionStatus = 'escaped' | 'timeout' | 'hazard';
 
+// ---------- Dawn report (reward/retention layer) ----------
+
+export type DawnReport = {
+  day: number;                 // the resolved day the report describes (yesterday)
+  citySummary: string[];       // yesterday's timeline events (max 5)
+  yourImpact: string[];        // personalized lines (may be empty)
+  title: string | null;        // player's current title
+};
+
 // ---------- API payloads ----------
 
 export type ApiError = { status: 'error'; message: string };
@@ -138,6 +149,8 @@ export type InitResponse = {
   factionInfluence: Record<FactionId, number>;
   yourFaction: FactionId | null;
   yourFactionRep: number;
+  dawnReport: DawnReport | null;
+  firstVisitToday: boolean;
 };
 
 export type RoleRequest = { role: Role };
@@ -149,6 +162,7 @@ export type ActionResponse = {
   player: PlayerProfile;
   effectiveEnergy: number;
   yourActionsToday: Partial<Record<ActionType, number>>;
+  unlockedTitle: string | null;
 };
 
 export type VoteRequest = { optionId: string };
@@ -184,6 +198,7 @@ export type MissionCompleteResponse = {
   injured: boolean;
   contributionGained: number;
   player: PlayerProfile;
+  unlockedTitle: string | null;
 };
 
 export type TimelineResponse = { type: 'timeline'; entries: TimelineEntry[] };

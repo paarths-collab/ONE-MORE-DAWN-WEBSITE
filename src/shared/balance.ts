@@ -110,6 +110,18 @@ export const BALANCE = {
   factionRepPerAction: 2,
   factionRepPerMissionRun: 3,
 
+  // ---------- Role reputation & titles (reward/retention layer) ----------
+  roleRepPerAction: 3,
+  roleRepPerMission: 4,
+  titles: {
+    scout:    [ { rep: 25, title: 'Runner' },       { rep: 75, title: 'Night Scout' },   { rep: 150, title: 'Ruin Walker' } ],
+    engineer: [ { rep: 25, title: 'Tinkerer' },     { rep: 75, title: 'Grid Mender' },   { rep: 150, title: 'Generator Saint' } ],
+    medic:    [ { rep: 25, title: 'Bandager' },     { rep: 75, title: 'Ward Keeper' },   { rep: 150, title: 'Plague Breaker' } ],
+    farmer:   [ { rep: 25, title: 'Sower' },        { rep: 75, title: 'Ration Hero' },   { rep: 150, title: 'Harvest Warden' } ],
+    guard:    [ { rep: 25, title: 'Watchman' },     { rep: 75, title: 'Wall Keeper' },   { rep: 150, title: 'Red Signal Veteran' } ],
+    speaker:  [ { rep: 25, title: 'Crier' },        { rep: 75, title: 'Voice of Dawn' }, { rep: 150, title: 'The Conscience' } ],
+  } satisfies Record<Role, { rep: number; title: string }[]>,
+
   laws: {
     builders: { id: 'builders' as const, label: 'Emergency Engineering', buff: 'Repair actions +25% power', cost: 'Morale actions cost +1 energy' },
     wardens:  { id: 'wardens'  as const, label: 'Wall Watch',            buff: 'Threat rises 25% slower',    cost: 'Food consumption +10%' },

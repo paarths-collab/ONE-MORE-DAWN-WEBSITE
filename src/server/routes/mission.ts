@@ -8,7 +8,7 @@ import type {
   MissionCompleteResponse,
   MissionStartResponse,
 } from '../../shared/types';
-import { effectiveEnergy } from '../game/dayLogic';
+import { bumpRoleRep, effectiveEnergy } from '../game/dayLogic';
 import { evaluateMission, type MissionToken } from '../game/missionRules';
 import { KEYS } from '../storage/redisKeys';
 import { getStore, parseBody } from './api';
@@ -186,7 +186,29 @@ mission.post('/complete', async (c) => {
     BALANCE.factionPerMissionRun,
     BALANCE.factionRepPerMissionRun,
   );
-  const finalPlayer = repd ?? updated;
+  let finalPlayer = repd ?? updated;
+
+  // Role reputation for the run — credited to the role the mission started
+  // with (fallback: current role); skipped when both are null.
+  let unlockedTitle: string | null = null;
+  const repRole = token.roleAtStart ?? finalPlayer.role;
+  if (repRole) {
+    const repped = bumpRoleRep(finalPlayer, repRole, BALANCE.roleRepPerMission);
+    finalPlayer = repped.player;
+    unlockedTitle = repped.unlockedTitle;
+    await store.savePlayer(finalPlayer);
+  }
+
+  // Record per-user mission loot on the day's userActions entry so tomorrow's
+  // dawn report can show what this player banked.
+  const rawMine = await redis.hGet(KEYS.dayUserActions(city.day), userId);
+  const mineNow: Record<string, unknown> = rawMine ? JSON.parse(rawMine) : {};
+  mineNow['missionLoot'] = {
+    food: result.banked.food ?? 0,
+    medicine: result.banked.medicine ?? 0,
+    scrap: result.banked.scrap ?? 0,
+  };
+  await redis.hSet(KEYS.dayUserActions(city.day), { [userId]: JSON.stringify(mineNow) });
 
   return c.json<MissionCompleteResponse>({
     type: 'mission-complete',
@@ -194,5 +216,6 @@ mission.post('/complete', async (c) => {
     injured: result.injured,
     contributionGained: contribution,
     player: finalPlayer,
+    unlockedTitle,
   });
 });

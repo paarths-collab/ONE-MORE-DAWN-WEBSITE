@@ -59,7 +59,8 @@ const city: CityState = {
 
 const player: PlayerProfile = {
   userId: 't2_abc', username: 'tester', role: 'scout', roleChangedDay: 1,
-  faction: null, factionRep: 0, energyUsedToday: 0, lastActiveDay: 1,
+  faction: null, factionRep: 0, roleRep: {}, title: null,
+  energyUsedToday: 0, lastActiveDay: 1,
   injuredUntilDay: 0, totalContribution: 0, streak: 1,
 };
 
@@ -76,6 +77,24 @@ describe('Store', () => {
     expect(await store.getPlayer('t2_abc')).toBeUndefined();
     await store.savePlayer(player);
     expect(await store.getPlayer('t2_abc')).toEqual(player);
+  });
+
+  it('backfills roleRep/title when reading legacy player JSON', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    // Simulate a profile stored before the reward layer shipped.
+    const { roleRep: _rr, title: _t, ...legacy } = player;
+    await redis.hSet('players', { t2_abc: JSON.stringify(legacy) });
+    const loaded = await store.getPlayer('t2_abc');
+    expect(loaded).toEqual({ ...legacy, roleRep: {}, title: null });
+  });
+
+  it('does not clobber stored roleRep/title when present', async () => {
+    const store = new Store(makeFakeRedis());
+    await store.savePlayer({ ...player, roleRep: { scout: 30 }, title: 'Runner' });
+    const loaded = await store.getPlayer('t2_abc');
+    expect(loaded?.roleRep).toEqual({ scout: 30 });
+    expect(loaded?.title).toBe('Runner');
   });
 
   it('records actions into aggregate and per-user logs', async () => {

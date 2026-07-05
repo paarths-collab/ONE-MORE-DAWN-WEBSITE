@@ -6,6 +6,7 @@ import type {
   ActionRequest,
   ActionResponse,
   ApiError,
+  DawnReport,
   FactionId,
   InitResponse,
   LeaderboardEntry,
@@ -19,7 +20,7 @@ import type {
   VoteResponse,
 } from '../../shared/types';
 import { validateAction, validateRoleChange } from '../game/actionRules';
-import { effectiveEnergy, freshPlayer, resetPlayerForDay } from '../game/dayLogic';
+import { bumpRoleRep, effectiveEnergy, freshPlayer, resetPlayerForDay } from '../game/dayLogic';
 import { runLazyResolution } from '../game/lazyResolve';
 import { KEYS } from '../storage/redisKeys';
 import { Store, type RedisLike } from '../storage/store';
@@ -113,10 +114,14 @@ api.get('/init', async (c) => {
 
   // Only fresh players pay the Reddit username RPC — existing profiles skip it.
   let player = await store.getPlayer(user.userId);
+  const brandNew = !player;
   if (!player) {
     const username = (await reddit.getCurrentUsername()) ?? 'citizen';
     player = freshPlayer(user.userId, username, city.day);
   }
+  // Computed BEFORE the daily reset advances lastActiveDay; new players never
+  // get a dawn report (there was no yesterday for them).
+  const firstVisitToday = !brandNew && player.lastActiveDay < city.day;
   const reset = resetPlayerForDay(player, city.day);
   if (reset !== player) {
     player = reset;
@@ -131,6 +136,8 @@ api.get('/init', async (c) => {
     yourActionsToday,
     timeline,
     factionInfluence,
+    yesterdayActions,
+    yesterdayVote,
   ] = await Promise.all([
     store.getVoteTally(city.day),
     store.getVoterChoice(city.day, user.userId),
@@ -139,7 +146,41 @@ api.get('/init', async (c) => {
     store.getUserActions(city.day, user.userId),
     store.getTimeline(1),
     store.getFactionInfluence(city.day),
+    store.getUserActions(city.day - 1, user.userId),
+    store.getVoterChoice(city.day - 1, user.userId),
   ]);
+
+  // Dawn report: yesterday's story + this player's part in it. Only when a
+  // timeline entry for yesterday exists (i.e. at least one resolution ran).
+  const timelinePreview = timeline[0] ?? null;
+  let dawnReport: DawnReport | null = null;
+  if (!brandNew && timelinePreview && timelinePreview.day === city.day - 1) {
+    const yourImpact: string[] = [];
+    const yRaw = yesterdayActions as Record<string, unknown>;
+    let actionCount = 0;
+    for (const [key, value] of Object.entries(yRaw)) {
+      if (key !== 'mission' && key !== 'missionLoot' && typeof value === 'number') {
+        actionCount += value;
+      }
+    }
+    if (actionCount > 0) {
+      yourImpact.push(`You took ${actionCount} city action(s) for the city.`);
+    }
+    const loot = yRaw['missionLoot'];
+    if (loot && typeof loot === 'object') {
+      const l = loot as Partial<Record<'food' | 'medicine' | 'scrap', number>>;
+      yourImpact.push(
+        `Your expedition banked +${l.food ?? 0} food, +${l.medicine ?? 0} medicine, +${l.scrap ?? 0} scrap.`,
+      );
+    }
+    if (yesterdayVote) yourImpact.push('You voted on the crisis.');
+    dawnReport = {
+      day: timelinePreview.day,
+      citySummary: timelinePreview.events.slice(0, 5),
+      yourImpact,
+      title: player.title,
+    };
+  }
 
   const activeLaw =
     city.activeLaw && city.lawExpiresDay >= city.day
@@ -160,7 +201,7 @@ api.get('/init', async (c) => {
     yourActionsToday,
     missionUsedToday: (yourActionsToday as Record<string, unknown>)['mission'] !== undefined,
     resolving,
-    timelinePreview: timeline[0] ?? null,
+    timelinePreview,
     // Plan 2 conflict layer — real values wired in P5.
     activeLaw,
     raidInDays: Math.max(
@@ -170,6 +211,8 @@ api.get('/init', async (c) => {
     factionInfluence,
     yourFaction: player.faction,
     yourFactionRep: player.factionRep,
+    dawnReport,
+    firstVisitToday,
   });
 });
 
@@ -254,11 +297,18 @@ api.post('/action', async (c) => {
       updated;
   }
 
+  // Role reputation rides on every action. validateAction guarantees a role.
+  // Fold onto whatever bumpPlayerFactionRep persisted, then save once more.
+  const repped = bumpRoleRep(finalPlayer, finalPlayer.role!, BALANCE.roleRepPerAction);
+  finalPlayer = repped.player;
+  await store.savePlayer(finalPlayer);
+
   return c.json<ActionResponse>({
     type: 'action',
     player: finalPlayer,
     effectiveEnergy: effectiveEnergy(finalPlayer, city.day),
     yourActionsToday: await store.getUserActions(city.day, user.userId),
+    unlockedTitle: repped.unlockedTitle,
   });
 });
 

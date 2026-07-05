@@ -50,7 +50,11 @@ export class Store {
   // ----- players -----
   async getPlayer(userId: string): Promise<PlayerProfile | undefined> {
     const raw = await this.redis.hGet(KEYS.players, userId);
-    return raw ? (JSON.parse(raw) as PlayerProfile) : undefined;
+    if (!raw) return undefined;
+    // Backfill fields added after launch: stored JSON from earlier builds lacks
+    // roleRep/title — default-fill on parse so every read path sees the full shape.
+    const parsed = JSON.parse(raw) as PlayerProfile;
+    return { ...parsed, roleRep: parsed.roleRep ?? {}, title: parsed.title ?? null };
   }
 
   async savePlayer(player: PlayerProfile): Promise<void> {
