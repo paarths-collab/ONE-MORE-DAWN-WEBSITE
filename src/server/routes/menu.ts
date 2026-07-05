@@ -35,6 +35,7 @@ menu.post('/force-resolve', async (c) => {
     missions: await store.getDayMissions(city.day),
     crisisVotes: await store.getVoteTally(city.day),
     roleCounts: {},
+    activeUserCount: 0,
   };
   const { city: next, entry } = resolveDay(city, inputs);
   await store.snapshotCity(next);

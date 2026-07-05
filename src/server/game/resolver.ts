@@ -11,6 +11,8 @@ export type DayInputs = {
   crisisVotes: Record<string, number>; // optionId -> count
   /** actions taken by players of each role today (slice: only 'speaker' matters) */
   roleCounts: Partial<Record<Role, number>>;
+  /** number of users who took any action today (for scarcity scaling — Plan 2 P4) */
+  activeUserCount: number;
 };
 
 export type ResolveResult = { city: CityState; entry: TimelineEntry };
@@ -51,7 +53,8 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     city.power +
     a('repair_power') * (BALANCE.actionEffects.repair_power.power ?? 0) +
     m('totalScrap') - // scrap feeds the generators
-    BALANCE.passivePowerDecay;
+    BALANCE.passivePowerDecay -
+    inputs.activeUserCount * BALANCE.scaling.activePlayerPowerDrain;
   let medicine =
     city.medicine + a('treat_sick') * (BALANCE.actionEffects.treat_sick.medicine ?? 0) + m('totalMedicine');
   let defense = city.defense + a('guard_wall') * (BALANCE.actionEffects.guard_wall.defense ?? 0);
@@ -59,7 +62,8 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     city.threat +
     BALANCE.passiveThreatRise +
     a('guard_wall') * (BALANCE.actionEffects.guard_wall.threat ?? 0) +
-    m('totalRuns') * BALANCE.mission.missionThreatNoise;
+    m('totalRuns') * BALANCE.mission.missionThreatNoise +
+    inputs.activeUserCount * BALANCE.scaling.activePlayerThreatRise;
   let morale = city.morale + (inputs.roleCounts.speaker ?? 0) * BALANCE.speakerMoralePerAction;
   let population = city.population;
 
@@ -93,7 +97,9 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
   }
 
   // --- 3. consumption + penalties ---
-  const consumed = Math.ceil(population * BALANCE.foodPerPopulation);
+  const consumed =
+    Math.ceil(population * BALANCE.foodPerPopulation) +
+    Math.ceil(inputs.activeUserCount * BALANCE.scaling.activePlayerFoodDrain);
   food -= consumed;
   if (food < 0) {
     const missing = -food;
@@ -127,9 +133,9 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     ...city,
     day: city.day + 1,
     population: Math.max(0, Math.round(population)),
-    food: clampStock(food),
+    food: Math.min(BALANCE.scaling.foodStoreCap, clampStock(food)),
     power: clampPct(power),
-    medicine: clampStock(medicine),
+    medicine: Math.min(BALANCE.scaling.medicineStoreCap, clampStock(medicine)),
     morale: clampPct(morale),
     threat: clampPct(threat),
     defense: clampPct(defense),

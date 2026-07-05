@@ -15,6 +15,7 @@ const noInputs: DayInputs = {
   missions: {},
   crisisVotes: {},
   roleCounts: {},
+  activeUserCount: 0,
 };
 
 describe('resolveDay', () => {
@@ -102,6 +103,7 @@ describe('resolveDay', () => {
       missions: { totalFood: 3, totalRuns: 2, injuries: 0 },
       crisisVotes: { b: 4 },
       roleCounts: { speaker: 2 },
+      activeUserCount: 3,
     };
     expect(resolveDay(city(), inputs)).toEqual(resolveDay(city(), inputs));
   });
@@ -110,5 +112,28 @@ describe('resolveDay', () => {
     const base = resolveDay(city({ morale: 50 }), noInputs).city.morale;
     const spoken = resolveDay(city({ morale: 50 }), { ...noInputs, roleCounts: { speaker: 3 } }).city.morale;
     expect(spoken).toBe(base + 3 * BALANCE.speakerMoralePerAction);
+  });
+
+  it('scaled drains reduce food when many active players', () => {
+    const base = resolveDay(city({ population: 100, food: 50 }), noInputs).city.food;
+    const scaled = resolveDay(city({ population: 100, food: 50 }), { ...noInputs, activeUserCount: 20 }).city.food;
+    expect(scaled).toBeLessThan(base);
+  });
+
+  it('caps food storage at the configured maximum', () => {
+    // Massive positive influx: many farmers + high starting food
+    const { city: next } = resolveDay(
+      city({ food: 250, population: 100 }),
+      { ...noInputs, actions: { grow_food: 30 } },
+    );
+    expect(next.food).toBeLessThanOrEqual(BALANCE.scaling.foodStoreCap);
+  });
+
+  it('caps medicine storage at the configured maximum', () => {
+    const { city: next } = resolveDay(
+      city({ medicine: 110 }),
+      { ...noInputs, actions: { treat_sick: 20 } },
+    );
+    expect(next.medicine).toBeLessThanOrEqual(BALANCE.scaling.medicineStoreCap);
   });
 });
