@@ -59,12 +59,23 @@ export class MissionEnd extends Phaser.Scene {
           color: COLORS.dim,
         },
       );
+      y += 40;
+
+      if (data.result.unlockedTitle) {
+        this.add.text(40, y, `TITLE UNLOCKED: ${data.result.unlockedTitle}`, {
+          fontFamily: FONT,
+          fontSize: '20px',
+          color: COLORS.accentText,
+          fontStyle: 'bold',
+        });
+        y += 44;
+      }
 
       if (data.status === 'timeout') {
         bodyText(
           this,
           40,
-          y + 60,
+          y + 20,
           'Your air ran out. Half the pack was left in the dark.',
           W - 80,
         ).setFontSize(16);
@@ -72,7 +83,7 @@ export class MissionEnd extends Phaser.Scene {
         bodyText(
           this,
           40,
-          y + 60,
+          y + 20,
           'A hazard caught you. You dropped half of what you gathered.',
           W - 80,
         ).setFontSize(16);

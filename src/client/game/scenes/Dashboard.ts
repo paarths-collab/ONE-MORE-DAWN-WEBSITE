@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import type { InitResponse } from '../../../shared/types';
+import type { DawnReport, InitResponse } from '../../../shared/types';
 import { api } from '../api';
 import {
   bodyText,
@@ -16,6 +16,7 @@ import {
 
 export class Dashboard extends Phaser.Scene {
   private data_?: InitResponse;
+  private dawnDismissed_ = false;
 
   constructor() {
     super('Dashboard');
@@ -51,18 +52,20 @@ export class Dashboard extends Phaser.Scene {
     const { city, crisis, player } = data;
 
     heading(this, W / 2, 28, `THE LAST CITY — DAY ${city.day}`);
-    this.add
-      .text(
-        W / 2,
-        74,
-        `Cycle ${city.cycle} · ${player.username} the ${player.role ?? 'undecided'} · streak ${player.streak}`,
-        {
-          fontFamily: FONT,
-          fontSize: '18px',
-          color: COLORS.dim,
-        },
-      )
+    const who = player.title
+      ? `${player.username} “${player.title}” the ${player.role ?? 'undecided'}`
+      : `${player.username} the ${player.role ?? 'undecided'}`;
+    const subtitle = this.add
+      .text(W / 2, 74, `Cycle ${city.cycle} · ${who} · streak ${player.streak}`, {
+        fontFamily: FONT,
+        fontSize: '18px',
+        color: COLORS.dim,
+      })
       .setOrigin(0.5, 0);
+    // Titled names can overflow at 18px — drop the cycle prefix rather than shrink.
+    if (player.title && subtitle.width > W - 40) {
+      subtitle.setText(`${who} · streak ${player.streak}`);
+    }
 
     if (city.status === 'fallen') {
       bodyText(
@@ -280,6 +283,121 @@ export class Dashboard extends Phaser.Scene {
     if (data.resolving) {
       toastText(this, 'A new dawn is being resolved — check back in a moment.');
     }
+
+    if (data.firstVisitToday && data.dawnReport && !this.dawnDismissed_) {
+      this.showDawnReport(data.dawnReport, player.username);
+    }
+  }
+
+  /** Full-screen Dawn Report modal — the daily hook moment. One container, destroyed on dismiss. */
+  private showDawnReport(report: DawnReport, username: string) {
+    const overlay = this.add.container(0, 0).setDepth(500);
+    // Interactive shade blocks clicks from reaching the dashboard underneath.
+    const shade = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setInteractive();
+    overlay.add(shade);
+
+    const px = 70; // content left edge
+    const wrapW = W - 2 * px;
+    const panelTop = 220;
+    let y = panelTop + 40;
+    const parts: Phaser.GameObjects.GameObject[] = [];
+
+    parts.push(
+      this.add
+        .text(W / 2, y, `DAWN REPORT — DAY ${report.day}`, {
+          fontFamily: FONT,
+          fontSize: '32px',
+          color: COLORS.text,
+          fontStyle: 'bold',
+        })
+        .setOrigin(0.5, 0),
+    );
+    y += 76;
+
+    parts.push(
+      this.add.text(px, y, 'BECAUSE OF YESTERDAY:', {
+        fontFamily: FONT,
+        fontSize: '17px',
+        color: COLORS.dim,
+        fontStyle: 'bold',
+      }),
+    );
+    y += 34;
+    const cityLines = this.add.text(px, y, report.citySummary.join('\n'), {
+      fontFamily: FONT,
+      fontSize: '17px',
+      color: COLORS.text,
+      wordWrap: { width: wrapW },
+      lineSpacing: 8,
+    });
+    parts.push(cityLines);
+    y += cityLines.height + 44;
+
+    parts.push(
+      this.add.text(px, y, 'YOUR IMPACT:', {
+        fontFamily: FONT,
+        fontSize: '18px',
+        color: COLORS.accentText,
+        fontStyle: 'bold',
+      }),
+    );
+    y += 36;
+    const impactLines =
+      report.yourImpact.length > 0
+        ? this.add.text(px, y, report.yourImpact.join('\n'), {
+            fontFamily: FONT,
+            fontSize: '18px',
+            color: COLORS.text,
+            wordWrap: { width: wrapW },
+            lineSpacing: 8,
+          })
+        : this.add.text(
+            px,
+            y,
+            'The city moved on without you yesterday. Today is another chance.',
+            {
+              fontFamily: FONT,
+              fontSize: '18px',
+              color: COLORS.dim,
+              wordWrap: { width: wrapW },
+              lineSpacing: 8,
+            },
+          );
+    parts.push(impactLines);
+    y += impactLines.height + 40;
+
+    if (report.title) {
+      parts.push(
+        this.add.text(px, y, `— ${username}, ${report.title}`, {
+          fontFamily: FONT,
+          fontSize: '19px',
+          color: COLORS.accentText,
+          fontStyle: 'bold',
+        }),
+      );
+      y += 52;
+    }
+
+    y += 24;
+    const btn = button(
+      this,
+      W / 2,
+      y + 36,
+      'Face the Day',
+      () => {
+        this.dawnDismissed_ = true;
+        overlay.destroy();
+      },
+      { width: 380, height: 72 },
+    );
+    const panelBottom = y + 100;
+
+    const panelRect = this.add
+      .rectangle(W / 2, (panelTop + panelBottom) / 2, W - 60, panelBottom - panelTop, COLORS.panel, 1)
+      .setStrokeStyle(2, COLORS.panelLine);
+    overlay.add(panelRect);
+    for (const p of parts) overlay.add(p);
+    overlay.add(btn);
   }
 
   private startMission() {

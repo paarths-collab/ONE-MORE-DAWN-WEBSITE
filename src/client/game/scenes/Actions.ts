@@ -73,7 +73,12 @@ export class Actions extends Phaser.Scene {
       .then((res) => {
         this.init_ = { ...this.init_, player: res.player, yourActionsToday: res.yourActionsToday };
         this.refreshLabels(res.player.energyUsedToday, res.yourActionsToday);
-        toastText(this, 'The city is a little stronger.');
+        toastText(
+          this,
+          res.unlockedTitle
+            ? `Title unlocked: ${res.unlockedTitle}`
+            : 'The city is a little stronger.',
+        );
       })
       .catch((err: Error) => toastText(this, err.message));
   }

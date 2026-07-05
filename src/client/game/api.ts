@@ -37,6 +37,7 @@ const mockInit: InitResponse = {
     userId: 't2_mock', username: 'mock_citizen', role: 'scout', roleChangedDay: 3,
     faction: null, factionRep: 0, energyUsedToday: 1, lastActiveDay: 5,
     injuredUntilDay: 0, totalContribution: 120, streak: 3,
+    roleRep: { scout: 80 }, title: 'Night Scout',
   },
   effectiveEnergy: 3,
   crisis: {
@@ -62,6 +63,13 @@ const mockInit: InitResponse = {
     events: ['12 citizen actions strengthened the city.', '3 expeditions returned: +7 food, +2 medicine, +5 scrap.'],
     deltas: { food: -9, power: -4, morale: -6, threat: 8 },
     crisisId: 'blackout_ward', winningOptionId: 'a',
+  },
+  firstVisitToday: true,
+  dawnReport: {
+    day: 4,
+    citySummary: ['12 citizen actions strengthened the city.', '3 expeditions returned: +7 food, +2 medicine, +5 scrap.'],
+    yourImpact: ['You took 2 city actions for the city.', 'Your expedition banked +3 food, +1 medicine.', 'You voted on the crisis.'],
+    title: 'Night Scout',
   },
   // Plan 2 fields — inert stubs for the mock fixture.
   activeLaw: null,
@@ -89,6 +97,7 @@ export const api = {
           player: { ...mockInit.player, energyUsedToday: mockInit.player.energyUsedToday + 1 },
           effectiveEnergy: 3,
           yourActionsToday: { ...mockInit.yourActionsToday, [action]: 1 },
+          unlockedTitle: null,
         })
       : request<ActionResponse>('/api/action', { action }),
 
@@ -131,6 +140,7 @@ export const api = {
           injured: body.status !== 'escaped',
           contributionGained: 30,
           player: mockInit.player,
+          unlockedTitle: null,
         })
       : request<MissionCompleteResponse>('/api/mission/complete', body),
 
