@@ -1,5 +1,5 @@
 import type {
-  ActionType, CityState, PlayerProfile, TimelineEntry, VoteTally,
+  ActionType, CityState, FactionId, PlayerProfile, TimelineEntry, VoteTally,
 } from '../../shared/types';
 import { KEYS } from './redisKeys';
 
@@ -107,6 +107,56 @@ export class Store {
 
   async getStrategyTally(day: number): Promise<VoteTally> {
     return toCounts(await this.redis.hGetAll(KEYS.dayStrategyPlan(day)));
+  }
+
+  // ----- faction influence (Plan 2 P2) -----
+  async bumpFactionInfluence(day: number, faction: FactionId, by: number): Promise<void> {
+    if (by === 0) return;
+    await this.redis.hIncrBy(KEYS.dayFactionInfluence(day), faction, by);
+  }
+
+  async getFactionInfluence(day: number): Promise<Record<FactionId, number>> {
+    const raw = await this.redis.hGetAll(KEYS.dayFactionInfluence(day));
+    const empty: Record<FactionId, number> = { builders: 0, wardens: 0, seekers: 0, hearth: 0 };
+    for (const [k, v] of Object.entries(raw)) {
+      if (k in empty) empty[k as FactionId] = Number(v);
+    }
+    return empty;
+  }
+
+  /**
+   * Bumps the player's rep on a faction. Leader is the strictly-highest faction
+   * across the per-player shadow hash, with FactionId order as deterministic tie-break.
+   * Returns the updated profile, or undefined if the player didn't exist.
+   */
+  async bumpPlayerFactionRep(
+    userId: string,
+    faction: FactionId,
+    by: number,
+  ): Promise<PlayerProfile | undefined> {
+    const player = await this.getPlayer(userId);
+    if (!player) return undefined;
+    if (by !== 0) {
+      await this.redis.hIncrBy(KEYS.playerFactions(userId), faction, by);
+    }
+    const repRaw = await this.redis.hGetAll(KEYS.playerFactions(userId));
+    const reps: Record<FactionId, number> = { builders: 0, wardens: 0, seekers: 0, hearth: 0 };
+    for (const [k, v] of Object.entries(repRaw)) {
+      if (k in reps) reps[k as FactionId] = Number(v);
+    }
+    const order: FactionId[] = ['builders', 'wardens', 'seekers', 'hearth'];
+    let leader: FactionId | null = null;
+    let leaderRep = 0;
+    for (const f of order) {
+      if (reps[f] > leaderRep) { leader = f; leaderRep = reps[f]; }
+    }
+    const updated: PlayerProfile = {
+      ...player,
+      factionRep: leaderRep,
+      faction: leader,
+    };
+    await this.savePlayer(updated);
+    return updated;
   }
 
   // ----- missions -----

@@ -104,6 +104,32 @@ describe('Store', () => {
     expect(await store.getVoteTally(2)).toEqual({ a: 1 });
   });
 
+  it('bumps and reads faction influence for the day', async () => {
+    const store = new Store(makeFakeRedis());
+    await store.bumpFactionInfluence(5, 'builders', 3);
+    await store.bumpFactionInfluence(5, 'builders', 2);
+    await store.bumpFactionInfluence(5, 'seekers', 1);
+    expect(await store.getFactionInfluence(5)).toEqual({ builders: 5, wardens: 0, seekers: 1, hearth: 0 });
+  });
+
+  it('bumping player faction rep sets faction to the leader', async () => {
+    const store = new Store(makeFakeRedis());
+    await store.savePlayer(player);
+    const p1 = await store.bumpPlayerFactionRep('t2_abc', 'builders', 3);
+    expect(p1?.faction).toBe('builders');
+    expect(p1?.factionRep).toBe(3);
+    const p2 = await store.bumpPlayerFactionRep('t2_abc', 'wardens', 4);
+    expect(p2?.faction).toBe('wardens');
+    expect(p2?.factionRep).toBe(4);
+    const p3 = await store.bumpPlayerFactionRep('t2_abc', 'wardens', 0);
+    expect(p3?.faction).toBe('wardens');
+  });
+
+  it('returns undefined when bumping rep for a nonexistent player', async () => {
+    const store = new Store(makeFakeRedis());
+    expect(await store.bumpPlayerFactionRep('t2_ghost', 'builders', 1)).toBeUndefined();
+  });
+
   it('appends timeline entries and reads them newest-first', async () => {
     const store = new Store(makeFakeRedis());
     await store.appendTimeline({ day: 1, cycle: 1, headline: 'Day 1', events: [], deltas: {}, crisisId: 'first_light', winningOptionId: null });

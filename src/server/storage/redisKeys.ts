@@ -21,4 +21,5 @@ export const KEYS = {
   dayFactionInfluence: (day: number) => `day:${day}:factionInfluence`,
   dayStrategyPlan: (day: number) => `day:${day}:strategyPlan`,
   dayStrategyVoters: (day: number) => `day:${day}:strategyVoters`,
+  playerFactions: (userId: string) => `player:${userId}:factions`,
 } as const;
