@@ -60,10 +60,11 @@ export const runLazyResolution = async (
     // One hGetAll for userActions (roleCounts needs it), then the independent
     // day inputs in parallel.
     const userActions = await store.getAllUserActions(city.day);
-    const [actions, missions, crisisVotes, factionInfluence, roleCounts] = await Promise.all([
+    const [actions, missions, crisisVotes, strategyVotes, factionInfluence, roleCounts] = await Promise.all([
       store.getDayActions(city.day),
       store.getDayMissions(city.day),
       store.getVoteTally(city.day),
+      store.getStrategyTally(city.day),
       store.getFactionInfluence(city.day),
       countActionsByRole(store, userActions),
     ]);
@@ -71,6 +72,7 @@ export const runLazyResolution = async (
       actions,
       missions,
       crisisVotes,
+      strategyVotes,
       roleCounts,
       activeUserCount: Object.keys(userActions).length,
       factionInfluence,

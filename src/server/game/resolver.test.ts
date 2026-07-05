@@ -14,6 +14,7 @@ const noInputs: DayInputs = {
   actions: {},
   missions: {},
   crisisVotes: {},
+  strategyVotes: {},
   roleCounts: {},
   activeUserCount: 0,
   factionInfluence: {},
@@ -103,6 +104,7 @@ describe('resolveDay', () => {
       actions: { grow_food: 2, guard_wall: 1 },
       missions: { totalFood: 3, totalRuns: 2, injuries: 0 },
       crisisVotes: { b: 4 },
+      strategyVotes: {},
       roleCounts: { speaker: 2 },
       activeUserCount: 3,
       factionInfluence: {},
@@ -198,5 +200,65 @@ describe('resolveDay', () => {
   it('stays deterministic with faction + raid inputs', () => {
     const inp = { ...noInputs, factionInfluence: { seekers: 4 }, actions: { guard_wall: 1 } };
     expect(resolveDay(city({ threat: 100 }), inp)).toEqual(resolveDay(city({ threat: 100 }), inp));
+  });
+
+  describe('council unity (S2)', () => {
+    it('grants the morale bonus when the city rallies behind the winning plan', () => {
+      const actions = { repair_power: 7, grow_food: 3 }; // 7/10 = 0.7 >= 0.6
+      const base = resolveDay(city(), { ...noInputs, actions });
+      const united = resolveDay(city(), {
+        ...noInputs,
+        actions,
+        strategyVotes: { repair_power: 4 },
+      });
+      expect(united.city.morale).toBe(base.city.morale + BALANCE.unity.moraleBonus);
+      expect(united.entry.events.some((e) => /unity/i.test(e))).toBe(true);
+      expect(base.entry.events.some((e) => /unity/i.test(e))).toBe(false);
+    });
+
+    it('no quorum: fewer than minPlanVoters means no bonus', () => {
+      const actions = { repair_power: 7, grow_food: 3 };
+      const base = resolveDay(city(), { ...noInputs, actions });
+      const twoVoters = resolveDay(city(), {
+        ...noInputs,
+        actions,
+        strategyVotes: { repair_power: 2 },
+      });
+      expect(twoVoters.city.morale).toBe(base.city.morale);
+      expect(twoVoters.entry.events.some((e) => /unity/i.test(e))).toBe(false);
+    });
+
+    it('below alignment threshold: quorum alone is not enough', () => {
+      const actions = { repair_power: 3, grow_food: 7 }; // 3/10 = 0.3 < 0.6
+      const base = resolveDay(city(), { ...noInputs, actions });
+      const misaligned = resolveDay(city(), {
+        ...noInputs,
+        actions,
+        strategyVotes: { repair_power: 4 },
+      });
+      expect(misaligned.city.morale).toBe(base.city.morale);
+      expect(misaligned.entry.events.some((e) => /unity/i.test(e))).toBe(false);
+    });
+
+    it('send_scouts aligns via mission runs', () => {
+      const inp = {
+        ...noInputs,
+        actions: { grow_food: 2 },
+        missions: { totalRuns: 6 }, // 6/(2+6) = 0.75 >= 0.6
+      };
+      const base = resolveDay(city(), inp);
+      const united = resolveDay(city(), { ...inp, strategyVotes: { send_scouts: 3 } });
+      expect(united.city.morale).toBe(base.city.morale + BALANCE.unity.moraleBonus);
+      expect(united.entry.events.some((e) => /unity/i.test(e))).toBe(true);
+    });
+
+    it('stays deterministic with strategyVotes present', () => {
+      const inp = {
+        ...noInputs,
+        actions: { repair_power: 7, grow_food: 3 },
+        strategyVotes: { repair_power: 4, stockpile_food: 1 },
+      };
+      expect(resolveDay(city(), inp)).toEqual(resolveDay(city(), inp));
+    });
   });
 });

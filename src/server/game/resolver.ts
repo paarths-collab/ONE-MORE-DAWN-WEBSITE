@@ -1,7 +1,7 @@
 import { BALANCE } from '../../shared/balance';
 import { getCrisis, pickNextCrisis } from '../../shared/crises';
 import type {
-  CityState, FactionId, ResourceDelta, Role, TimelineEntry,
+  CityState, FactionId, ResourceDelta, Role, StrategyPlanId, TimelineEntry,
 } from '../../shared/types';
 
 /** Aggregates for the day being resolved. All plain data from Redis hashes. */
@@ -9,6 +9,7 @@ export type DayInputs = {
   actions: Record<string, number>; // actionType -> count
   missions: Record<string, number>; // totalFood/totalMedicine/totalScrap/totalRuns/injuries
   crisisVotes: Record<string, number>; // optionId -> count
+  strategyVotes: Record<string, number>; // planId -> count (council plan — S2)
   /** actions taken by players of each role today (slice: only 'speaker' matters) */
   roleCounts: Partial<Record<Role, number>>;
   /** number of users who took any action today (for scarcity scaling — Plan 2 P4) */
@@ -75,6 +76,17 @@ const winningFaction = (influence: Partial<Record<FactionId, number>>): FactionI
   for (const f of FACTION_ORDER) {
     const v = influence[f] ?? 0;
     if (v > best) { best = v; leader = f; }
+  }
+  return leader;
+};
+
+/** Highest-count council plan (ties break by BALANCE.strategyPlans order); null if no votes. */
+const winningPlan = (votes: Record<string, number>): StrategyPlanId | null => {
+  let leader: StrategyPlanId | null = null;
+  let best = 0;
+  for (const p of BALANCE.strategyPlans) {
+    const v = votes[p] ?? 0;
+    if (v > best) { best = v; leader = p; }
   }
   return leader;
 };
@@ -167,6 +179,25 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     }
   } else {
     events.push(`Crisis "${crisis.title}": nobody voted. The moment passed unanswered.`);
+  }
+
+  // --- 2b. council unity (S2): morale bonus BEFORE consumption/penalties so
+  // the bonus participates in the day's morale math (collapse check etc.).
+  const plan = winningPlan(inputs.strategyVotes);
+  const planVoterCount = Object.values(inputs.strategyVotes).reduce((s, n) => s + n, 0);
+  if (plan && planVoterCount >= BALANCE.unity.minPlanVoters) {
+    const alignedAction = BALANCE.planActionMap[plan];
+    // send_scouts aligns with mission runs; every other plan maps to a city action.
+    const alignedCount = alignedAction === null ? m('totalRuns') : a(alignedAction);
+    // Total effort pool = all city actions + mission runs, so action-plan and
+    // mission-plan shares are comparable.
+    const totalCount = acted + m('totalRuns');
+    if (totalCount > 0 && alignedCount / totalCount >= BALANCE.unity.alignedShareThreshold) {
+      morale += BALANCE.unity.moraleBonus;
+      events.push(
+        `Unity: the city rallied behind "${plan.replace(/_/g, ' ')}" — morale +${BALANCE.unity.moraleBonus}.`,
+      );
+    }
   }
 
   // --- 3. consumption + penalties ---

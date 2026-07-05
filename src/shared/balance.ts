@@ -1,4 +1,4 @@
-import type { ActionType, FactionId, ResourceDelta, Role, StrategyPlanId } from './types';
+import type { ActionType, FactionId, MissionRoute, ResourceDelta, Role, StrategyPlanId } from './types';
 
 export const BALANCE = {
   dailyEnergy: 3,
@@ -31,6 +31,20 @@ export const BALANCE = {
     foodStoreCap: 300,
     medicineStoreCap: 120,
   },
+
+  // ---------- Council unity (S2) ----------
+  unity: {
+    alignedShareThreshold: 0.6, // fraction of today's city actions matching the winning plan
+    minPlanVoters: 3,           // unity needs a real quorum
+    moraleBonus: 5,
+  },
+  planActionMap: {
+    stockpile_food: 'grow_food',
+    repair_power: 'repair_power',
+    prepare_raid: 'guard_wall',
+    treat_sick: 'treat_sick',
+    send_scouts: null, // scouting is missions, counted via totalRuns
+  } satisfies Record<StrategyPlanId, ActionType | null>,
 
   // action base effects (before role bonus)
   actionEffects: {
@@ -85,6 +99,13 @@ export const BALANCE = {
     hazardsBase: 4,
     hazardsPerThreat: 0.05, // + floor(threat * this) hazards
     hazardWarningMs: 1200,
+    // Route choice (S1): 'deep' matches the legacy defaults above exactly so
+    // pre-route maps/seeds reproduce bit-identically.
+    routes: {
+      safe:      { crates: 4, hazardsBase: 2, hazardsPerThreat: 0.03, extraDeepItems: 0 },
+      deep:      { crates: 7, hazardsBase: 4, hazardsPerThreat: 0.05, extraDeepItems: 0 },
+      desperate: { crates: 9, hazardsBase: 6, hazardsPerThreat: 0.08, extraDeepItems: 1 },
+    } satisfies Record<MissionRoute, { crates: number; hazardsBase: number; hazardsPerThreat: number; extraDeepItems: number }>,
   },
 
   strategyPlans: [

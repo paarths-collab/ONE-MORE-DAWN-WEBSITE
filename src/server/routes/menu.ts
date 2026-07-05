@@ -34,6 +34,7 @@ menu.post('/force-resolve', async (c) => {
     actions: await store.getDayActions(city.day),
     missions: await store.getDayMissions(city.day),
     crisisVotes: await store.getVoteTally(city.day),
+    strategyVotes: await store.getStrategyTally(city.day),
     roleCounts: {},
     activeUserCount: 0,
     factionInfluence: await store.getFactionInfluence(city.day),
