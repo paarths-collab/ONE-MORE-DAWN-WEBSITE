@@ -18,6 +18,51 @@ export const effectiveEnergy = (player: PlayerProfile, cityDay: number): number 
     ? BALANCE.dailyEnergy - BALANCE.injuryEnergyPenalty
     : BALANCE.dailyEnergy;
 
+/** Minimal store surface loadOrCreatePlayer needs — keeps dayLogic free of the
+ *  full Store/Redis dependency so it stays a pure, fast-to-test unit. */
+export type PlayerStore = {
+  getPlayer(userId: string): Promise<PlayerProfile | undefined>;
+  savePlayer(player: PlayerProfile): Promise<void>;
+};
+
+export type LoadedPlayer = {
+  player: PlayerProfile;
+  /** No stored profile existed before this call. */
+  brandNew: boolean;
+  /** Existing player whose last activity predates today (dawn-report gate). */
+  firstVisitToday: boolean;
+};
+
+/**
+ * Load the caller's profile, create it on first ever visit, and PERSIST it for
+ * today. Extracted from /init so the "a brand-new player must be saved"
+ * invariant is unit-testable without the Devvit runtime — the bug it guards
+ * against (resetPlayerForDay returns the same reference for a fresh profile, so
+ * a naive `reset !== player` check skips the save and the first-time player is
+ * never stored, 409-ing every later /role, /action, /pledge forever) slipped
+ * past every test that seeded players via store.savePlayer directly.
+ *
+ * `resolveUsername` is only awaited for brand-new players, so existing profiles
+ * never pay the Reddit username RPC.
+ */
+export const loadOrCreatePlayer = async (
+  store: PlayerStore,
+  userId: string,
+  cityDay: number,
+  resolveUsername: () => Promise<string>,
+): Promise<LoadedPlayer> => {
+  let player = await store.getPlayer(userId);
+  const brandNew = !player;
+  if (!player) player = freshPlayer(userId, await resolveUsername(), cityDay);
+  const firstVisitToday = !brandNew && player.lastActiveDay < cityDay;
+  const reset = resetPlayerForDay(player, cityDay);
+  if (brandNew || reset !== player) {
+    player = reset;
+    await store.savePlayer(player);
+  }
+  return { player, brandNew, firstVisitToday };
+};
+
 export const freshPlayer = (userId: string, username: string, cityDay: number): PlayerProfile => ({
   userId,
   username,

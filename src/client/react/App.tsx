@@ -28,12 +28,14 @@ import { useFetch } from './kit/useFetch';
 import { CrisisScreen } from './screens/CrisisScreen';
 import { FeedScreen } from './screens/FeedScreen';
 import { HomeScreen } from './screens/HomeScreen';
+import { WorldScreen } from './screens/WorldScreen';
 import { YouScreen } from './screens/YouScreen';
 import { DawnReportModal, FallenCity, RoleGate } from './screens/moments';
 
 // One More Dawn — mobile-first hook-layer client (locked direction,
 // docs/superpowers/plans/2026-07-06-reddit-native-hook-layer.md).
-// Four screens behind a bottom tab bar: HOME · CRISIS · FEED · YOU.
+// Five screens behind a bottom tab bar: HOME · CRISIS · FEED · WORLD · YOU.
+// WORLD lazy-loads its own data (api.world) the first time the tab opens.
 
 type Net =
   | { kind: 'loading' }
@@ -278,6 +280,7 @@ export function App() {
         )}
         {tab === 'crisis' && <CrisisScreen data={data} handlers={handlers} />}
         {tab === 'feed' && <FeedScreen data={data} />}
+        {tab === 'world' && <WorldScreen />}
         {tab === 'you' && <YouScreen data={data} handlers={handlers} />}
       </div>
       <TabBar tab={tab} onTab={setTab} crisisPending={data.yourCrisisVote === null} />

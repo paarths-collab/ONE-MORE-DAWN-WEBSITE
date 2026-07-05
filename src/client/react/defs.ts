@@ -1,5 +1,6 @@
 import type {
   ActionType,
+  CityStatusTag,
   DramaEvent,
   FactionId,
   Marked,
@@ -171,3 +172,20 @@ export const formatDelta = (delta: ResourceDelta): string => {
 };
 
 export const MEDALS: readonly string[] = ['🥇', '🥈', '🥉'];
+
+// ---------- World of Cities (WORLD tab) ----------
+
+export type WorldStatusDef = { icon: string; label: string; color: string; flavor: string };
+
+/**
+ * Node styling + one-line flavor per city status on the world map.
+ * Colors are mirrored by the `.omd-wnode--{status}` rules in omd.css
+ * (`--node` custom property) — keep the two in sync.
+ */
+export const WORLD_STATUS_DEFS: Record<CityStatusTag, WorldStatusDef> = {
+  thriving: { icon: '🌿', label: 'Thriving', color: '#7fd6a2', flavor: 'Holding the line — and then some.' },
+  holding: { icon: '🕯️', label: 'Holding', color: '#ffcf70', flavor: 'Holding the line.' },
+  strained: { icon: '🩸', label: 'Strained', color: '#ff8a3d', flavor: 'Rationing candles. Still standing.' },
+  under_raid: { icon: '🚨', label: 'Under raid', color: '#ff5b4d', flavor: 'Under raid — the wall decides tonight.' },
+  fallen: { icon: '💀', label: 'Fallen', color: '#6b7089', flavor: 'The lights went out.' },
+};

@@ -3,7 +3,7 @@ import type {
   LeaderboardResponse, Marked, MissionCompleteRequest, MissionCompleteResponse, MissionRoute,
   MissionStartResponse, PledgeInfo, PledgeKind, PledgeRequest, PledgeResponse, Role,
   RoleResponse, Standing, StrategyPlanId, StrategyResponse, TimelineResponse, VillageResponse,
-  VoteResponse,
+  VoteResponse, WorldCity, WorldResponse,
 } from '../../shared/types';
 
 /** Flip to true to force mock mode even inside a Devvit playtest. */
@@ -82,7 +82,7 @@ const mockDrama: DramaEvent[] = [
 ];
 
 const mockStanding: Standing = {
-  survivalDays: 5,
+  survivalDays: 26, // dawns survived across the city's whole life (cycle 3, day 5)
   rankLabel: 'The city holds · Day 5',
   contributionRank: 3,
 };
@@ -91,7 +91,7 @@ const mockInit: InitResponse = {
   type: 'init',
   postId: 't3_mock',
   city: {
-    day: 5, cycle: 1, status: 'alive', worldSeed: 0, trait: 'frozen',
+    day: 5, cycle: 3, status: 'alive', worldSeed: 0, trait: 'frozen',
     population: 143, food: 22, power: 31, medicine: 7,
     morale: 44, threat: 68, defense: 35,
     crisisId: 'refugee_convoy', activeLaw: null, lawExpiresDay: 0,
@@ -121,7 +121,7 @@ const mockInit: InitResponse = {
   missionUsedToday: false,
   resolving: false,
   timelinePreview: {
-    day: 4, cycle: 1,
+    day: 4, cycle: 3,
     headline: 'Day 4: The city survived to see one more dawn.',
     events: ['12 citizen actions strengthened the city.', '3 expeditions returned: +7 food, +2 medicine, +5 scrap.'],
     deltas: { food: -9, power: -4, morale: -6, threat: 8 },
@@ -155,6 +155,55 @@ const mockInit: InitResponse = {
 
 /** How much one mock pledge moves the Marked bar. */
 const MOCK_PLEDGE_PRESSURE = 3;
+
+// ---------- World of Cities (Plan 2 — WORLD tab) ----------
+
+// Cross-sub world fixture: 12 varied cities, one of them yours (r/meadowbrook,
+// rank #4 by longest dawn — coherent with mockInit: cycle 3, day 5, threat 68).
+// `survivalDays` is the headline stat (dawns survived across the city's whole
+// life); `day` is the current run. Append `?worldlocked=1` to the preview URL
+// to see the not-yet-eligible state (small-sub aspiration view).
+const MOCK_WORLD_CITIES: readonly WorldCity[] = [
+  { subreddit: 'r/lastlight', cycle: 1, day: 63, survivalDays: 63, status: 'thriving', threat: 18, population: 540, savedCount: 44, activePlayers: 216, isYou: false },
+  { subreddit: 'r/ironhollow', cycle: 2, day: 21, survivalDays: 47, status: 'holding', threat: 46, population: 402, savedCount: 31, activePlayers: 129, isYou: false },
+  { subreddit: 'r/nightmarket', cycle: 1, day: 38, survivalDays: 38, status: 'under_raid', threat: 87, population: 355, savedCount: 26, activePlayers: 244, isYou: false },
+  { subreddit: 'r/meadowbrook', cycle: 3, day: 5, survivalDays: 26, status: 'holding', threat: 68, population: 143, savedCount: 12, activePlayers: 37, isYou: true },
+  { subreddit: 'r/greyharbor', cycle: 2, day: 9, survivalDays: 22, status: 'thriving', threat: 25, population: 260, savedCount: 17, activePlayers: 88, isYou: false },
+  { subreddit: 'r/emberfall', cycle: 1, day: 19, survivalDays: 19, status: 'strained', threat: 71, population: 205, savedCount: 9, activePlayers: 54, isYou: false },
+  { subreddit: 'r/coldwater', cycle: 1, day: 14, survivalDays: 14, status: 'holding', threat: 40, population: 178, savedCount: 8, activePlayers: 41, isYou: false },
+  { subreddit: 'r/thornreach', cycle: 2, day: 4, survivalDays: 11, status: 'strained', threat: 66, population: 130, savedCount: 4, activePlayers: 26, isYou: false },
+  { subreddit: 'r/saltflats', cycle: 1, day: 9, survivalDays: 9, status: 'thriving', threat: 30, population: 96, savedCount: 6, activePlayers: 33, isYou: false },
+  { subreddit: 'r/deadchannel', cycle: 1, day: 8, survivalDays: 8, status: 'fallen', threat: 94, population: 0, savedCount: 3, activePlayers: 5, isYou: false },
+  { subreddit: 'r/pinegate', cycle: 1, day: 6, survivalDays: 6, status: 'holding', threat: 35, population: 84, savedCount: 2, activePlayers: 19, isYou: false },
+  { subreddit: 'r/dustmarch', cycle: 1, day: 3, survivalDays: 3, status: 'fallen', threat: 99, population: 0, savedCount: 0, activePlayers: 2, isYou: false },
+];
+
+const mockWorld = (): WorldResponse => {
+  const locked =
+    typeof window !== 'undefined' && /[?&]worldlocked=1\b/.test(window.location.search);
+  if (locked) {
+    // Not eligible yet: your city is absent from the world — read-only aspiration.
+    const cities = MOCK_WORLD_CITIES.filter((c) => !c.isYou);
+    return {
+      type: 'world',
+      cities,
+      yourRank: null,
+      totalCities: cities.length,
+      eligible: false,
+      subscribers: 214,
+      minSubscribers: 500,
+    };
+  }
+  return {
+    type: 'world',
+    cities: [...MOCK_WORLD_CITIES],
+    yourRank: 4,
+    totalCities: MOCK_WORLD_CITIES.length,
+    eligible: true,
+    subscribers: 1243,
+    minSubscribers: 500,
+  };
+};
 
 // ---------- public api ----------
 
@@ -302,4 +351,8 @@ export const api = {
           notices: ['Day 4: The city survived to see one more dawn.', '3 expeditions returned with supplies.'],
         })
       : request<VillageResponse>('/api/village'),
+
+  /** GET /api/world — the cross-subreddit World of Cities (WORLD tab). */
+  world: (): Promise<WorldResponse> =>
+    MOCK ? Promise.resolve(mockWorld()) : request<WorldResponse>('/api/world'),
 };

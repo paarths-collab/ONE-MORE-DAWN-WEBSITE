@@ -223,6 +223,37 @@ export type PledgeResponse = {
   player: PlayerProfile;
 };
 
+// ========== World of Cities (Plan 2 — cross-subreddit) ==========
+
+/** Coarse status shown on the world map. */
+export type CityStatusTag = 'thriving' | 'holding' | 'strained' | 'under_raid' | 'fallen';
+
+/** One subreddit-city as it appears on the world map. Sourced from the
+ *  cross-installation global registry (redis.global). */
+export type WorldCity = {
+  subreddit: string; // "r/meadowbrook"
+  cycle: number;
+  day: number;
+  survivalDays: number; // headline ranking stat
+  status: CityStatusTag;
+  threat: number; // 0..100
+  population: number;
+  savedCount: number; // Marked saved this cycle (tribal bragging right)
+  activePlayers: number; // active in last 24h (liveliness)
+  isYou: boolean; // this is the caller's own city
+};
+
+/** GET /api/world — the ranked map of participating subreddit-cities. */
+export type WorldResponse = {
+  type: 'world';
+  cities: WorldCity[]; // ranked (longest-surviving first by default)
+  yourRank: number | null; // your city's rank among participants (null if not eligible/registered)
+  totalCities: number;
+  eligible: boolean; // is THIS subreddit >= minSubscribers (i.e. does it join the world)
+  subscribers: number | null; // this sub's subscriber count (null if unknown)
+  minSubscribers: number; // the gate (e.g. 500)
+};
+
 export type RoleRequest = { role: Role };
 export type RoleResponse = { type: 'role'; player: PlayerProfile };
 

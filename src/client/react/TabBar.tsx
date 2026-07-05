@@ -1,4 +1,4 @@
-export type Tab = 'home' | 'crisis' | 'feed' | 'you';
+export type Tab = 'home' | 'crisis' | 'feed' | 'world' | 'you';
 
 type TabDef = { id: Tab; icon: string; label: string };
 
@@ -6,6 +6,7 @@ const TABS: readonly TabDef[] = [
   { id: 'home', icon: '🏙️', label: 'Home' },
   { id: 'crisis', icon: '⚔️', label: 'Crisis' },
   { id: 'feed', icon: '📜', label: 'Feed' },
+  { id: 'world', icon: '🗺️', label: 'World' },
   { id: 'you', icon: '👤', label: 'You' },
 ];
 

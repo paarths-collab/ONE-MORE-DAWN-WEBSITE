@@ -232,6 +232,13 @@ export class Store {
     return raw ? (JSON.parse(raw) as { name: string; saved: boolean }) : null;
   }
 
+  /** Marked saved THIS cycle (markedOutcomes is deleted on mod reset), for the
+   *  World of Cities registry record. */
+  async countMarkedSaved(): Promise<number> {
+    const raw = await this.redis.hGetAll(KEYS.markedOutcomes);
+    return Object.values(raw).filter((j) => (JSON.parse(j) as { saved: boolean }).saved).length;
+  }
+
   // ----- missions -----
   async bumpDayMissions(day: number, fields: Record<string, number>): Promise<void> {
     await Promise.all(

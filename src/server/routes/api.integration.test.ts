@@ -4,7 +4,7 @@ import { generateMap, rollCrateContents } from '../../shared/mapgen';
 import { deriveLayoutSeed, hashString } from '../../shared/rng';
 import type { CityState, Marked, PlayerProfile } from '../../shared/types';
 import { validateAction, validateRoleChange } from '../game/actionRules';
-import { freshPlayer, resetPlayerForDay } from '../game/dayLogic';
+import { freshPlayer, loadOrCreatePlayer, resetPlayerForDay } from '../game/dayLogic';
 import { buildDrama } from '../game/drama';
 import { runLazyResolution } from '../game/lazyResolve';
 import { pickMarked } from '../game/marked';
@@ -161,6 +161,67 @@ describe('vertical slice', () => {
     expect(reset.energyUsedToday).toBe(0);
     expect(reset.lastActiveDay).toBe(2);
     expect(reset.streak).toBe(reloaded.streak + 1);
+  });
+});
+
+/**
+ * Front-door regression — the single most common situation (a brand-new player
+ * opening the post) must not brick. This exercises loadOrCreatePlayer, the
+ * exact code /init runs, rather than seeding store.savePlayer directly (which is
+ * precisely how the original brick slipped past every other test).
+ */
+describe('brand-new player front door', () => {
+  it('persists the fresh profile on first visit so later actions do not 409', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    const { city } = await runLazyResolution(store, redis, new Date('2026-07-05T09:00:00Z'), 0);
+
+    // Nothing stored yet — this is a first-ever visitor.
+    expect(await store.getPlayer('t2_newcomer')).toBeUndefined();
+
+    let rpcCalls = 0;
+    const resolveUsername = async () => {
+      rpcCalls += 1;
+      return 'newcomer';
+    };
+
+    const first = await loadOrCreatePlayer(store, 't2_newcomer', city.day, resolveUsername);
+    expect(first.brandNew).toBe(true);
+    expect(first.firstVisitToday).toBe(false); // no "yesterday" → no dawn report
+    expect(rpcCalls).toBe(1); // fresh player paid the username RPC exactly once
+
+    // THE INVARIANT: the profile is now persisted. If this regresses, /role,
+    // /action and /pledge all read undefined and 409 "Open the game first".
+    const persisted = await store.getPlayer('t2_newcomer');
+    expect(persisted).not.toBeUndefined();
+    expect(persisted?.userId).toBe('t2_newcomer');
+    expect(persisted?.username).toBe('newcomer');
+    expect(persisted?.role).toBeNull();
+    expect(persisted?.lastActiveDay).toBe(city.day);
+
+    // The role gate would now succeed — the player exists, so no 409.
+    const gate = await store.getPlayer('t2_newcomer');
+    expect(gate).not.toBeUndefined();
+
+    // Second visit reuses the stored profile and never re-pays the RPC.
+    const second = await loadOrCreatePlayer(store, 't2_newcomer', city.day, resolveUsername);
+    expect(second.brandNew).toBe(false);
+    expect(rpcCalls).toBe(1);
+    expect(second.player.username).toBe('newcomer');
+  });
+
+  it('marks an existing player firstVisitToday after a day rollover', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    // Player last active on day 1, city is now on day 2.
+    await store.savePlayer({ ...freshPlayer('t2_ret', 'ret', 1), lastActiveDay: 1 });
+    const loaded = await loadOrCreatePlayer(store, 't2_ret', 2, async () => 'unused');
+    expect(loaded.brandNew).toBe(false);
+    expect(loaded.firstVisitToday).toBe(true);
+    expect(loaded.player.energyUsedToday).toBe(0); // reset for the new day
+    expect(loaded.player.lastActiveDay).toBe(2);
+    // Persisted with the advanced day.
+    expect((await store.getPlayer('t2_ret'))?.lastActiveDay).toBe(2);
   });
 });
 

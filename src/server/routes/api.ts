@@ -6,6 +6,7 @@ import type {
   ActionRequest,
   ActionResponse,
   ApiError,
+  CityState,
   DawnReport,
   FactionId,
   Forecast,
@@ -23,6 +24,7 @@ import type {
   VillageResponse,
   VoteRequest,
   VoteResponse,
+  WorldResponse,
 } from '../../shared/types';
 import { hashString } from '../../shared/rng';
 import { validateAction, validateRoleChange } from '../game/actionRules';
@@ -31,11 +33,19 @@ import { pickMarked } from '../game/marked';
 import { buildPledgeInfo, isPledgeKind, type PledgerEntry } from '../game/pledges';
 import { buildStanding } from '../game/standing';
 import { buildVillagers, buildZones, maskName } from '../game/village';
-import { bumpRoleRep, effectiveEnergy, freshPlayer, resetPlayerForDay } from '../game/dayLogic';
-import { runLazyResolution } from '../game/lazyResolve';
+import { bumpRoleRep, effectiveEnergy, loadOrCreatePlayer } from '../game/dayLogic';
+import { runLazyResolution, utcDateString } from '../game/lazyResolve';
 import { resolveDay } from '../game/resolver';
+import {
+  citySummary,
+  displaySubredditName,
+  rankCities,
+  toWorldCity,
+  type WorldCityRecord,
+} from '../game/world';
 import { KEYS } from '../storage/redisKeys';
 import { Store, type RedisLike } from '../storage/store';
+import { readWorldCities, upsertWorldCity } from '../storage/worldRegistry';
 
 export const api = new Hono();
 
@@ -118,6 +128,70 @@ export const requireUser = (): { userId: string } | undefined => {
  */
 export const deriveWorldSeed = (): number => hashString(context.subredditId ?? 'local');
 
+/**
+ * World-of-Cities gate (Plan 2): does this sub have >= BALANCE.world
+ * .minSubscribers? getCurrentSubreddit() is a Reddit RPC, so the verdict is
+ * cached in city:meta under a UTC date stamp and refreshed at most once per
+ * day. If the RPC fails we fall back to the last cached verdict (stale beats
+ * flapping); with no cache at all we report ineligible/unknown.
+ */
+const getWorldEligibility = async (
+  store: Store,
+  now: Date,
+): Promise<{ eligible: boolean; subscribers: number | null }> => {
+  const fromMeta = (meta: Record<string, string>) => {
+    const n = Number(meta.worldSubscribers);
+    return { eligible: meta.worldEligible === '1', subscribers: Number.isFinite(n) ? n : null };
+  };
+  const today = utcDateString(now);
+  const meta = await store.getCityMeta();
+  if (meta.worldCheckedDate === today && meta.worldEligible !== undefined) {
+    return fromMeta(meta);
+  }
+  try {
+    const subscribers = (await reddit.getCurrentSubreddit()).numberOfSubscribers;
+    const eligible = subscribers >= BALANCE.world.minSubscribers;
+    await store.setCityMeta({
+      worldCheckedDate: today,
+      worldSubscribers: String(subscribers),
+      worldEligible: eligible ? '1' : '0',
+    });
+    return { eligible, subscribers };
+  } catch {
+    return meta.worldEligible !== undefined
+      ? fromMeta(meta)
+      : { eligible: false, subscribers: null };
+  }
+};
+
+/**
+ * Upsert THIS city into the cross-installation registry (redis.global) — but
+ * ONLY past the subscriber gate: a sub-minSubscribers community plays fully
+ * locally and is never written to the world map. Best-effort by design: world
+ * sync rides on /init and must never break it, so all failures are swallowed.
+ */
+const syncWorldRegistry = async (store: Store, city: CityState, now: Date): Promise<void> => {
+  try {
+    const { subredditId } = context;
+    if (!subredditId) return;
+    const { eligible } = await getWorldEligibility(store, now);
+    if (!eligible) return;
+    const [savedCount, todayActions] = await Promise.all([
+      store.countMarkedSaved(),
+      store.getAllUserActions(city.day),
+    ]);
+    const record = citySummary(
+      context.subredditName ?? subredditId,
+      city,
+      savedCount,
+      Object.keys(todayActions).length,
+    );
+    await upsertWorldCity(redis.global, subredditId, record);
+  } catch {
+    // Cross-install writes are a side quest; the local game never depends on them.
+  }
+};
+
 api.get('/init', async (c) => {
   const { postId } = context;
   if (!postId) {
@@ -156,21 +230,16 @@ api.get('/init', async (c) => {
     raidLikely: city.threat + BALANCE.passiveThreatRise >= BALANCE.raid.triggerThreshold,
   };
 
+  // Load-or-create-and-persist the caller's profile (see loadOrCreatePlayer).
   // Only fresh players pay the Reddit username RPC — existing profiles skip it.
-  let player = await store.getPlayer(user.userId);
-  const brandNew = !player;
-  if (!player) {
-    const username = (await reddit.getCurrentUsername()) ?? 'citizen';
-    player = freshPlayer(user.userId, username, city.day);
-  }
-  // Computed BEFORE the daily reset advances lastActiveDay; new players never
-  // get a dawn report (there was no yesterday for them).
-  const firstVisitToday = !brandNew && player.lastActiveDay < city.day;
-  const reset = resetPlayerForDay(player, city.day);
-  if (reset !== player) {
-    player = reset;
-    await store.savePlayer(player);
-  }
+  // The brand-new profile is ALWAYS persisted here; skipping the save bricks
+  // every first-time player at the role gate forever.
+  const { player, brandNew, firstVisitToday } = await loadOrCreatePlayer(
+    store,
+    user.userId,
+    city.day,
+    async () => (await reddit.getCurrentUsername()) ?? 'citizen',
+  );
 
   const [
     crisisVotes,
@@ -218,6 +287,11 @@ api.get('/init', async (c) => {
   const pledge = buildPledgeInfo(pledgers, user.userId);
   const drama = buildDrama(city, timeline, dayActions, dayMissions, marked, factionInfluence);
   const standing = buildStanding(city, contributionRank);
+
+  // World of Cities (Plan 2): keep this sub's global-registry record fresh.
+  // Cheap on the common path (one cached-meta read for sub-gate subs; one
+  // global hSet when eligible) and never throws.
+  await syncWorldRegistry(store, city, new Date());
 
   // Dawn report: yesterday's story + this player's part in it. Only when a
   // timeline entry for yesterday exists (i.e. at least one resolution ran).
@@ -538,6 +612,44 @@ api.post('/pledge', async (c) => {
     marked,
     pledge: buildPledgeInfo(pledgers, user.userId),
     player: updated,
+  });
+});
+
+/**
+ * World of Cities (Plan 2): the ranked cross-subreddit map, read from the
+ * global registry. Read-only — the write path is the eligibility-gated upsert
+ * in /init. Sub-gate subs still get the full map (eligible:false + their
+ * subscriber count) so the client can show "join the world at 500".
+ */
+api.get('/world', async (c) => {
+  const user = requireUser();
+  if (!user) return c.json<ApiError>({ status: 'error', message: 'Not logged in' }, 401);
+  const store = getStore();
+
+  const [{ eligible, subscribers }, records] = await Promise.all([
+    getWorldEligibility(store, new Date()),
+    readWorldCities(redis.global),
+  ]);
+
+  const isYou = (subredditId: string, record: WorldCityRecord): boolean =>
+    subredditId === context.subredditId ||
+    (context.subredditName !== undefined &&
+      record.subreddit === displaySubredditName(context.subredditName));
+  const cities = rankCities(
+    Object.entries(records).map(([subredditId, record]) =>
+      toWorldCity(record, isYou(subredditId, record)),
+    ),
+  );
+  const yourIdx = cities.findIndex((city) => city.isYou);
+
+  return c.json<WorldResponse>({
+    type: 'world',
+    cities,
+    yourRank: yourIdx === -1 ? null : yourIdx + 1,
+    totalCities: cities.length,
+    eligible,
+    subscribers,
+    minSubscribers: BALANCE.world.minSubscribers,
   });
 });
 

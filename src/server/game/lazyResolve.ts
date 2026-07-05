@@ -39,13 +39,18 @@ export const runLazyResolution = async (
   // NX set returns 'OK' when acquired. The fake returns '' (falsy) and the
   // Devvit client returns nil-ish when the key exists, so a truthy check
   // covers both (see RedisClient.set in @devvit/redis: Promise<string>).
-  const acquired = Boolean(await redis.set(KEYS.resolverLock, today, { nx: true }));
+  // The TTL is set ATOMICALLY with acquisition (not a separate expire call):
+  // if this process dies mid-resolution before the finally runs, the lock must
+  // still auto-expire, otherwise a TTL-less lock wedges every future /init at
+  // resolving:true forever with no recovery path.
+  const acquired = Boolean(
+    await redis.set(KEYS.resolverLock, today, { nx: true, expiration: LOCK_TTL_SECONDS }),
+  );
   if (!acquired) {
     return { city: city ?? newCityState(1, worldSeed), resolving: true };
   }
 
   try {
-    await redis.expire(KEYS.resolverLock, LOCK_TTL_SECONDS);
     // Re-read inside the lock — another holder may have finished before us.
     city = await store.getCityState();
     const freshMeta = await store.getCityMeta();

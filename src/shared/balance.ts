@@ -211,6 +211,18 @@ export const BALANCE = {
 
   lawLifespanDays: 1,
 
+  // ---------- World of Cities (Plan 2 — cross-subreddit via redis.global) ----------
+  world: {
+    // The gate: a subreddit joins the world map at this many subscribers.
+    // Sub-gate communities play fully locally and are never written globally.
+    minSubscribers: 500,
+    // Coarse map-status thresholds (see worldStatus in src/server/game/world.ts).
+    // 'strained': ANY vital at/below its floor. 'thriving': ALL vitals at/above
+    // their floor AND threat at/below the ceiling.
+    strained: { food: 10, power: 15, medicine: 3, morale: 20 },
+    thriving: { food: 40, power: 50, medicine: 10, morale: 65, maxThreat: 40 },
+  },
+
   raid: {
     triggerThreshold: 100,
     postRaidThreat: 40,
