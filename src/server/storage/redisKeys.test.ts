@@ -11,7 +11,7 @@ describe('redis keys', () => {
     expect(KEYS.dayFactionInfluence(7)).toBe('day:7:factionInfluence');
     expect(KEYS.dayStrategyPlan(7)).toBe('day:7:strategyPlan');
     expect(KEYS.dayStrategyVoters(7)).toBe('day:7:strategyVoters');
-    expect(KEYS.playerFactions('t2_x')).toBe('player:t2_x:factions');
+    expect(KEYS.playerFactions(2, 't2_x')).toBe('player:2:t2_x:factions');
   });
 
   it('exposes fixed collection keys', () => {

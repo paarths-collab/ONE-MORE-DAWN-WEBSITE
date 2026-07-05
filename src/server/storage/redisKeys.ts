@@ -21,5 +21,7 @@ export const KEYS = {
   dayFactionInfluence: (day: number) => `day:${day}:factionInfluence`,
   dayStrategyPlan: (day: number) => `day:${day}:strategyPlan`,
   dayStrategyVoters: (day: number) => `day:${day}:strategyVoters`,
-  playerFactions: (userId: string) => `player:${userId}:factions`,
+  // Cycle-namespaced so a mod reset (which can't enumerate per-player keys)
+  // doesn't resurrect last cycle's faction rep for returning players.
+  playerFactions: (cycle: number, userId: string) => `player:${cycle}:${userId}:factions`,
 } as const;

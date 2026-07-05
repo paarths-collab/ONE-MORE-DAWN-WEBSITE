@@ -115,19 +115,29 @@ describe('Store', () => {
   it('bumping player faction rep sets faction to the leader', async () => {
     const store = new Store(makeFakeRedis());
     await store.savePlayer(player);
-    const p1 = await store.bumpPlayerFactionRep('t2_abc', 'builders', 3);
+    const p1 = await store.bumpPlayerFactionRep(1, 't2_abc', 'builders', 3);
     expect(p1?.faction).toBe('builders');
     expect(p1?.factionRep).toBe(3);
-    const p2 = await store.bumpPlayerFactionRep('t2_abc', 'wardens', 4);
+    const p2 = await store.bumpPlayerFactionRep(1, 't2_abc', 'wardens', 4);
     expect(p2?.faction).toBe('wardens');
     expect(p2?.factionRep).toBe(4);
-    const p3 = await store.bumpPlayerFactionRep('t2_abc', 'wardens', 0);
+    const p3 = await store.bumpPlayerFactionRep(1, 't2_abc', 'wardens', 0);
     expect(p3?.faction).toBe('wardens');
+  });
+
+  it('scopes faction rep by cycle so a reset does not resurrect old leanings', async () => {
+    const store = new Store(makeFakeRedis());
+    await store.savePlayer(player);
+    await store.bumpPlayerFactionRep(1, 't2_abc', 'seekers', 9);
+    // A fresh cycle sees no prior rep.
+    const fresh = await store.bumpPlayerFactionRep(2, 't2_abc', 'builders', 2);
+    expect(fresh?.faction).toBe('builders');
+    expect(fresh?.factionRep).toBe(2);
   });
 
   it('returns undefined when bumping rep for a nonexistent player', async () => {
     const store = new Store(makeFakeRedis());
-    expect(await store.bumpPlayerFactionRep('t2_ghost', 'builders', 1)).toBeUndefined();
+    expect(await store.bumpPlayerFactionRep(1, 't2_ghost', 'builders', 1)).toBeUndefined();
   });
 
   it('appends timeline entries and reads them newest-first', async () => {

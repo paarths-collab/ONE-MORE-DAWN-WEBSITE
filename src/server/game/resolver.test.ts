@@ -142,7 +142,22 @@ describe('resolveDay', () => {
   it('winning faction sets tomorrow\'s law', () => {
     const { city: next } = resolveDay(city(), { ...noInputs, factionInfluence: { builders: 5, wardens: 2 } });
     expect(next.activeLaw).toBe('builders');
-    expect(next.lawExpiresDay).toBe(next.day + BALANCE.lawLifespanDays);
+    // lawExpiresDay is the LAST active day: enacted for next.day, lifespan 1 → expires that day.
+    expect(next.lawExpiresDay).toBe(next.day + BALANCE.lawLifespanDays - 1);
+  });
+
+  it('a law lives exactly lawLifespanDays (boundary)', () => {
+    // Enact on a day-3 resolution → law is for day 4, lawExpiresDay 4 (lifespan 1).
+    const enacted = resolveDay(city({ day: 3 }), { ...noInputs, factionInfluence: { builders: 5 } }).city;
+    expect(enacted.day).toBe(4);
+    expect(enacted.lawExpiresDay).toBe(4);
+    // Active on day 4 (its own day), boosts repair.
+    const boosted = resolveDay(enacted, { ...noInputs, actions: { repair_power: 4 } }).city.power;
+    const control = resolveDay({ ...enacted, activeLaw: null, lawExpiresDay: 0 }, { ...noInputs, actions: { repair_power: 4 } }).city.power;
+    expect(boosted).toBeGreaterThan(control);
+    // On day 5 the same law is expired: resolving day 4 with no new winner carries nothing.
+    const day5 = resolveDay(enacted, noInputs).city;
+    expect(day5.activeLaw).toBeNull();
   });
 
   it('faction ties break by faction order (builders first)', () => {

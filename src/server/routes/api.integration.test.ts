@@ -185,9 +185,10 @@ describe('conflict layer', () => {
     };
     const { city: next } = resolveDay(city, inputs);
 
-    // Builders won → tomorrow's law is 'builders', lifespan honored.
+    // Builders won → tomorrow's law is 'builders'. lawExpiresDay is the last
+    // active day: enacted for next.day, lifespan 1 → expires that same day.
     expect(next.activeLaw).toBe('builders');
-    expect(next.lawExpiresDay).toBe(next.day + BALANCE.lawLifespanDays);
+    expect(next.lawExpiresDay).toBe(next.day + BALANCE.lawLifespanDays - 1);
 
     // Now resolve ANOTHER day WITH the builders law active + repair actions,
     // and compare against a CONTROL run of the same day with no law. The law
@@ -239,9 +240,9 @@ describe('conflict layer', () => {
     await store.savePlayer(player);
 
     // Two seekers rep bumps (e.g. two expedition runs).
-    const first = await store.bumpPlayerFactionRep('t2_dax', 'seekers', BALANCE.factionRepPerMissionRun);
+    const first = await store.bumpPlayerFactionRep(1, 't2_dax', 'seekers', BALANCE.factionRepPerMissionRun);
     expect(first?.faction).toBe('seekers');
-    const second = await store.bumpPlayerFactionRep('t2_dax', 'seekers', BALANCE.factionRepPerMissionRun);
+    const second = await store.bumpPlayerFactionRep(1, 't2_dax', 'seekers', BALANCE.factionRepPerMissionRun);
     expect(second?.faction).toBe('seekers');
     expect(second?.factionRep).toBe(BALANCE.factionRepPerMissionRun * 2);
 

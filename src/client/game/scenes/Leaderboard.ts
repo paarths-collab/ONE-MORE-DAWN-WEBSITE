@@ -14,7 +14,7 @@ const PANEL_X = 30;
 const PANEL_W = W - 60;
 const LIST_PANEL_H = 300;
 const FACTION_PANEL_H = 250;
-const ROW_H = 26;
+const ROW_H = 24;
 
 export class Leaderboard extends Phaser.Scene {
   constructor() {

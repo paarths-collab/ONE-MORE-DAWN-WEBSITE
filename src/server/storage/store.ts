@@ -130,6 +130,7 @@ export class Store {
    * Returns the updated profile, or undefined if the player didn't exist.
    */
   async bumpPlayerFactionRep(
+    cycle: number,
     userId: string,
     faction: FactionId,
     by: number,
@@ -137,9 +138,9 @@ export class Store {
     const player = await this.getPlayer(userId);
     if (!player) return undefined;
     if (by !== 0) {
-      await this.redis.hIncrBy(KEYS.playerFactions(userId), faction, by);
+      await this.redis.hIncrBy(KEYS.playerFactions(cycle, userId), faction, by);
     }
-    const repRaw = await this.redis.hGetAll(KEYS.playerFactions(userId));
+    const repRaw = await this.redis.hGetAll(KEYS.playerFactions(cycle, userId));
     const reps: Record<FactionId, number> = { builders: 0, wardens: 0, seekers: 0, hearth: 0 };
     for (const [k, v] of Object.entries(repRaw)) {
       if (k in reps) reps[k as FactionId] = Number(v);

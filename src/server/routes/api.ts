@@ -222,7 +222,7 @@ api.post('/action', async (c) => {
   if (faction) {
     await store.bumpFactionInfluence(city.day, faction, BALANCE.factionRepPerAction);
     finalPlayer =
-      (await store.bumpPlayerFactionRep(user.userId, faction, BALANCE.factionRepPerAction)) ??
+      (await store.bumpPlayerFactionRep(city.cycle, user.userId, faction, BALANCE.factionRepPerAction)) ??
       updated;
   }
 

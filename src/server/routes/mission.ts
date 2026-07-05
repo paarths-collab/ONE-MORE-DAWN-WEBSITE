@@ -170,6 +170,7 @@ mission.post('/complete', async (c) => {
     BALANCE.factionRepPerMissionRun,
   );
   const repd = await store.bumpPlayerFactionRep(
+    city.cycle,
     userId,
     BALANCE.factionPerMissionRun,
     BALANCE.factionRepPerMissionRun,

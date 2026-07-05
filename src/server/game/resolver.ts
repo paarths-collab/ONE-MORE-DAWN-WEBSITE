@@ -260,19 +260,25 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     next.crisisId = pickNextCrisis(city).id;
   }
 
-  // --- 5b. faction winner shapes tomorrow's law ---
-  const winnerFaction = winningFaction(inputs.factionInfluence);
-  if (winnerFaction) {
-    next.activeLaw = winnerFaction;
-    next.lawExpiresDay = next.day + BALANCE.lawLifespanDays;
-    const label = BALANCE.laws[winnerFaction].label;
-    events.push(`The ${winnerFaction} faction shaped tomorrow's law: ${label} enacted.`);
-  } else {
-    // No faction acted: carry yesterday's law only if it is still within its
-    // lifespan for tomorrow; otherwise clear it to null.
-    const carry = city.lawExpiresDay >= next.day ? city.activeLaw : null;
-    next.activeLaw = carry;
-    next.lawExpiresDay = carry ? city.lawExpiresDay : 0;
+  // --- 5b. faction winner shapes tomorrow's law (alive cities only) ---
+  // lawExpiresDay is the LAST day the law is active. A law enacted for
+  // next.day with lifespan 1 expires that same day (active on next.day only),
+  // so the stamp is `next.day + lifespan - 1`. Active-check elsewhere is
+  // `lawExpiresDay >= currentDay`.
+  if (next.status === 'alive') {
+    const winnerFaction = winningFaction(inputs.factionInfluence);
+    if (winnerFaction) {
+      next.activeLaw = winnerFaction;
+      next.lawExpiresDay = next.day + BALANCE.lawLifespanDays - 1;
+      const label = BALANCE.laws[winnerFaction].label;
+      events.push(`The ${winnerFaction} faction shaped tomorrow's law: ${label} enacted.`);
+    } else {
+      // No faction acted: carry yesterday's law only if it is still within its
+      // lifespan for tomorrow; otherwise clear it to null.
+      const carry = city.lawExpiresDay >= next.day ? city.activeLaw : null;
+      next.activeLaw = carry;
+      next.lawExpiresDay = carry ? city.lawExpiresDay : 0;
+    }
   }
 
   // --- 6. timeline entry (deltas vs yesterday) ---
