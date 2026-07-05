@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ONE MORE DAWN — V3 · RALLY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ONE MORE DAWN — UI VARIANT 3 "RALLY"
+   Constructivist mobilization broadside. Bone / ink / red / mustard.
+   No gradients. No rounded corners. No mercy.
+   ============================================================ */
+:root{
+  --bone:#efe7d6;
+  --bone-dim:#e0d5bc;
+  --ink:#161209;
+  --red:#d5342a;
+  --red-deep:#a3231b;
+  --mustard:#e6a821;
+  --mustard-deep:#c58c10;
+  --f-display:'Anton',"Arial Narrow",sans-serif;
+  --f-cond:'Barlow Condensed',sans-serif;
+  --f-mono:'Space Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;border-radius:0!important;}
+::selection{background:var(--red);color:var(--bone);}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+
+/* ---------- dark presentation page ---------- */
+html,body{height:100%;}
+body{
+  background:
+    repeating-linear-gradient(-45deg, rgba(239,231,214,.028) 0 2px, transparent 2px 26px),
+    #14100b;
+  font-family:var(--f-cond);
+  color:var(--bone);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;min-height:100vh;padding:22px 0;
+}
+.page-tag{
+  font-family:var(--f-mono);font-size:10px;letter-spacing:.35em;
+  color:var(--bone);opacity:.55;text-transform:uppercase;
+}
+.page-tag b{color:var(--mustard);font-weight:700;}
+
+/* ---------- phone frame ---------- */
+.phone{
+  width:390px;height:844px;max-height:calc(100vh - 88px);
+  background:var(--bone);
+  border:3px solid var(--ink);
+  box-shadow:12px 12px 0 var(--red), 12px 12px 0 3px var(--ink);
+  position:relative;overflow:hidden;
+  display:flex;flex-direction:column;
+  color:var(--ink);
+}
+@media (max-width:480px){
+  body{padding:0;gap:0;}
+  .page-tag{display:none;}
+  .phone{width:100%;height:100dvh;max-height:none;border:none;box-shadow:none;}
+}
+
+/* ---------- masthead ---------- */
+.masthead{
+  flex:none;background:var(--ink);color:var(--bone);
+  display:flex;align-items:stretch;gap:0;
+  border-bottom:3px solid var(--ink);
+  position:relative;z-index:30;
+}
+.masthead .brand{
+  font-family:var(--f-display);font-size:19px;letter-spacing:.06em;
+  padding:12px 12px 9px 14px;line-height:1;display:flex;align-items:center;gap:9px;
+}
+.masthead .brand .sun{
+  width:15px;height:15px;background:var(--red);flex:none;
+  clip-path:polygon(50% 0,63% 33%,100% 37%,74% 60%,84% 100%,50% 78%,16% 100%,26% 60%,0 37%,37% 33%);
+}
+.masthead .day-plate{
+  margin-left:auto;background:var(--mustard);color:var(--ink);
+  font-family:var(--f-display);font-size:13px;letter-spacing:.08em;
+  display:flex;align-items:center;padding:0 10px;border-left:3px solid var(--ink);
+}
+.masthead .vtag{
+  background:var(--red);color:var(--bone);
+  font-family:var(--f-mono);font-size:8px;font-weight:700;letter-spacing:.18em;
+  display:flex;align-items:center;padding:0 8px;border-left:3px solid var(--ink);
+  writing-mode:vertical-rl;text-orientation:mixed;justify-content:center;
+}
+
+/* ---------- screens ---------- */
+.screens{flex:1;position:relative;overflow:hidden;background:var(--bone);}
+.screen{
+  position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;display:none;
+  padding-bottom:26px;scrollbar-width:none;
+  background:
+    repeating-linear-gradient(0deg, rgba(22,18,9,.022) 0 1px, transparent 1px 3px),
+    var(--bone);
+}
+.screen::-webkit-scrollbar{width:0;}
+.screen.active{display:block;}
+
+/* utility */
+.halftone{
+  background-image:radial-gradient(var(--ink) 1.3px, transparent 1.45px);
+  background-size:7px 7px;
+}
+.kicker{
+  display:inline-block;font-family:var(--f-cond);font-weight:800;
+  font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  padding:3px 8px 2px;
+}
+
+/* ============================================================
+   CITY — the home broadside
+   ============================================================ */
+
+/* streak banner — angled marquee strap */
+.streak-wrap{margin:18px 0 6px;transform:rotate(-2.2deg);width:114%;margin-left:-7%;}
+.streak{
+  background:var(--mustard);border-top:3px solid var(--ink);border-bottom:3px solid var(--ink);
+  overflow:hidden;white-space:nowrap;
+}
+.streak-inner{
+  display:inline-block;font-family:var(--f-display);font-size:21px;
+  letter-spacing:.1em;padding:7px 0 5px;color:var(--ink);
+  animation:crawl 26s linear infinite;
+}
+.streak-inner .st{color:var(--red);padding:0 12px;}
+@keyframes crawl{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.substreak{
+  background:var(--ink);color:var(--bone);
+  font-family:var(--f-mono);font-size:9px;letter-spacing:.28em;
+  text-align:center;padding:5px 0 4px;
+  transform:rotate(1.1deg);width:112%;margin:-2px 0 0 -6%;
+}
+.substreak b{color:var(--mustard);}
+
+/* ------- THE MARKED · hero mobilization poster ------- */
+.marked{
+  margin:22px 14px 0;background:var(--red);border:3px solid var(--ink);
+  box-shadow:8px 8px 0 var(--ink);
+  position:relative;overflow:hidden;color:var(--bone);
+}
+.marked::before{ /* sunburst rays */
+  content:"";position:absolute;inset:-55% -30%;
+  background:repeating-conic-gradient(from 6deg at 34% 62%,
+    rgba(22,18,9,.16) 0 8deg, transparent 8deg 17deg);
+  pointer-events:none;
+}
+.marked::after{ /* halftone corner */
+  content:"";position:absolute;right:-22px;top:-22px;width:120px;height:120px;
+  background-image:radial-gradient(rgba(22,18,9,.5) 1.4px, transparent 1.55px);
+  background-size:8px 8px;transform:rotate(12deg);pointer-events:none;
+}
+.marked-head{
+  display:flex;align-items:center;position:relative;z-index:2;
+  border-bottom:3px solid var(--ink);
+}
+.marked-head .kicker{background:var(--ink);color:var(--mustard);padding:6px 10px 5px;}
+.marked-head .obj{
+  margin-left:auto;font-family:var(--f-mono);font-size:9px;font-weight:700;
+  letter-spacing:.2em;padding-right:10px;color:var(--bone);
+}
+.marked-body{padding:16px 14px 6px;position:relative;z-index:2;}
+.tonight{
+  font-family:var(--f-cond);font-weight:800;font-size:14px;
+  letter-spacing:.34em;text-transform:uppercase;color:var(--bone);
+}
+.hero-name{
+  font-family:var(--f-display);
+  font-size:min(104px,26.5vw);line-height:.92;letter-spacing:.015em;
+  color:var(--bone);margin:2px 0 0 -4px;
+  text-shadow:5px 4px 0 var(--ink), -3px -2px 0 var(--mustard); /* mis-registration */
+}
+.hero-sub{
+  display:flex;align-items:baseline;gap:10px;margin-top:8px;flex-wrap:wrap;
+}
+.hero-sub .who{
+  font-family:var(--f-cond);font-weight:800;font-size:17px;letter-spacing:.14em;
+  color:var(--mustard);text-transform:uppercase;
+}
+.hero-sub .age{font-family:var(--f-mono);font-size:10px;letter-spacing:.2em;color:var(--bone);}
+.order-strip{
+  margin:14px -14px 0;background:var(--ink);color:var(--bone);
+  font-family:var(--f-display);font-size:22px;letter-spacing:.09em;
+  padding:8px 14px 6px;position:relative;z-index:2;
+  transform:rotate(-1.3deg) scale(1.03);
+}
+.order-strip em{font-style:normal;color:var(--red);
+  text-shadow:2px 0 0 var(--bone);}
+.rally{padding:16px 14px 14px;position:relative;z-index:2;}
+.rally-label{
+  display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:7px;
+}
+.rally-label .call{
+  font-family:var(--f-display);font-size:26px;letter-spacing:.04em;color:var(--bone);
+  line-height:1;
+}
+.rally-label .call span{color:var(--mustard);}
+.rally-label .frac{
+  font-family:var(--f-mono);font-size:10px;font-weight:700;letter-spacing:.12em;
+  color:var(--bone);text-align:right;line-height:1.5;
+}
+.bar{
+  height:34px;background:var(--bone);border:3px solid var(--ink);
+  position:relative;overflow:hidden;
+}
+.bar-fill{
+  position:absolute;inset:0 auto 0 0;width:57%;
+  background:repeating-linear-gradient(135deg,var(--mustard) 0 14px,var(--mustard-deep) 14px 28px);
+  border-right:3px solid var(--ink);
+  transition:width .55s cubic-bezier(.2,1.4,.3,1);
+}
+.bar-ticks{
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg, transparent 0 calc(25% - 2px), rgba(22,18,9,.55) calc(25% - 2px) 25%);
+  pointer-events:none;
+}
+.bar-pct{
+  position:absolute;right:8px;top:50%;transform:translateY(-52%);
+  font-family:var(--f-display);font-size:21px;color:var(--ink);letter-spacing:.03em;
+}
+.dawn-row{
+  display:flex;justify-content:space-between;align-items:center;margin-top:9px;
+  font-family:var(--f-mono);font-size:10px;font-weight:700;letter-spacing:.18em;
+}
+.dawn-row .cnt{background:var(--ink);color:var(--mustard);padding:4px 8px 3px;}
+.dawn-row .stakes{color:var(--ink);background:var(--bone);padding:4px 8px 3px;border:2px solid var(--ink);}
+
+/* ------- pledge block ------- */
+.pledge-sec{margin:26px 14px 0;}
+.sec-head{
+  display:flex;align-items:center;gap:10px;margin-bottom:12px;
+}
+.sec-head .slab{
+  background:var(--ink);color:var(--bone);font-family:var(--f-display);
+  font-size:20px;letter-spacing:.07em;padding:6px 12px 4px;
+  transform:rotate(-1deg);
+}
+.sec-head .rule{flex:1;height:3px;background:var(--ink);}
+.sec-head .no{
+  font-family:var(--f-mono);font-size:9px;font-weight:700;letter-spacing:.2em;color:var(--red);
+}
+.pledges{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.pledge{
+  border:3px solid var(--ink);background:var(--bone);
+  box-shadow:6px 6px 0 var(--ink);
+  padding:13px 12px 11px;text-align:left;position:relative;overflow:hidden;
+  transition:transform .07s steps(2,end), box-shadow .07s steps(2,end), background .12s;
+}
+.pledge:nth-child(1){transform:rotate(-.6deg);}
+.pledge:nth-child(2){transform:rotate(.5deg);}
+.pledge:nth-child(3){transform:rotate(.4deg);}
+.pledge:nth-child(4){transform:rotate(-.5deg);}
+.pledge:active{transform:translate(6px,6px)!important;box-shadow:0 0 0 var(--ink);}
+.pledge .glyph{height:22px;margin-bottom:8px;display:block;}
+.pledge .act{
+  font-family:var(--f-display);font-size:19px;line-height:1;letter-spacing:.03em;
+  display:block;color:var(--ink);
+}
+.pledge .gain{
+  display:block;margin-top:6px;font-family:var(--f-mono);font-size:9px;font-weight:700;
+  letter-spacing:.14em;color:var(--red);
+}
+.pledge.stamped{background:var(--mustard);box-shadow:3px 3px 0 var(--ink);}
+.pledge.stamped .gain{color:var(--ink);}
+.pledge .stampmark{
+  display:none;position:absolute;inset:auto 6px 8px auto;
+  border:3px solid var(--red);color:var(--red);
+  font-family:var(--f-display);font-size:13px;letter-spacing:.16em;
+  padding:2px 7px 1px;transform:rotate(-11deg);
+  background:rgba(239,231,214,.72);
+}
+.pledge.stamped .stampmark{display:block;animation:slam .28s cubic-bezier(.2,1.6,.3,1);}
+.allin{
+  display:none;margin-top:12px;background:var(--red);color:var(--bone);
+  border:3px solid var(--ink);text-align:center;
+  font-family:var(--f-display);font-size:16px;letter-spacing:.1em;padding:9px 8px 7px;
+  transform:rotate(-.8deg);
+}
+.allin.on{display:block;animation:slam .3s cubic-bezier(.2,1.6,.3,1);}
+
+/* ------- vitals ------- */
+.vitals-sec{margin:28px 14px 0;}
+.meter{
+  display:grid;grid-template-columns:86px 1fr 52px;gap:10px;align-items:center;
+  border:3px solid var(--ink);margin-bottom:-3px;background:var(--bone);
+  padding:9px 10px;
+}
+.meter .m-label{
+  font-family:var(--f-cond);font-weight:900;font-size:15px;letter-spacing:.12em;
+}
+.meter .m-label small{
+  display:block;font-family:var(--f-mono);font-weight:700;font-size:8px;
+  letter-spacing:.12em;color:var(--red);margin-top:1px;
+}
+.m-track{height:18px;border:2px solid var(--ink);position:relative;background:var(--bone-dim);overflow:hidden;}
+.m-fill{position:absolute;inset:0 auto 0 0;background:var(--mustard);border-right:2px solid var(--ink);}
+.m-track::after{ /* segment ticks */
+  content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg, transparent 0 24px, var(--ink) 24px 26px);
+}
+.meter .m-val{
+  font-family:var(--f-display);font-size:26px;text-align:right;line-height:1;
+}
+.meter.bad .m-fill{background:var(--red);}
+.meter.inv{background:var(--ink);color:var(--bone);}
+.meter.inv .m-track{background:#2a241a;border-color:var(--bone);}
+.meter.inv .m-track::after{background:repeating-linear-gradient(90deg, transparent 0 24px, var(--bone) 24px 26px);}
+.meter.inv .m-fill{background:var(--red);border-right-color:var(--bone);}
+.meter.inv .m-label small{color:var(--mustard);}
+.pop-block{
+  border:3px solid var(--ink);background:var(--mustard);
+  display:flex;align-items:center;gap:12px;padding:10px 12px;margin-top:0;
+}
+.pop-block .n{font-family:var(--f-display);font-size:40px;line-height:1;letter-spacing:.01em;}
+.pop-block .t{
+  font-family:var(--f-mono);font-size:9px;font-weight:700;letter-spacing:.16em;line-height:1.7;
+}
+.pop-block .t b{background:var(--ink);color:var(--mustard);padding:1px 5px;}
+
+/* ------- crisis ------- */
+.crisis-wrap{margin:30px 0 0;}
+.crisis{
+  width:112%;margin-left:-6%;transform:rotate(-1.6deg);
+  background:var(--ink);color:var(--bone);border:0;
+  display:flex;align-items:center;gap:12px;
+  padding:14px 8% 13px;cursor:pointer;text-align:left;
+}
+.crisis .warn{
+  width:30px;height:27px;flex:none;background:var(--mustard);
+  clip-path:polygon(50% 0,100% 100%,0 100%);position:relative;
+}
+.crisis .txt{font-family:var(--f-display);font-size:21px;line-height:1.04;letter-spacing:.05em;}
+.crisis .txt small{
+  display:block;font-family:var(--f-mono);font-size:8px;font-weight:700;
+  letter-spacing:.24em;color:var(--mustard);margin-top:4px;
+}
+.crisis .go{
+  margin-left:auto;background:var(--red);color:var(--bone);flex:none;
+  font-family:var(--f-display);font-size:15px;letter-spacing:.08em;
+  padding:9px 11px 7px;box-shadow:4px 4px 0 rgba(239,231,214,.28);
+}
+.vote-panel{
+  display:none;margin:16px 14px 0;border:3px solid var(--ink);
+  background:var(--bone);box-shadow:8px 8px 0 var(--ink);overflow:hidden;
+}
+.vote-panel.open{display:block;animation:slam .25s ease-out;}
+.vote-q{
+  background:var(--red);color:var(--bone);padding:12px 12px 10px;
+  border-bottom:3px solid var(--ink);
+  font-family:var(--f-cond);font-weight:800;font-size:16px;letter-spacing:.05em;
+  text-transform:uppercase;line-height:1.25;
+}
+.vote-q small{
+  display:block;font-family:var(--f-mono);font-size:8px;font-weight:700;
+  letter-spacing:.22em;margin-bottom:5px;color:var(--mustard);
+}
+.vopt{
+  display:block;width:100%;text-align:left;padding:12px;position:relative;
+  border-bottom:3px solid var(--ink);background:var(--bone);
+}
+.vopt:last-child{border-bottom:0;}
+.vopt .o-name{
+  font-family:var(--f-display);font-size:17px;letter-spacing:.04em;display:flex;
+  justify-content:space-between;align-items:baseline;
+}
+.vopt .o-pct{font-family:var(--f-display);font-size:17px;color:var(--red);}
+.vopt .o-bar{height:12px;border:2px solid var(--ink);margin-top:7px;background:var(--bone-dim);position:relative;overflow:hidden;}
+.vopt .o-fill{position:absolute;inset:0 auto 0 0;background:var(--ink);transition:width .5s ease;}
+.vopt .o-sub{font-family:var(--f-mono);font-size:8px;font-weight:700;letter-spacing:.18em;margin-top:5px;color:var(--ink);opacity:.75;}
+.vopt.chosen{background:var(--mustard);}
+.vopt.chosen .o-fill{background:var(--red);}
+.vopt.chosen::after{
+  content:"YOUR VOICE";position:absolute;right:10px;top:8px;
+  border:2px solid var(--red);color:var(--red);font-family:var(--f-display);
+  font-size:10px;letter-spacing:.15em;padding:2px 6px 1px;transform:rotate(-8deg);
+  background:rgba(239,231,214,.8);
+}
+.vopt.dim{opacity:.55;}
+.vote-foot{
+  background:var(--ink);color:var(--bone);font-family:var(--f-mono);
+  font-size:8px;font-weight:700;letter-spacing:.24em;text-align:center;padding:6px;
+}
+
+/* ------- service record ------- */
+.service{margin:28px 14px 0;border:3px solid var(--ink);background:var(--ink);color:var(--bone);
+  box-shadow:6px 6px 0 var(--red);}
+.service-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 12px 7px;border-bottom:3px solid var(--bone);
+}
+.service-head .h{font-family:var(--f-display);font-size:17px;letter-spacing:.09em;}
+.service-head .role{
+  font-family:var(--f-mono);font-size:8px;font-weight:700;letter-spacing:.2em;color:var(--mustard);
+}
+.medals{display:grid;grid-template-columns:repeat(3,1fr);}
+.medal{padding:12px 8px 10px;text-align:center;border-right:3px solid rgba(239,231,214,.25);}
+.medal:last-child{border-right:0;}
+.medal .m-ico{width:26px;height:26px;margin:0 auto 7px;}
+.medal .m-ico.star{background:var(--mustard);
+  clip-path:polygon(50% 0,63% 33%,100% 37%,74% 60%,84% 100%,50% 78%,16% 100%,26% 60%,0 37%,37% 33%);}
+.medal .m-ico.chev{background:var(--red);
+  clip-path:polygon(0 0,50% 34%,100% 0,100% 38%,50% 72%,0 38%);}
+.medal .m-ico.shield{background:var(--bone);
+  clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);}
+.medal .m-big{font-family:var(--f-display);font-size:19px;line-height:1;}
+.medal .m-cap{font-family:var(--f-mono);font-size:7px;font-weight:700;letter-spacing:.16em;margin-top:4px;opacity:.8;}
+
+.printline{
+  margin:26px 14px 0;text-align:center;
+  font-family:var(--f-mono);font-size:8px;font-weight:700;letter-spacing:.22em;
+  color:var(--ink);opacity:.55;
+}
+
+/* ============================================================
+   THE FRONT — standings board
+   ============================================================ */
+.front-head{
+  margin:18px 14px 0;position:relative;background:var(--ink);color:var(--bone);
+  border:3px solid var(--ink);box-shadow:8px 8px 0 var(--mustard);
+  padding:16px 14px 12px;overflow:hidden;
+}
+.front-head::after{
+  content:"";position:absolute;right:-18px;bottom:-18px;width:110px;height:110px;
+  background-image:radial-gradient(rgba(239,231,214,.4) 1.3px, transparent 1.45px);
+  background-size:8px 8px;transform:rotate(-9deg);
+}
+.front-head .fh-kick{
+  font-family:var(--f-mono);font-size:9px;font-weight:700;letter-spacing:.3em;color:var(--mustard);
+}
+.front-head h2{
+  font-family:var(--f-display);font-size:56px;line-height:.95;letter-spacing:.01em;
+  margin:4px 0 2px -2px;color:var(--bone);
+  text-shadow:4px 3px 0 var(--red);
+}
+.front-head .fh-sub{
+  font-family:var(--f-cond);font-weight:800;font-size:14px;letter-spacing:.18em;
+  text-transform:uppercase;
+}
+.front-head .fh-sub b{color:var(--red);}
+.taunt{
+  margin:16px 0 0;width:112%;margin-left:-6%;transform:rotate(1.2deg);
+  background:var(--red);color:var(--bone);border-top:3px solid var(--ink);border-bottom:3px solid var(--ink);
+  padding:9px 8% 8px;font-family:var(--f-display);font-size:15px;letter-spacing:.07em;
+}
+.taunt small{
+  display:block;font-family:var(--f-mono);font-size:8px;font-weight:700;
+  letter-spacing:.2em;color:var(--mustard);margin-top:3px;
+}
+.board{margin:20px 14px 0;}
+.frow{
+  width:100%;text-align:left;border:3px solid var(--ink);margin-bottom:-3px;
+  background:var(--bone);display:block;position:relative;
+}
+.frow-top{
+  display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;
+  padding:9px 10px;
+}
+.frow .rank{
+  font-family:var(--f-display);font-size:38px;line-height:.9;text-align:center;
+  color:var(--ink);
+}
+.frow .cname{font-family:var(--f-cond);font-weight:900;font-size:19px;letter-spacing:.03em;line-height:1.05;}
+.frow .cmeta{font-family:var(--f-mono);font-size:8px;font-weight:700;letter-spacing:.14em;margin-top:3px;opacity:.8;}
+.flag{
+  font-family:var(--f-display);font-size:11px;letter-spacing:.1em;
+  padding:5px 8px 3px;border:2px solid var(--ink);white-space:nowrap;
+}
+.flag.stand{background:var(--mustard);color:var(--ink);}
+.flag.raid{background:var(--red);color:var(--bone);border-color:var(--ink);animation:raidblink 1s steps(2,end) infinite;}
+.flag.fell{background:var(--bone-dim);color:var(--ink);opacity:.7;}
+@keyframes raidblink{50%{background:var(--ink);}}
+.frow .detail{
+  max-height:0;overflow:hidden;transition:max-height .3s ease;
+  font-family:var(--f-mono);font-size:9px;font-weight:700;letter-spacing:.12em;
+  border-top:0 solid var(--ink);
+}
+.frow.open .detail{max-height:90px;border-top:3px solid var(--ink);}
+.frow .detail-inner{padding:9px 12px;display:flex;flex-direction:column;gap:4px;}
+.frow.ours{background:var(--red);color:var(--bone);z-index:2;box-shadow:6px 6px 0 var(--ink);}
+.frow.ours .rank{color:var(--bone);text-shadow:2px 2px 0 var(--ink);}
+.frow.ours .cmeta{opacity:1;color:var(--mustard);}
+.frow.ours .flag{background:var(--ink);color:var(--mustard);border-color:var(--bone);}
+.ours-banner{
+  position:absolute;top:-12px;left:8px;background:var(--ink);color:var(--bone);
+  font-family:var(--f-display);font-size:10px;letter-spacing:.18em;
+  padding:3px 8px 2px;transform:rotate(-3deg);border:2px solid var(--bone);
+}
+.frow.passed .rank::after{
+  content:"▲";display:block;font-size:11px;color:var(--red);
+}
+.fallen-strip{
+  margin:22px 0 8px;width:112%;margin-left:-6%;transform:rotate(-1deg);
+  background:var(--ink);color:var(--bone);text-align:center;
+  font-family:var(--f-display);font-size:15px;letter-spacing:.28em;padding:7px 0 5px;
+}
+.frow.dead{background:var(--bone-dim);}
+.frow.dead .cname{text-decoration:line-through;text-decoration-thickness:3px;text-decoration-color:var(--red);}
+.frow.dead .rank{color:rgba(22,18,9,.35);}
+.front-foot{
+  margin:20px 14px 0;text-align:center;font-family:var(--f-mono);
+  font-size:8px;font-weight:700;letter-spacing:.2em;opacity:.55;
+}
+
+/* ============================================================
+   DISPATCH — wires from the night
+   ============================================================ */
+.disp-head{
+  margin:18px 14px 0;display:flex;align-items:stretch;gap:0;
+  border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);
+}
+.disp-head .dh-main{flex:1;background:var(--mustard);padding:13px 12px 10px;position:relative;overflow:hidden;}
+.disp-head .dh-main::after{
+  content:"";position:absolute;right:-14px;top:-14px;width:90px;height:90px;
+  background-image:radial-gradient(rgba(22,18,9,.5) 1.3px, transparent 1.45px);
+  background-size:7px 7px;transform:rotate(14deg);
+}
+.disp-head h2{
+  font-family:var(--f-display);font-size:42px;line-height:.95;letter-spacing:.01em;
+  color:var(--ink);text-shadow:3px 2px 0 var(--bone);
+}
+.disp-head .dh-sub{
+  font-family:var(--f-mono);font-size:8px;font-weight:700;letter-spacing:.26em;margin-top:4px;
+}
+.disp-head .live{
+  flex:none;background:var(--ink);color:var(--bone);border-left:3px solid var(--ink);
+  writing-mode:vertical-rl;display:flex;align-items:center;justify-content:center;gap:7px;
+  font-family:var(--f-display);font-size:13px;letter-spacing:.3em;padding:10px 9px;
+}
+.live .dot{width:9px;height:9px;background:var(--red);animation:raidblink .9s steps(2,end) infinite;}
+.echo{
+  width:100%;margin:16px 0 0;display:block;border:none;text-align:left;
+  background:var(--red);color:var(--bone);
+  border-top:3px solid var(--ink);border-bottom:3px solid var(--ink);
+  padding:10px 14px 9px;cursor:pointer;
+}
+.echo .e-top{font-family:var(--f-display);font-size:15px;letter-spacing:.07em;}
+.echo .e-top span{color:var(--mustard);}
+.echo .e-sub{font-family:var(--f-mono);font-size:8px;font-weight:700;letter-spacing:.2em;margin-top:3px;color:var(--bone);opacity:.85;}
+.feed{margin:18px 14px 0;display:flex;flex-direction:column;gap:14px;}
+.wire{
+  border:3px solid var(--ink);background:var(--bone);box-shadow:5px 5px 0 var(--ink);
+  position:relative;
+}
+.wire:nth-child(odd){transform:rotate(-.45deg);}
+.wire:nth-child(even){transform:rotate(.4deg);}
+.wire-top{display:flex;align-items:stretch;border-bottom:3px solid var(--ink);}
+.wire-top .wk{border-right:3px solid var(--ink);display:flex;align-items:center;}
+.wire-top .wt{
+  margin-left:auto;display:flex;align-items:center;padding:0 9px;
+  font-family:var(--f-mono);font-size:9px;font-weight:700;letter-spacing:.14em;
+}
+.wire h3{
+  font-family:var(--f-display);font-size:19px;line-height:1.08;letter-spacing:.03em;
+  padding:10px 12px 4px;
+}
+.wire p{
+  font-family:var(--f-cond);font-weight:600;font-size:14px;line-height:1.3;
+  padding:0 12px 8px;letter-spacing:.02em;
+}
+.wire .by{
+  display:block;font-family:var(--f-mono);font-size:9px;font-weight:700;
+  letter-spacing:.16em;padding:0 12px 11px;color:var(--red);
+}
+.wire.alert{background:var(--red);color:var(--bone);}
+.wire.alert .by{color:var(--mustard);}
+.wire.alert h3{text-shadow:2px 2px 0 var(--ink);}
+.wire.bulletin{background:var(--mustard);}
+.wire.bulletin .by{color:var(--red-deep);}
+.wire.ink{background:var(--ink);color:var(--bone);}
+.wire.ink .by{color:var(--mustard);}
+.k-alert{background:var(--ink);color:var(--red);}
+.k-vigil{background:var(--ink);color:var(--mustard);}
+.k-ration{background:var(--red);color:var(--bone);}
+.k-wire{background:var(--bone);color:var(--ink);}
+.k-council{background:var(--mustard);color:var(--ink);}
+.disp-foot{
+  margin:22px 14px 0;text-align:center;font-family:var(--f-mono);
+  font-size:8px;font-weight:700;letter-spacing:.2em;opacity:.55;
+}
+
+/* ============================================================
+   tab bar
+   ============================================================ */
+.tabbar{
+  flex:none;display:grid;grid-template-columns:1fr 1fr 1fr;
+  background:var(--ink);border-top:3px solid var(--ink);position:relative;z-index:30;
+}
+.tab{
+  padding:10px 4px 12px;text-align:center;color:var(--bone);
+  border-right:3px solid rgba(239,231,214,.22);position:relative;
+}
+.tab:last-child{border-right:0;}
+.tab svg{width:23px;height:23px;display:block;margin:0 auto 4px;fill:currentColor;}
+.tab .t-label{
+  font-family:var(--f-display);font-size:11px;letter-spacing:.14em;display:block;
+}
+.tab.active{background:var(--red);color:var(--bone);}
+.tab.active::before{
+  content:"";position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+  border-left:9px solid transparent;border-right:9px solid transparent;
+  border-bottom:9px solid var(--red);
+}
+.tab .t-badge{
+  position:absolute;top:6px;right:14px;background:var(--mustard);color:var(--ink);
+  font-family:var(--f-mono);font-size:7px;font-weight:700;padding:1px 4px;letter-spacing:.08em;
+}
+
+/* ============================================================
+   stamp toast
+   ============================================================ */
+.stamp{
+  position:absolute;left:50%;bottom:96px;z-index:60;
+  transform:translateX(-50%) rotate(-4deg) scale(.6);
+  background:var(--bone);border:4px solid var(--red);color:var(--red);
+  font-family:var(--f-display);font-size:15px;letter-spacing:.12em;
+  padding:10px 16px 8px;opacity:0;pointer-events:none;white-space:nowrap;
+  box-shadow:5px 5px 0 rgba(22,18,9,.85);
+  max-width:88%;text-align:center;
+}
+.stamp.show{animation:stampin 1.9s cubic-bezier(.2,1.5,.3,1) forwards;}
+@keyframes stampin{
+  0%{opacity:0;transform:translateX(-50%) rotate(-14deg) scale(2.1);}
+  12%{opacity:1;transform:translateX(-50%) rotate(-4deg) scale(.96);}
+  16%{transform:translateX(-50%) rotate(-4deg) scale(1);}
+  82%{opacity:1;}
+  100%{opacity:0;transform:translateX(-50%) rotate(-4deg) scale(1);}
+}
+@keyframes slam{
+  0%{transform:scale(1.7) rotate(-9deg);opacity:0;}
+  60%{transform:scale(.96) rotate(0);opacity:1;}
+  100%{transform:scale(1) rotate(0);}
+}
+</style>
+</head>
+<body>
+
+<div class="page-tag">ONE MORE DAWN — UI VARIANT <b>V3 · RALLY</b></div>
+
+<div class="phone">
+
+  <!-- ======== MASTHEAD ======== -->
+  <header class="masthead">
+    <div class="brand"><span class="sun"></span>ONE MORE DAWN</div>
+    <div class="day-plate">DAY 5</div>
+    <div class="vtag">V3 · RALLY</div>
+  </header>
+
+  <div class="screens">
+
+    <!-- ================= CITY ================= -->
+    <section class="screen active" id="scr-city">
+
+      <!-- streak banner -->
+      <div class="streak-wrap">
+        <div class="streak">
+          <div class="streak-inner">
+            DAY 5 <span class="st">★</span> THE CITY HOLDS <span class="st">★</span> DAY 5 <span class="st">★</span> THE CITY HOLDS <span class="st">★</span> DAY 5 <span class="st">★</span> THE CITY HOLDS <span class="st">★</span> DAY 5 <span class="st">★</span> THE CITY HOLDS <span class="st">★</span>&nbsp;
+          </div>
+        </div>
+      </div>
+      <div class="substreak">2,847 SOULS BEHIND THE WALL — <b>HOLD THE LINE</b></div>
+
+      <!-- THE MARKED — mobilization poster -->
+      <article class="marked" aria-label="Tonight's marked citizen">
+        <div class="marked-head">
+          <span class="kicker">THE MARKED</span>
+          <span class="obj">OBJECTIVE Nº 5</span>
+        </div>
+        <div class="marked-body">
+          <div class="tonight">TONIGHT WE SAVE</div>
+          <h1 class="hero-name">MIRA</h1>
+          <div class="hero-sub">
+            <span class="who">The Greenhouse Child</span>
+            <span class="age">AGE 9 · QUARTER 3 · FEVER</span>
+          </div>
+        </div>
+        <div class="order-strip">SAVE HER BEFORE <em>DAWN</em></div>
+        <div class="rally">
+          <div class="rally-label">
+            <div class="call">SAVE MIRA · <span id="rallyPct">57%</span></div>
+            <div class="frac" id="rallyFrac">218 / 380<br>PLEDGED</div>
+          </div>
+          <div class="bar">
+            <div class="bar-fill" id="rallyFill" style="width:57%"></div>
+            <div class="bar-ticks"></div>
+            <div class="bar-pct" id="rallyBarPct">57%</div>
+          </div>
+          <div class="dawn-row">
+            <span class="cnt">DAWN IN <span id="dawnClock">04:12:33</span></span>
+            <span class="stakes">FAIL = −220 SOULS</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- pledge -->
+      <section class="pledge-sec" aria-label="Pledge actions">
+        <div class="sec-head">
+          <span class="slab">RAISE YOUR HAND</span>
+          <span class="rule"></span>
+          <span class="no">ONE TAP</span>
+        </div>
+        <div class="pledges">
+          <button class="pledge" data-act="VIGIL" data-hands="16">
+            <svg class="glyph" viewBox="0 0 24 24" fill="var(--red)"><polygon points="12,1 15,8 9,8"/><rect x="10.6" y="8" width="2.8" height="10"/><rect x="7" y="18" width="10" height="3"/></svg>
+            <span class="act">STAND VIGIL</span>
+            <span class="gain">+16 HANDS · THROUGH THE NIGHT</span>
+            <span class="stampmark">LODGED</span>
+          </button>
+          <button class="pledge" data-act="RATIONS" data-hands="12">
+            <svg class="glyph" viewBox="0 0 24 24" fill="var(--red)"><rect x="3" y="6" width="18" height="12"/><rect x="11" y="6" width="2" height="12" fill="var(--bone)"/><rect x="3" y="11" width="18" height="2" fill="var(--bone)"/></svg>
+            <span class="act">SHARE RATIONS</span>
+            <span class="gain">+12 HANDS · BREAD FOR Q3</span>
+            <span class="stampmark">LODGED</span>
+          </button>
+          <button class="pledge" data-act="MESSAGES" data-hands="11">
+            <svg class="glyph" viewBox="0 0 24 24" fill="var(--red)"><polygon points="13,1 4,14 11,14 9,23 20,9 13,9"/></svg>
+            <span class="act">RUN MESSAGES</span>
+            <span class="gain">+11 HANDS · NORTH LINE</span>
+            <span class="stampmark">LODGED</span>
+          </button>
+          <button class="pledge" data-act="COUNCIL" data-hands="15">
+            <svg class="glyph" viewBox="0 0 24 24" fill="var(--red)"><rect x="5" y="10" width="14" height="10"/><rect x="6.2" y="3" width="2.6" height="7"/><rect x="9.6" y="2" width="2.6" height="8"/><rect x="13" y="2.6" width="2.6" height="7.4"/><rect x="16.4" y="3.6" width="2.6" height="6.4"/><polygon points="19,11 23,9 23,15 19,16"/></svg>
+            <span class="act">BACK COUNCIL</span>
+            <span class="gain">+15 HANDS · GREENHOUSE MOTION</span>
+            <span class="stampmark">LODGED</span>
+          </button>
+        </div>
+        <div class="allin" id="allin">ALL FOUR LODGED — YOU STAND WITH HER</div>
+      </section>
+
+      <!-- vitals -->
+      <section class="vitals-sec" aria-label="City vitals">
+        <div class="sec-head">
+          <span class="slab">CITY VITALS</span>
+          <span class="rule"></span>
+          <span class="no">05:47 READ</span>
+        </div>
+        <div class="meter">
+          <span class="m-label">FOOD</span>
+          <div class="m-track"><div class="m-fill" style="width:61%"></div></div>
+          <span class="m-val">61</span>
+        </div>
+        <div class="meter">
+          <span class="m-label">POWER</span>
+          <div class="m-track"><div class="m-fill" style="width:44%"></div></div>
+          <span class="m-val">44</span>
+        </div>
+        <div class="meter bad">
+          <span class="m-label">MEDICINE<small>LOW — Q3 FIRST</small></span>
+          <div class="m-track"><div class="m-fill" style="width:27%"></div></div>
+          <span class="m-val">27</span>
+        </div>
+        <div class="meter">
+          <span class="m-label">MORALE</span>
+          <div class="m-track"><div class="m-fill" style="width:72%"></div></div>
+          <span class="m-val">72</span>
+        </div>
+        <div class="meter inv">
+          <span class="m-label">THREAT<small>RISING — EAST WALL</small></span>
+          <div class="m-track"><div class="m-fill" style="width:66%"></div></div>
+          <span class="m-val">66</span>
+        </div>
+        <div class="pop-block">
+          <span class="n">2,847</span>
+          <span class="t">SOULS BEHIND THE WALL<br><b>+12 TONIGHT</b> · 3 AT THE GATE</span>
+        </div>
+      </section>
+
+      <!-- crisis -->
+      <div class="crisis-wrap">
+        <button class="crisis" id="crisisBtn" aria-expanded="false">
+          <span class="warn"></span>
+          <span class="txt">THE CITY MUST DECIDE
+            <small>CRISIS VOTE Nº 12 · CLOSES 23:00</small>
+          </span>
+          <span class="go">VOTE →</span>
+        </button>
+        <div class="vote-panel" id="votePanel">
+          <div class="vote-q">
+            <small>THE QUESTION BEFORE THE CITY</small>
+            The last fuel convoy arrives at midnight. Where does it burn?
+          </div>
+          <button class="vopt" data-opt="a">
+            <span class="o-name">LIGHT THE HOSPITAL <span class="o-pct" data-pct>61%</span></span>
+            <span class="o-bar"><span class="o-fill" data-fill style="width:61%"></span></span>
+            <span class="o-sub" data-sub>812 VOICES · MIRA SLEEPS WARM</span>
+          </button>
+          <button class="vopt" data-opt="b">
+            <span class="o-name">ARM THE EAST WALL <span class="o-pct" data-pct>39%</span></span>
+            <span class="o-bar"><span class="o-fill" data-fill style="width:39%"></span></span>
+            <span class="o-sub" data-sub>519 VOICES · THE RAID IS COMING</span>
+          </button>
+          <div class="vote-foot">ONE CITIZEN · ONE VOICE · NO RECOUNT</div>
+        </div>
+      </div>
+
+      <!-- service record -->
+      <section class="service" aria-label="Your service record">
+        <div class="service-head">
+          <span class="h">YOUR SERVICE</span>
+          <span class="role">COURIER · NORTH LINE</span>
+        </div>
+        <div class="medals">
+          <div class="medal">
+            <div class="m-ico star"></div>
+            <div class="m-big">5-DAY</div>
+            <div class="m-cap">VIGIL STREAK</div>
+          </div>
+          <div class="medal">
+            <div class="m-ico chev"></div>
+            <div class="m-big">#12</div>
+            <div class="m-cap">OF 2,847 HANDS</div>
+          </div>
+          <div class="medal">
+            <div class="m-ico shield"></div>
+            <div class="m-big">9</div>
+            <div class="m-cap">MARKED SAVED</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="printline">PRINTED AT THE DAWN WORKS · BULLETIN Nº 5 · ONE COPY PER CITIZEN</div>
+    </section>
+
+    <!-- ================= THE FRONT ================= -->
+    <section class="screen" id="scr-front">
+
+      <div class="front-head">
+        <div class="fh-kick">CROSS-CITY STANDINGS · SEASON OF ASH</div>
+        <h2>THE FRONT</h2>
+        <div class="fh-sub">19 CITIES STAND · <b>8 HAVE FALLEN</b></div>
+      </div>
+
+      <div class="taunt">
+        ▲ r/IRONHOLLOW PASSED YOU IN THE NIGHT
+        <small>25 STRENGTH BEHIND — TAKE IT BACK BEFORE DAWN</small>
+      </div>
+
+      <div class="board" role="list">
+
+        <button class="frow" role="listitem">
+          <div class="frow-top">
+            <span class="rank">1</span>
+            <span><span class="cname">r/dawnwatch</span>
+              <span class="cmeta">STR 14,208 · DAY 5</span></span>
+            <span class="flag stand">STANDING</span>
+          </div>
+          <div class="detail"><div class="detail-inner">
+            <span>POP 4,102 · MARKED SAVED 5/5</span>
+            <span>WIRE: QUIET NIGHT. LAMPS NEVER DIMMED.</span>
+          </div></div>
+        </button>
+
+        <button class="frow" role="listitem">
+          <div class="frow-top">
+            <span class="rank">2</span>
+            <span><span class="cname">r/cinderline</span>
+              <span class="cmeta">STR 12,930 · DAY 5</span></span>
+            <span class="flag stand">STANDING</span>
+          </div>
+          <div class="detail"><div class="detail-inner">
+            <span>POP 3,764 · MARKED SAVED 4/5</span>
+            <span>WIRE: LOST A GREENHOUSE. KEPT THE CHILD.</span>
+          </div></div>
+        </button>
+
+        <button class="frow passed" role="listitem">
+          <div class="frow-top">
+            <span class="rank">3</span>
+            <span><span class="cname">r/ironhollow</span>
+              <span class="cmeta">STR 11,402 · DAY 5 · PASSED YOU 03:40</span></span>
+            <span class="flag raid">UNDER RAID</span>
+          </div>
+          <div class="detail"><div class="detail-inner">
+            <span>POP 3,318 · MARKED SAVED 4/5</span>
+            <span>WIRE: RAID AT THE SOUTH GATE. THEY CLIMB ANYWAY.</span>
+          </div></div>
+        </button>
+
+        <button class="frow ours" role="listitem">
+          <span class="ours-banner">OUR CITY · #4</span>
+          <div class="frow-top">
+            <span class="rank">4</span>
+            <span><span class="cname">r/emberfall</span>
+              <span class="cmeta">STR 11,377 · DAY 5 · 25 BEHIND IRONHOLLOW</span></span>
+            <span class="flag">HOLDS</span>
+          </div>
+          <div class="detail"><div class="detail-inner">
+            <span>POP 2,847 · MARKED SAVED 4/4 — MIRA PENDING</span>
+            <span>WIRE: EVERY PLEDGE TONIGHT COUNTS DOUBLE AT THE FRONT.</span>
+          </div></div>
+        </button>
+
+        <button class="frow" role="listitem">
+          <div class="frow-top">
+            <span class="rank">5</span>
+            <span><span class="cname">r/saltmeadow</span>
+              <span class="cmeta">STR 9,845 · DAY 5</span></span>
+            <span class="flag stand">STANDING</span>
+          </div>
+          <div class="detail"><div class="detail-inner">
+            <span>POP 2,410 · MARKED SAVED 3/5</span>
+            <span>WIRE: RATION RIOT SETTLED BY SONG. SOMEHOW.</span>
+          </div></div>
+        </button>
+
+        <button class="frow" role="listitem">
+          <div class="frow-top">
+            <span class="rank">6</span>
+            <span><span class="cname">r/palegate</span>
+              <span class="cmeta">STR 8,112 · DAY 5</span></span>
+            <span class="flag raid">UNDER RAID</span>
+          </div>
+          <div class="detail"><div class="detail-inner">
+            <span>POP 1,980 · MARKED SAVED 3/5</span>
+            <span>WIRE: WALLS HOLD. BARELY. SEND NOTHING — THEY ASKED PROUDLY.</span>
+          </div></div>
+        </button>
+
+        <button class="frow" role="listitem">
+          <div class="frow-top">
+            <span class="rank">7</span>
+            <span><span class="cname">r/lowbeacon</span>
+              <span class="cmeta">STR 6,590 · DAY 5</span></span>
+            <span class="flag stand">STANDING</span>
+          </div>
+          <div class="detail"><div class="detail-inner">
+            <span>POP 1,204 · MARKED SAVED 2/5</span>
+            <span>WIRE: SMALL CITY. LOUD DRUMS. STILL HERE.</span>
+          </div></div>
+        </button>
+
+        <div class="fallen-strip">— THE FALLEN —</div>
+
+        <button class="frow dead" role="listitem">
+          <div class="frow-top">
+            <span class="rank">✕</span>
+            <span><span class="cname">r/glasstower</span>
+              <span class="cmeta">FELL DAY 4 · RAID · 2,001 SOULS</span></span>
+            <span class="flag fell">FALLEN</span>
+          </div>
+          <div class="detail"><div class="detail-inner">
+            <span>LAST WIRE: "TELL THE OTHERS THE EAST GATE LIES."</span>
+          </div></div>
+        </button>
+
+        <button class="frow dead" role="listitem">
+          <div class="frow-top">
+            <span class="rank">✕</span>
+            <span><span class="cname">r/mirrorport</span>
+              <span class="cmeta">FELL DAY 3 · FAMINE · 1,650 SOULS</span></span>
+            <span class="flag fell">FALLEN</span>
+          </div>
+          <div class="detail"><div class="detail-inner">
+            <span>LAST WIRE: "WE VOTED WRONG. DON'T."</span>
+          </div></div>
+        </button>
+
+        <button class="frow dead" role="listitem">
+          <div class="frow-top">
+            <span class="rank">✕</span>
+            <span><span class="cname">r/hollowmere</span>
+              <span class="cmeta">FELL DAY 1 · ABANDONED · 900 SOULS</span></span>
+            <span class="flag fell">FALLEN</span>
+          </div>
+          <div class="detail"><div class="detail-inner">
+            <span>LAST WIRE: — NO FINAL WIRE RECEIVED —</span>
+          </div></div>
+        </button>
+
+      </div>
+
+      <div class="front-foot">STRENGTH = HANDS PLEDGED × MARKED SAVED · UPDATED EVERY DAWN</div>
+    </section>
+
+    <!-- ================= DISPATCH ================= -->
+    <section class="screen" id="scr-disp">
+
+      <div class="disp-head">
+        <div class="dh-main">
+          <h2>DISPATCH</h2>
+          <div class="dh-sub">WIRES FROM THE NIGHT · NIGHT 5</div>
+        </div>
+        <div class="live"><span class="dot"></span>LIVE</div>
+      </div>
+
+      <button class="echo" data-goto="scr-city">
+        <span class="e-top">TONIGHT'S ORDER: SAVE MIRA · <span id="echoPct">57%</span></span>
+        <span class="e-sub">TAP TO RETURN TO THE CITY AND RAISE YOUR HAND →</span>
+      </button>
+
+      <div class="feed">
+
+        <article class="wire alert">
+          <div class="wire-top">
+            <span class="kicker wk k-alert">ALERT</span>
+            <span class="wt">04:51</span>
+          </div>
+          <h3>RAID SIRENS — EAST WALL</h3>
+          <p>Sirens cut at the second bell. Watch held. Threat rose six. Nobody slept, least of all the wall.</p>
+          <span class="by">— coldharbor · WALL CAPTAIN</span>
+        </article>
+
+        <article class="wire">
+          <div class="wire-top">
+            <span class="kicker wk k-vigil">VIGIL</span>
+            <span class="wt">03:12</span>
+          </div>
+          <h3>SALTCEDAR STOOD SIX HOURS AT THE COT</h3>
+          <p>Mira's fever broke at 03:12. First words: she asked after the tomato seedlings. They live too.</p>
+          <span class="by">— saltcedar · NIGHT WARD</span>
+        </article>
+
+        <article class="wire bulletin">
+          <div class="wire-top">
+            <span class="kicker wk k-ration">RATION</span>
+            <span class="wt">02:44</span>
+          </div>
+          <h3>FERROUS_IVY GAVE A WEEK OF BREAD</h3>
+          <p>Walked it to Quarter 3 personally. Refused the receipt. "Stamp the bar, not my name."</p>
+          <span class="by">— ferrous_ivy · GRANARY</span>
+        </article>
+
+        <article class="wire ink">
+          <div class="wire-top">
+            <span class="kicker wk k-council">COUNCIL</span>
+            <span class="wt">02:10</span>
+          </div>
+          <h3>GREENHOUSE MOTION BACKED — 214 HANDS</h3>
+          <p>brackenwren's motion carries: heat stays on the seedbeds until dawn. The wall grumbled, then signed.</p>
+          <span class="by">— brackenwren · COUNCIL FLOOR</span>
+        </article>
+
+        <article class="wire">
+          <div class="wire-top">
+            <span class="kicker wk k-wire">RUNNER</span>
+            <span class="wt">01:38</span>
+          </div>
+          <h3>PALEWICK RAN THE NORTH LINE IN 40 MINUTES</h3>
+          <p>Medicine chit delivered. Two dogs outrun. A record, and palewick knows it. Insufferable. Decorated.</p>
+          <span class="by">— palewick · COURIER POST</span>
+        </article>
+
+        <article class="wire alert">
+          <div class="wire-top">
+            <span class="kicker wk k-alert">FRONT</span>
+            <span class="wt">01:02</span>
+          </div>
+          <h3>WIRE FROM THE FRONT: r/IRONHOLLOW CLAIMS OUR RANK</h3>
+          <p>They took #3 at 03:40 and telegraphed a single word: "COMFORTABLE." Answer with hands, not words.</p>
+          <span class="by">— lastferry · SIGNAL TOWER</span>
+        </article>
+
+        <article class="wire ink">
+          <div class="wire-top">
+            <span class="kicker wk k-vigil">LOSS</span>
+            <span class="wt">00:41</span>
+          </div>
+          <h3>LAMPS OUT IN QUARTER 9</h3>
+          <p>Power diverted to the ward. Quarter 9 lit candles and sang the old dawn song instead. Morale +2, somehow.</p>
+          <span class="by">— mx_ember · POWER STATION</span>
+        </article>
+
+        <article class="wire bulletin">
+          <div class="wire-top">
+            <span class="kicker wk k-council">NOTICE</span>
+            <span class="wt">00:15</span>
+          </div>
+          <h3>THREE STRANGERS AT THE GATE</h3>
+          <p>ashen_fox vouches for two. The third carries seeds nobody can name. Gate vote tomorrow. Sleep on it.</p>
+          <span class="by">— ashen_fox · GATE WATCH</span>
+        </article>
+
+      </div>
+
+      <div class="disp-foot">END OF WIRES · THE PRESS RESTS UNTIL DAWN</div>
+    </section>
+
+  </div><!-- /screens -->
+
+  <!-- stamp toast -->
+  <div class="stamp" id="stamp" role="status">PLEDGE LODGED</div>
+
+  <!-- ======== TAB BAR ======== -->
+  <nav class="tabbar">
+    <button class="tab active" data-target="scr-city">
+      <svg viewBox="0 0 24 24"><path d="M5 10h2.2V4.6H9V10h1V3.4h1.9V10h1V4h1.9v6h1.4l3 1.6-1.1 8.4H6.4L5 12.8z"/></svg>
+      <span class="t-label">CITY</span>
+    </button>
+    <button class="tab" data-target="scr-front">
+      <svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="2.4" height="19"/><path d="M7.4 4h12l-3 4 3 4h-12z"/></svg>
+      <span class="t-label">THE FRONT</span>
+      <span class="t-badge">#4</span>
+    </button>
+    <button class="tab" data-target="scr-disp">
+      <svg viewBox="0 0 24 24"><path d="M3 10l9-4.5v13L3 14zM12 8.5l4-2v11l-4-2z"/><rect x="17.5" y="7" width="4.5" height="2" transform="rotate(-24 17.5 8)"/><rect x="17.5" y="11" width="5" height="2"/><rect x="17.5" y="15" width="4.5" height="2" transform="rotate(24 17.5 16)"/><rect x="5" y="14.5" width="2.6" height="6"/></svg>
+      <span class="t-label">DISPATCH</span>
+    </button>
+  </nav>
+
+</div><!-- /phone -->
+
+<div class="page-tag">MOBILIZATION BROADSIDE · CONSTRUCTIVIST VARIANT · 390 × 844</div>
+
+<script>
+(function(){
+  var $=function(s){return document.querySelector(s);};
+  var $$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s));};
+
+  /* ---------- tabs ---------- */
+  $$('.tab').forEach(function(t){
+    t.addEventListener('click',function(){
+      $$('.tab').forEach(function(x){x.classList.toggle('active',x===t);});
+      $$('.screen').forEach(function(s){s.classList.toggle('active',s.id===t.dataset.target);});
+      var scr=document.getElementById(t.dataset.target);
+      if(scr)scr.scrollTop=0;
+    });
+  });
+  $$('[data-goto]').forEach(function(el){
+    el.addEventListener('click',function(){
+      var tab=document.querySelector('.tab[data-target="'+el.dataset.goto+'"]');
+      if(tab)tab.click();
+    });
+  });
+
+  /* ---------- stamp toast ---------- */
+  var stampEl=$('#stamp'),stampT=null;
+  function stamp(msg){
+    stampEl.textContent=msg;
+    stampEl.classList.remove('show');
+    void stampEl.offsetWidth;             /* restart animation */
+    stampEl.classList.add('show');
+    clearTimeout(stampT);
+    stampT=setTimeout(function(){stampEl.classList.remove('show');},1950);
+  }
+
+  /* ---------- rally bar ---------- */
+  var pledged=218,GOAL=380,lodged=0;
+  function pct(){return Math.min(100,Math.round(pledged/GOAL*100));}
+  function renderRally(){
+    var p=pct();
+    $('#rallyFill').style.width=p+'%';
+    $('#rallyPct').textContent=p+'%';
+    $('#rallyBarPct').textContent=p+'%';
+    $('#echoPct').textContent=p+'%';
+    $('#rallyFrac').innerHTML=Math.min(pledged,GOAL)+' / '+GOAL+'<br>PLEDGED';
+    if(p>=100){
+      $('#rallyPct').textContent='SHE LIVES';
+      $('#rallyBarPct').textContent='100%';
+    }
+  }
+  $$('.pledge').forEach(function(b){
+    b.addEventListener('click',function(){
+      if(b.classList.contains('stamped'))return;
+      b.classList.add('stamped');
+      pledged+=parseInt(b.dataset.hands,10);
+      lodged++;
+      renderRally();
+      stamp(b.dataset.act+' LODGED — +'+b.dataset.hands+' HANDS FOR MIRA');
+      if(lodged===4){
+        var a=$('#allin');a.classList.add('on');
+        setTimeout(function(){stamp('ALL FOUR LODGED — THE CITY SEES YOU');},2100);
+      }
+    });
+  });
+  renderRally();
+
+  /* ---------- dawn countdown ---------- */
+  var secs=4*3600+12*60+33;
+  function two(n){return (n<10?'0':'')+n;}
+  setInterval(function(){
+    secs=Math.max(0,secs-1);
+    $('#dawnClock').textContent=
+      two(Math.floor(secs/3600))+':'+two(Math.floor(secs%3600/60))+':'+two(secs%60);
+  },1000);
+
+  /* ---------- crisis vote ---------- */
+  var votes={a:812,b:519},voted=false;
+  var panel=$('#votePanel'),crisisBtn=$('#crisisBtn');
+  crisisBtn.addEventListener('click',function(){
+    var open=panel.classList.toggle('open');
+    crisisBtn.setAttribute('aria-expanded',open?'true':'false');
+    if(open)panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+  });
+  function renderVote(){
+    var total=votes.a+votes.b;
+    $$('.vopt').forEach(function(o){
+      var k=o.dataset.opt,p=Math.round(votes[k]/total*100);
+      o.querySelector('[data-pct]').textContent=p+'%';
+      o.querySelector('[data-fill]').style.width=p+'%';
+      var sub=o.querySelector('[data-sub]');
+      sub.textContent=votes[k].toLocaleString()+' VOICES · '+sub.textContent.split('· ')[1];
+    });
+  }
+  $$('.vopt').forEach(function(o){
+    o.addEventListener('click',function(){
+      if(voted)return;
+      voted=true;
+      votes[o.dataset.opt]++;
+      renderVote();
+      $$('.vopt').forEach(function(x){
+        x.classList.toggle('chosen',x===o);
+        x.classList.toggle('dim',x!==o);
+      });
+      stamp('VOICE CAST — THE COUNCIL HEARS');
+    });
+  });
+
+  /* ---------- front rows ---------- */
+  $$('.frow').forEach(function(r){
+    r.addEventListener('click',function(){r.classList.toggle('open');});
+  });
+})();
+</script>
+</body>
+</html>
