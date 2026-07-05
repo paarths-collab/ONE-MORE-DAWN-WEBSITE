@@ -6,6 +6,7 @@ import type {
   ActionRequest,
   ActionResponse,
   ApiError,
+  FactionId,
   InitResponse,
   RoleRequest,
   RoleResponse,
@@ -104,15 +105,28 @@ api.get('/init', async (c) => {
     await store.savePlayer(player);
   }
 
-  const [crisisVotes, yourCrisisVote, strategyVotes, yourStrategyVote, yourActionsToday, timeline] =
-    await Promise.all([
-      store.getVoteTally(city.day),
-      store.getVoterChoice(city.day, user.userId),
-      store.getStrategyTally(city.day),
-      store.getStrategyChoice(city.day, user.userId),
-      store.getUserActions(city.day, user.userId),
-      store.getTimeline(1),
-    ]);
+  const [
+    crisisVotes,
+    yourCrisisVote,
+    strategyVotes,
+    yourStrategyVote,
+    yourActionsToday,
+    timeline,
+    factionInfluence,
+  ] = await Promise.all([
+    store.getVoteTally(city.day),
+    store.getVoterChoice(city.day, user.userId),
+    store.getStrategyTally(city.day),
+    store.getStrategyChoice(city.day, user.userId),
+    store.getUserActions(city.day, user.userId),
+    store.getTimeline(1),
+    store.getFactionInfluence(city.day),
+  ]);
+
+  const activeLaw =
+    city.activeLaw && city.lawExpiresDay >= city.day
+      ? BALANCE.laws[city.activeLaw as FactionId]
+      : null;
 
   return c.json<InitResponse>({
     type: 'init',
@@ -129,10 +143,13 @@ api.get('/init', async (c) => {
     missionUsedToday: (yourActionsToday as Record<string, unknown>)['mission'] !== undefined,
     resolving,
     timelinePreview: timeline[0] ?? null,
-    // Plan 2 fields — inert until P5 wires them fully. Stubbed so type-check stays green.
-    activeLaw: null,
-    raidInDays: Math.max(0, Math.ceil((100 - city.threat) / 6)),
-    factionInfluence: { builders: 0, wardens: 0, seekers: 0, hearth: 0 },
+    // Plan 2 conflict layer — real values wired in P5.
+    activeLaw,
+    raidInDays: Math.max(
+      0,
+      Math.ceil((BALANCE.raid.triggerThreshold - city.threat) / BALANCE.passiveThreatRise),
+    ),
+    factionInfluence,
     yourFaction: player.faction,
     yourFactionRep: player.factionRep,
   });
@@ -196,10 +213,21 @@ api.post('/action', async (c) => {
   await store.recordAction(city.day, user.userId, body.action);
   await store.addContribution(user.userId, BALANCE.contributionPerAction);
 
+  // Faction bookkeeping (also outside the tx): the acting player's chosen action
+  // pushes influence for its faction today and earns the player rep on it.
+  let finalPlayer = updated;
+  const faction = BALANCE.factionPerAction[body.action];
+  if (faction) {
+    await store.bumpFactionInfluence(city.day, faction, BALANCE.factionRepPerAction);
+    finalPlayer =
+      (await store.bumpPlayerFactionRep(user.userId, faction, BALANCE.factionRepPerAction)) ??
+      updated;
+  }
+
   return c.json<ActionResponse>({
     type: 'action',
-    player: updated,
-    effectiveEnergy: effectiveEnergy(updated, city.day),
+    player: finalPlayer,
+    effectiveEnergy: effectiveEnergy(finalPlayer, city.day),
     yourActionsToday: await store.getUserActions(city.day, user.userId),
   });
 });

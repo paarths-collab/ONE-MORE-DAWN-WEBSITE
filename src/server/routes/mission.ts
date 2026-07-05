@@ -163,11 +163,24 @@ mission.post('/complete', async (c) => {
   await store.addContribution(userId, contribution);
   await store.recordScoutHaul(userId, items);
 
+  // Every completed expedition run pushes Seekers influence + player rep.
+  await store.bumpFactionInfluence(
+    city.day,
+    BALANCE.factionPerMissionRun,
+    BALANCE.factionRepPerMissionRun,
+  );
+  const repd = await store.bumpPlayerFactionRep(
+    userId,
+    BALANCE.factionPerMissionRun,
+    BALANCE.factionRepPerMissionRun,
+  );
+  const finalPlayer = repd ?? updated;
+
   return c.json<MissionCompleteResponse>({
     type: 'mission-complete',
     banked: result.banked,
     injured: result.injured,
     contributionGained: contribution,
-    player: updated,
+    player: finalPlayer,
   });
 });

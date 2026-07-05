@@ -64,6 +64,7 @@ export const runLazyResolution = async (
       crisisVotes: await store.getVoteTally(city.day),
       roleCounts: await countActionsByRole(store, city.day),
       activeUserCount: Object.keys(userActions).length,
+      factionInfluence: await store.getFactionInfluence(city.day),
     };
     const { city: nextCity, entry } = resolveDay(city, inputs);
 
