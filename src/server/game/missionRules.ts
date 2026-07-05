@@ -1,6 +1,12 @@
 import { BALANCE } from '../../shared/balance';
 import { generateMap, rollCrateContents } from '../../shared/mapgen';
-import type { LootKind, MissionCompleteRequest, MissionMap, Role } from '../../shared/types';
+import type {
+  LootKind,
+  MissionCompleteRequest,
+  MissionMap,
+  MissionRoute,
+  Role,
+} from '../../shared/types';
 
 export type MissionToken = {
   tokenId: string;
@@ -8,6 +14,7 @@ export type MissionToken = {
   day: number;
   layoutSeed: number;
   lootSeed: number;
+  route: MissionRoute;
   roleAtStart: Role | null;
   startedAtServerMs: number;
   expiresAtServerMs: number;
@@ -93,7 +100,7 @@ export const evaluateMission = (
   if (nowMs > token.expiresAtServerMs) return { ok: false, reason: 'Mission expired.' };
 
   // Cheap bound before any Set building or map generation.
-  if (request.collectedCrateIds.length > BALANCE.mission.cratesPerMap) {
+  if (request.collectedCrateIds.length > BALANCE.mission.routes[token.route].crates) {
     return { ok: false, reason: 'Too many crates claimed.' };
   }
 
@@ -111,7 +118,7 @@ export const evaluateMission = (
     return { ok: false, reason: 'Duplicate crates claimed.' };
   }
 
-  const map = generateMap(token.layoutSeed, cityThreat);
+  const map = generateMap(token.layoutSeed, cityThreat, token.route);
   const valid = new Set(map.crates.map((c) => c.id));
   for (const id of request.collectedCrateIds) {
     if (!valid.has(id)) return { ok: false, reason: `Unknown crate: ${id}` };
@@ -126,7 +133,7 @@ export const evaluateMission = (
     return { ok: false, reason: 'Implausible completion time.' };
   }
 
-  const contents = rollCrateContents(map, token.lootSeed);
+  const contents = rollCrateContents(map, token.lootSeed, token.route);
   const banked: Partial<Record<LootKind, number>> = {};
   let totalItems = 0;
   for (const c of contents) {

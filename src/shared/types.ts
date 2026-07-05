@@ -87,6 +87,8 @@ export type TimelineEntry = {
 
 // ---------- Mission ----------
 
+export type MissionRoute = 'safe' | 'deep' | 'desperate';
+
 export type TileKind = 'floor' | 'wall' | 'exit' | 'spawn';
 
 export type CrateSpot = {
@@ -127,6 +129,11 @@ export type DawnReport = {
 
 export type ApiError = { status: 'error'; message: string };
 
+export type Forecast = {
+  food: number; power: number; medicine: number; morale: number; threat: number;
+  raidLikely: boolean;
+};
+
 export type VoteTally = Record<string, number>; // optionId/planId -> count
 
 export type InitResponse = {
@@ -151,6 +158,7 @@ export type InitResponse = {
   yourFactionRep: number;
   dawnReport: DawnReport | null;
   firstVisitToday: boolean;
+  forecast: Forecast;
 };
 
 export type RoleRequest = { role: Role };
@@ -181,6 +189,7 @@ export type MissionStartResponse = {
   layoutSeed: number;
   lootSeed: number;
   airSeconds: number; // role-adjusted
+  route: MissionRoute;
   player: PlayerProfile;
   effectiveEnergy: number;
 };

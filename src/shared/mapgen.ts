@@ -1,6 +1,6 @@
 import { BALANCE } from './balance';
 import { makeRng } from './rng';
-import type { CrateContents, CrateSpot, LootKind, MissionMap, TileKind } from './types';
+import type { CrateContents, CrateSpot, LootKind, MissionMap, MissionRoute, TileKind } from './types';
 
 const WIDTH = 14;
 const HEIGHT = 9;
@@ -136,8 +136,18 @@ const bfsDistances = (
 export const reachableTiles = (map: MissionMap, from: { x: number; y: number }): Set<string> =>
   new Set(bfsDistances(map.tiles, from).keys());
 
-/** Spec §4: layoutSeed -> identical map for every player that day. */
-export const generateMap = (layoutSeed: number, cityThreat: number): MissionMap => {
+/**
+ * Spec §4: layoutSeed -> identical map for every player that day.
+ * Route (S1) picks crate/hazard density from BALANCE.mission.routes. The
+ * default 'deep' reproduces pre-route maps bit-identically: crate/hazard
+ * counts are post-shuffle slices, so the RNG stream never depends on them.
+ */
+export const generateMap = (
+  layoutSeed: number,
+  cityThreat: number,
+  route: MissionRoute = 'deep',
+): MissionMap => {
+  const cfg = BALANCE.mission.routes[route];
   const rng = makeRng(layoutSeed);
   const { tiles, spawn, exit } = parseTemplate(TEMPLATES[rng.int(TEMPLATES.length)]!);
   const fromExit = bfsDistances(tiles, exit);
@@ -169,7 +179,7 @@ export const generateMap = (layoutSeed: number, cityThreat: number): MissionMap 
   }
 
   const shuffled = rng.shuffle(floors);
-  const crates: CrateSpot[] = shuffled.slice(0, BALANCE.mission.cratesPerMap).map((pos, i) => ({
+  const crates: CrateSpot[] = shuffled.slice(0, cfg.crates).map((pos, i) => ({
     id: `c${i}`,
     x: pos.x,
     y: pos.y,
@@ -177,10 +187,9 @@ export const generateMap = (layoutSeed: number, cityThreat: number): MissionMap 
   }));
 
   const crateSet = new Set(crates.map((c) => `${c.x},${c.y}`));
-  const hazardCount =
-    BALANCE.mission.hazardsBase + Math.floor(cityThreat * BALANCE.mission.hazardsPerThreat);
+  const hazardCount = cfg.hazardsBase + Math.floor(cityThreat * cfg.hazardsPerThreat);
   const hazards = shuffled
-    .slice(BALANCE.mission.cratesPerMap)
+    .slice(cfg.crates)
     .filter((pos) => !crateSet.has(`${pos.x},${pos.y}`))
     .slice(0, hazardCount)
     .map((pos) => ({ x: pos.x, y: pos.y }));
@@ -188,14 +197,25 @@ export const generateMap = (layoutSeed: number, cityThreat: number): MissionMap 
   return { width: WIDTH, height: HEIGHT, tiles, spawn, exit, crates, hazards };
 };
 
-/** Spec §4: lootSeed (per-user) -> crate contents. Same layout, personal loot. */
-export const rollCrateContents = (map: MissionMap, lootSeed: number): CrateContents[] => {
+/**
+ * Spec §4: lootSeed (per-user) -> crate contents. Same layout, personal loot.
+ * Route (S1): deep-tier crates gain the route's extraDeepItems on top of the
+ * rolled count — added after the roll, so the default 'deep' (extra 0) keeps
+ * the pre-route RNG stream and results bit-identical.
+ */
+export const rollCrateContents = (
+  map: MissionMap,
+  lootSeed: number,
+  route: MissionRoute = 'deep',
+): CrateContents[] => {
+  const extraDeepItems = BALANCE.mission.routes[route].extraDeepItems;
   const rng = makeRng(lootSeed);
   return map.crates.map((crate) => {
     const deep = crate.depth >= BALANCE.mission.deepCrateDepthThreshold;
     const itemCount = deep
       ? BALANCE.mission.deepCrate.minItems +
-        rng.int(BALANCE.mission.deepCrate.maxItems - BALANCE.mission.deepCrate.minItems + 1)
+        rng.int(BALANCE.mission.deepCrate.maxItems - BALANCE.mission.deepCrate.minItems + 1) +
+        extraDeepItems
       : BALANCE.mission.nearCrate.items;
     const weights = deep ? BALANCE.mission.lootWeightsDeep : BALANCE.mission.lootWeightsNear;
     const loot: Partial<Record<LootKind, number>> = {};

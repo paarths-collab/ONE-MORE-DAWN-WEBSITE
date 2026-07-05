@@ -58,6 +58,49 @@ describe('generateMap', () => {
   });
 });
 
+describe('generateMap routes (S1)', () => {
+  it("default route is 'deep' and reproduces pre-route maps bit-identically", () => {
+    for (let seed = 0; seed < 10; seed++) {
+      expect(generateMap(seed, 30)).toEqual(generateMap(seed, 30, 'deep'));
+    }
+  });
+
+  it('safe: 4 crates and fewer hazards than deep at the same threat', () => {
+    const safe = generateMap(7, 50, 'safe');
+    const deep = generateMap(7, 50, 'deep');
+    expect(safe.crates).toHaveLength(BALANCE.mission.routes.safe.crates);
+    expect(safe.crates).toHaveLength(4);
+    expect(safe.hazards.length).toBeLessThan(deep.hazards.length);
+  });
+
+  it('desperate: 9 crates and more hazards than deep at the same threat', () => {
+    const desperate = generateMap(7, 50, 'desperate');
+    const deep = generateMap(7, 50, 'deep');
+    expect(desperate.crates).toHaveLength(BALANCE.mission.routes.desperate.crates);
+    expect(desperate.crates).toHaveLength(9);
+    expect(desperate.hazards.length).toBeGreaterThan(deep.hazards.length);
+  });
+
+  it('is deterministic per (seed, route)', () => {
+    for (const route of ['safe', 'deep', 'desperate'] as const) {
+      expect(generateMap(4242, 30, route)).toEqual(generateMap(4242, 30, route));
+    }
+  });
+
+  it('every route is solvable: spawn, exit, and all crates mutually reachable', () => {
+    for (const route of ['safe', 'deep', 'desperate'] as const) {
+      for (let seed = 0; seed < 20; seed++) {
+        const map = generateMap(seed, 30, route);
+        const reachable = reachableTiles(map, map.spawn);
+        expect(reachable.has(`${map.exit.x},${map.exit.y}`)).toBe(true);
+        for (const crate of map.crates) {
+          expect(reachable.has(`${crate.x},${crate.y}`)).toBe(true);
+        }
+      }
+    }
+  });
+});
+
 describe('rollCrateContents', () => {
   it('is deterministic per lootSeed', () => {
     const map = generateMap(11, 30);
@@ -83,6 +126,36 @@ describe('rollCrateContents', () => {
       } else {
         expect(items).toBe(BALANCE.mission.nearCrate.items);
       }
+    }
+  });
+
+  it("default route is 'deep' and reproduces pre-route loot bit-identically", () => {
+    const map = generateMap(11, 30);
+    expect(rollCrateContents(map, 999)).toEqual(rollCrateContents(map, 999, 'deep'));
+  });
+
+  it('desperate: deep crates hold minItems+1..maxItems+1; near crates unchanged', () => {
+    const map = generateMap(11, 30, 'desperate');
+    expect(map.crates.some((c) => c.depth >= BALANCE.mission.deepCrateDepthThreshold)).toBe(true);
+    const contents = rollCrateContents(map, 55, 'desperate');
+    const extra = BALANCE.mission.routes.desperate.extraDeepItems;
+    expect(extra).toBe(1);
+    for (const c of contents) {
+      const crate = map.crates.find((k) => k.id === c.crateId)!;
+      const items = Object.values(c.loot).reduce((s, n) => s + (n ?? 0), 0);
+      if (crate.depth >= BALANCE.mission.deepCrateDepthThreshold) {
+        expect(items).toBeGreaterThanOrEqual(BALANCE.mission.deepCrate.minItems + extra);
+        expect(items).toBeLessThanOrEqual(BALANCE.mission.deepCrate.maxItems + extra);
+      } else {
+        expect(items).toBe(BALANCE.mission.nearCrate.items);
+      }
+    }
+  });
+
+  it('is deterministic per (lootSeed, route)', () => {
+    for (const route of ['safe', 'deep', 'desperate'] as const) {
+      const map = generateMap(11, 30, route);
+      expect(rollCrateContents(map, 999, route)).toEqual(rollCrateContents(map, 999, route));
     }
   });
 });

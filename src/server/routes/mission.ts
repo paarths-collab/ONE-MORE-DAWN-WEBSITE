@@ -6,6 +6,7 @@ import type {
   ApiError,
   MissionCompleteRequest,
   MissionCompleteResponse,
+  MissionRoute,
   MissionStartResponse,
 } from '../../shared/types';
 import { bumpRoleRep, effectiveEnergy } from '../game/dayLogic';
@@ -14,6 +15,8 @@ import { KEYS } from '../storage/redisKeys';
 import { getStore, parseBody } from './api';
 
 export const mission = new Hono();
+
+const MISSION_ROUTES: readonly MissionRoute[] = ['safe', 'deep', 'desperate'];
 
 /**
  * Devvit tx conflict semantics (verified from @devvit/redis RedisClient.js):
@@ -36,6 +39,14 @@ const execOrConflict = async (tx: { exec(): Promise<unknown[]> }): Promise<boole
 mission.post('/start', async (c) => {
   const { userId } = context;
   if (!userId) return c.json<ApiError>({ status: 'error', message: 'Not logged in' }, 401);
+
+  // Optional route choice (S1): no body / invalid route -> 'deep'.
+  const body = await parseBody<{ route?: MissionRoute }>(c);
+  const route: MissionRoute =
+    body && typeof body.route === 'string' && (MISSION_ROUTES as readonly string[]).includes(body.route)
+      ? body.route
+      : 'deep';
+
   const store = getStore();
   const city = await store.getCityState();
   if (!city || city.status !== 'alive') {
@@ -79,6 +90,7 @@ mission.post('/start', async (c) => {
     day: city.day,
     layoutSeed,
     lootSeed,
+    route,
     roleAtStart: updated.role,
     startedAtServerMs: now,
     expiresAtServerMs: now + BALANCE.mission.tokenTtlMs,
@@ -103,6 +115,7 @@ mission.post('/start', async (c) => {
     airSeconds:
       BALANCE.mission.airSeconds +
       (updated.role === 'scout' ? BALANCE.mission.scoutAirBonusSeconds : 0),
+    route,
     player: updated,
     effectiveEnergy: effectiveEnergy(updated, city.day),
   });
@@ -132,7 +145,9 @@ mission.post('/complete', async (c) => {
     await tx.unwatch();
     return c.json<ApiError>({ status: 'error', message: 'Unknown or expired mission token' }, 404);
   }
-  const token = JSON.parse(rawToken) as MissionToken;
+  // Backfill: tokens serialized before route choice existed lack `route`.
+  const stored = JSON.parse(rawToken) as Omit<MissionToken, 'route'> & { route?: MissionRoute };
+  const token: MissionToken = { ...stored, route: stored.route ?? 'deep' };
 
   const result = evaluateMission(token, body, userId, city.day, city.threat, Date.now());
   if (!result.ok) {

@@ -12,6 +12,7 @@ const token: MissionToken = {
   day: 5,
   layoutSeed: 4242,
   lootSeed: 999,
+  route: 'deep',
   roleAtStart: 'scout',
   startedAtServerMs: NOW - 60_000,
   expiresAtServerMs: NOW + 540_000,
@@ -151,5 +152,50 @@ describe('evaluateMission', () => {
     const all = map.crates.map((c) => c.id);
     const r = evaluateMission(token, { ...request, collectedCrateIds: all }, 't2_a', 5, 30, NOW);
     expect(r.ok).toBe(true);
+  });
+
+  it('desperate route: accepts all 9 crates and banks route-specific extra deep loot', () => {
+    const desperateToken: MissionToken = { ...token, route: 'desperate' };
+    const desperateMap = generateMap(desperateToken.layoutSeed, 30, 'desperate');
+    expect(desperateMap.crates).toHaveLength(BALANCE.mission.routes.desperate.crates);
+    expect(desperateMap.crates).toHaveLength(9);
+    const all = desperateMap.crates.map((c) => c.id);
+    // 9 crates would exceed the deep-route cap (7) — the cap must be per-route.
+    expect(all.length).toBeGreaterThan(BALANCE.mission.routes.deep.crates);
+
+    const r = evaluateMission(
+      desperateToken,
+      { ...request, collectedCrateIds: all },
+      't2_a',
+      5,
+      30,
+      NOW,
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    // Server-banked loot must match a route-aware reroll, including the
+    // desperate +1 item on deep-tier crates.
+    const desperateContents = rollCrateContents(desperateMap, desperateToken.lootSeed, 'desperate');
+    const expected: Record<string, number> = {};
+    let deepItems = 0;
+    let deepCrates = 0;
+    for (const c of desperateContents) {
+      const crate = desperateMap.crates.find((k) => k.id === c.crateId)!;
+      const items = Object.values(c.loot).reduce((s, n) => s + (n ?? 0), 0);
+      if (crate.depth >= BALANCE.mission.deepCrateDepthThreshold) {
+        deepItems += items;
+        deepCrates += 1;
+        expect(items).toBeGreaterThanOrEqual(BALANCE.mission.deepCrate.minItems + 1);
+        expect(items).toBeLessThanOrEqual(BALANCE.mission.deepCrate.maxItems + 1);
+      }
+      for (const [kind, n] of Object.entries(c.loot)) {
+        expected[kind] = (expected[kind] ?? 0) + (n ?? 0);
+      }
+    }
+    expect(deepCrates).toBeGreaterThan(0);
+    expect(deepItems).toBeGreaterThanOrEqual(deepCrates * (BALANCE.mission.deepCrate.minItems + 1));
+    expect(r.banked).toEqual(expected);
+    expect(r.injured).toBe(false);
   });
 });
