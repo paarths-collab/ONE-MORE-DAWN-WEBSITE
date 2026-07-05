@@ -133,6 +133,11 @@ export type InitResponse = {
   missionUsedToday: boolean;
   resolving: boolean; // true when another request holds the resolver lock
   timelinePreview: TimelineEntry | null; // yesterday's entry, for "what changed"
+  activeLaw: LawDef | null;
+  raidInDays: number;
+  factionInfluence: Record<FactionId, number>;
+  yourFaction: FactionId | null;
+  yourFactionRep: number;
 };
 
 export type RoleRequest = { role: Role };
@@ -182,3 +187,21 @@ export type MissionCompleteResponse = {
 };
 
 export type TimelineResponse = { type: 'timeline'; entries: TimelineEntry[] };
+
+// ---------- Factions & laws (Plan 2) ----------
+
+export type LawDef = {
+  id: FactionId;
+  label: string;
+  buff: string;
+  cost: string;
+};
+
+export type LeaderboardEntry = { userId: string; username: string; score: number };
+
+export type LeaderboardResponse = {
+  type: 'leaderboard';
+  contributors: LeaderboardEntry[];
+  scouts: LeaderboardEntry[];
+  factions: Record<FactionId, { rep: number; standing: number }>;
+};

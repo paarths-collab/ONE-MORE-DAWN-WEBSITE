@@ -1,4 +1,4 @@
-import type { ActionType, ResourceDelta, Role, StrategyPlanId } from './types';
+import type { ActionType, FactionId, ResourceDelta, Role, StrategyPlanId } from './types';
 
 export const BALANCE = {
   dailyEnergy: 3,
@@ -20,6 +20,17 @@ export const BALANCE = {
   foodPerPopulation: 0.15, // food consumed = ceil(population * this)
   passiveThreatRise: 6,
   passivePowerDecay: 3,
+
+  // ---------- Scaling for active player count (Plan 2 P4, audit finding #1) ----------
+  // Drains grow with active players so a 20-player subreddit still faces
+  // scarcity, not just a 3-player one.
+  scaling: {
+    activePlayerFoodDrain: 0.5,   // extra food consumed per active player per day
+    activePlayerPowerDrain: 0.2,
+    activePlayerThreatRise: 0.2,
+    foodStoreCap: 300,
+    medicineStoreCap: 120,
+  },
 
   // action base effects (before role bonus)
   actionEffects: {
@@ -85,6 +96,37 @@ export const BALANCE = {
 
   // city failure
   fall: { populationThreshold: 10 },
+
+  // ---------- Factions (Plan 2 P1) ----------
+  factionPerAction: {
+    grow_food: null,
+    repair_power: 'builders',
+    treat_sick: 'hearth',
+    guard_wall: 'wardens',
+  } satisfies Record<ActionType, FactionId | null>,
+
+  factionPerMissionRun: 'seekers' as FactionId,
+  factionRepPerAction: 2,
+  factionRepPerMissionRun: 3,
+
+  laws: {
+    builders: { id: 'builders' as const, label: 'Emergency Engineering', buff: 'Repair actions +25% power', cost: 'Morale actions cost +1 energy' },
+    wardens:  { id: 'wardens'  as const, label: 'Wall Watch',            buff: 'Threat rises 25% slower',    cost: 'Food consumption +10%' },
+    seekers:  { id: 'seekers'  as const, label: 'Ruins Charter',          buff: 'Expedition loot +1 per crate', cost: 'Injury risk +10%' },
+    hearth:   { id: 'hearth'   as const, label: 'Common Table',           buff: 'Treat Sick +50% medicine',   cost: 'Repair actions -25% power' },
+  },
+
+  lawLifespanDays: 1,
+
+  raid: {
+    triggerThreshold: 100,
+    postRaidThreat: 40,
+    populationLoss: 8,
+    foodLoss: 20,
+    powerLoss: 15,
+    moraleLoss: 15,
+    guardDampenPerAction: 3,
+  },
 } as const;
 
 export const DAY_ZERO_CRISIS_ID = 'first_light';
