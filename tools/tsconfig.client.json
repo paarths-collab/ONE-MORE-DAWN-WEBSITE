@@ -5,7 +5,8 @@
     "tsBuildInfoFile": "../dist/types/client/tsconfig.tsbuildinfo",
     "customConditions": ["browser"],
     "rootDir": "../src/client",
-    "strictPropertyInitialization": false
+    "strictPropertyInitialization": false,
+    "jsx": "react-jsx"
   },
   "include": ["../src/client/**/*"],
   "exclude": [],

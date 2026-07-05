@@ -25,7 +25,10 @@ export class Preloader extends Phaser.Scene {
 
   create() {
     //  No assets to load — Phaser fires create immediately with an empty
-    //  load queue, so hand straight off to the city dashboard.
-    this.scene.start('Dashboard');
+    //  load queue, so hand straight off to the hub.
+    //  PIXEL_HUB is the fallback lever: flip to false to land on the classic
+    //  city Dashboard instead of the pixel Village if the pixel view misbehaves.
+    const PIXEL_HUB = true;
+    this.scene.start(PIXEL_HUB ? 'Village' : 'Dashboard');
   }
 }

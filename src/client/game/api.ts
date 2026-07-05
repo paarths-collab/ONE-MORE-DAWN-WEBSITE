@@ -1,7 +1,8 @@
 import type {
   ActionResponse, ActionType, ApiError, CityTraitId, InitResponse, LeaderboardResponse,
   MissionCompleteRequest, MissionCompleteResponse, MissionRoute, MissionStartResponse,
-  Role, RoleResponse, StrategyPlanId, StrategyResponse, TimelineResponse, VoteResponse,
+  Role, RoleResponse, StrategyPlanId, StrategyResponse, TimelineResponse, VillageResponse,
+  VoteResponse,
 } from '../../shared/types';
 
 /** Flip to true to develop scenes without a Devvit playtest. */
@@ -170,4 +171,35 @@ export const api = {
           },
         })
       : request<LeaderboardResponse>('/api/leaderboard'),
+
+  village: (): Promise<VillageResponse> =>
+    MOCK
+      ? Promise.resolve({
+          type: 'village',
+          villageName: 'THE LAST CITY',
+          subreddit: 'r/meadowbrook',
+          cycle: mockInit.city.cycle,
+          day: mockInit.city.day,
+          status: mockInit.city.status,
+          prosperity: mockInit.city.morale,
+          pills: { food: mockInit.city.food, power: mockInit.city.power, medicine: mockInit.city.medicine, threat: mockInit.city.threat },
+          raidInDays: mockInit.raidInDays,
+          activeLawLabel: null,
+          zones: [
+            { id: 'grow_food', name: 'Farm', count: 4 },
+            { id: 'repair_power', name: 'Generator', count: 2 },
+            { id: 'treat_sick', name: 'Clinic', count: 1 },
+            { id: 'guard_wall', name: 'Watchtower', count: 3 },
+          ],
+          villagers: [
+            { maskedName: 'ari•••', role: 'scout', faction: 'seekers', color: 0x6c8be0, online: true, since: 'day 3' },
+            { maskedName: 'kai•••', role: 'engineer', faction: 'builders', color: 0xe8c34a, online: true, since: 'day 1' },
+            { maskedName: 'noo•••', role: 'farmer', faction: null, color: 0x4caf50, online: false, since: 'day 2' },
+            { maskedName: 'sen•••', role: 'speaker', faction: 'hearth', color: 0xa03030, online: true, since: 'day 1' },
+          ],
+          onlineCount: 3,
+          totalCount: 4,
+          notices: ['Day 4: The city survived to see one more dawn.', '3 expeditions returned with supplies.'],
+        })
+      : request<VillageResponse>('/api/village'),
 };
