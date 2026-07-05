@@ -1,4 +1,7 @@
-import type { ActionType, CityTraitId, FactionId, MissionRoute, ResourceDelta, Role, StrategyPlanId } from './types';
+import type {
+  ActionType, CityTraitId, FactionId, Marked, MissionRoute, PledgeKind, PledgeOption,
+  ResourceDelta, Role, StrategyPlanId,
+} from './types';
 
 export const BALANCE = {
   dailyEnergy: 3,
@@ -68,6 +71,45 @@ export const BALANCE = {
   // contribution scoring (leaderboard + faction rep later)
   contributionPerAction: 10,
   contributionPerMissionLoot: 5, // per item banked
+  contributionPerPledge: 5, // one-tap pledge: half an action's worth
+
+  // ---------- The Marked + one-tap pledges (Reddit-native hook layer, Plan 1) ----------
+  marked: {
+    // goal = min(goalMax, goalBase + ceil(activePlayers * goalPerActivePlayer))
+    // where activePlayers = YESTERDAY's action-takers (stable all day, so the
+    // goal shown at /init is exactly the goal the dawn resolver judges).
+    goalBase: 10,
+    goalPerActivePlayer: 4,
+    goalMax: 200,
+    pledgePerTap: 5, // "resolve" each one-tap pledge adds toward the goal
+    savedMoraleBonus: 4, // dawn: goal met
+    lostMoralePenalty: 3, // dawn: goal missed (small — a memorial, not a wipe)
+    // Daily objective pool weights by kind (see MARKED_POOL in names.ts).
+    kindWeights: { person: 4, place: 4, symbol: 2 } satisfies Record<Marked['kind'], number>,
+    // Per-tap city-stat pressure applied at resolution. back_council has no
+    // direct stat: each tap counts toward the council-unity quorum instead
+    // (see backCouncilQuorumWeight + resolver §2b).
+    pledgePressure: {
+      stand_vigil: { defense: 1, threat: -1 },
+      share_rations: { food: 1 },
+      run_messages: { morale: 1 },
+      back_council: {},
+    } satisfies Record<PledgeKind, ResourceDelta>,
+    backCouncilQuorumWeight: 1, // each back_council tap counts as this many plan voters (quorum only)
+    ledgerTop: 3, // pledge ledger: top helpers shown
+    ledgerRecent: 5, // pledge ledger: recent helpers shown
+  },
+
+  // The 4 one-tap pledge options — single source of truth for /init + /pledge.
+  pledgeOptions: [
+    { id: 'stand_vigil', label: 'Stand Vigil', icon: '🕯️', effect: '+defense · −threat' },
+    { id: 'share_rations', label: 'Share Rations', icon: '🍞', effect: '+food' },
+    { id: 'run_messages', label: 'Run Messages', icon: '📨', effect: '+morale' },
+    { id: 'back_council', label: 'Back the Council', icon: '🏛️', effect: '+council unity' },
+  ] satisfies readonly PledgeOption[],
+
+  // Live Drama Feed sizing (built in /init; see src/server/game/drama.ts).
+  drama: { maxEvents: 8 },
 
   // hunger / darkness / sickness penalties at resolution
   hunger: { moralePenalty: 8, deathsPerMissingFood: 0.3 }, // deaths = ceil(missingFood * this)

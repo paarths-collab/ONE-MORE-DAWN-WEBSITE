@@ -221,4 +221,53 @@ describe('Store', () => {
       { userId: 't2_a', score: 7 },
     ]);
   });
+
+  // ----- hook layer: the Marked + one-tap pledges -----
+
+  it('bumps and reads the marked pledge counter (0 by default, 0-bump no-op)', async () => {
+    const store = new Store(makeFakeRedis());
+    expect(await store.getMarkedPledge(3)).toBe(0);
+    await store.bumpMarkedPledge(3, 5);
+    await store.bumpMarkedPledge(3, 5);
+    await store.bumpMarkedPledge(3, 0);
+    expect(await store.getMarkedPledge(3)).toBe(10);
+    expect(await store.getMarkedPledge(4)).toBe(0); // day-scoped
+  });
+
+  it('counts pledge kinds separately from the pledged counter', async () => {
+    const store = new Store(makeFakeRedis());
+    await store.bumpMarkedPledge(3, 5);
+    await store.bumpPledgeKind(3, 'stand_vigil');
+    await store.bumpPledgeKind(3, 'stand_vigil');
+    await store.bumpPledgeKind(3, 'share_rations');
+    expect(await store.getPledgeKindCounts(3)).toEqual({ stand_vigil: 2, share_rations: 1 });
+  });
+
+  it('round-trips pledger entries (one-per-day lock reads getPledger)', async () => {
+    const store = new Store(makeFakeRedis());
+    const entry = { kind: 'run_messages' as const, name: 'ali•••', at: 42, contribution: 30 };
+    expect(await store.getPledger(2, 't2_abc')).toBeUndefined();
+    await store.recordPledger(2, 't2_abc', entry);
+    expect(await store.getPledger(2, 't2_abc')).toEqual(entry);
+    expect(await store.getPledgers(2)).toEqual({ t2_abc: entry });
+  });
+
+  it('round-trips the marked dawn outcome by day (null when unresolved)', async () => {
+    const store = new Store(makeFakeRedis());
+    expect(await store.getMarkedOutcome(1)).toBeNull();
+    await store.setMarkedOutcome(1, { name: 'The North Wall', saved: true });
+    expect(await store.getMarkedOutcome(1)).toEqual({ name: 'The North Wall', saved: true });
+    expect(await store.getMarkedOutcome(2)).toBeNull();
+  });
+
+  it('ranks contributors 1-based; null when unranked', async () => {
+    const store = new Store(makeFakeRedis());
+    await store.addContribution('t2_a', 30);
+    await store.addContribution('t2_b', 90);
+    await store.addContribution('t2_c', 60);
+    expect(await store.getContributionRank('t2_b')).toBe(1);
+    expect(await store.getContributionRank('t2_c')).toBe(2);
+    expect(await store.getContributionRank('t2_a')).toBe(3);
+    expect(await store.getContributionRank('t2_ghost')).toBeNull();
+  });
 });

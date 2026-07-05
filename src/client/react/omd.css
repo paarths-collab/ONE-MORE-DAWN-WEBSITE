@@ -1,122 +1,30 @@
 /* ==========================================================================
-   ONE MORE DAWN — command-center dashboard design system.
-   Source of truth: docs/design/One More Dawn UI.dc.html (warm board-game HUD).
-   Three themes via [data-theme] on .omd-root: warm (default) / arctic / clean.
+   ONE MORE DAWN — mobile-first hook-layer design system ("dusk premium").
+   One gorgeous default theme: deep indigo night, dawn-amber accents.
+   Fonts: Fraunces (display) · Sora (UI) · JetBrains Mono (numbers).
+   Locked direction: docs/superpowers/plans/2026-07-06-reddit-native-hook-layer.md
    ========================================================================== */
 
 .omd-root {
-  /* warm (default) */
-  --bg: #dad3c4;
-  --wa: #d7cbb0;
-  --wb: #beb093;
-  --panel: #f6efe0;
-  --panel2: #e9dfc9;
-  --pill: #fbf6ec;
-  --line: #e0d5bf;
-  --ink: #2b2622;
-  --muted: #8a7f6e;
-  --accent: #b4632f;
-  --accentb: #8f4a1f;
-  --onacc: #fff3e4;
-  --good: #6e8b4f;
-  --goodb: #54703a;
-  --warn: #c98a2e;
-  --danger: #c0492f;
-  --dangerb: #96331f;
-  --dangerbg: #f6e3dc;
-  --dangerline: #e7c3b7;
-  --sh: rgba(70, 50, 25, 0.45);
-  --round: 18px;
-  --font-display: 'Cinzel', serif;
-  --font-body: 'Nunito', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-}
-.omd-root[data-theme='arctic'] {
-  --bg: #c3d0d9;
-  --wa: #c6d3dc;
-  --wb: #a2b4c1;
-  --panel: #eef4f8;
-  --panel2: #dbe7ee;
-  --pill: #f4f9fc;
-  --line: #c7d6df;
-  --ink: #20303a;
-  --muted: #6e828f;
-  --accent: #c77f2e;
-  --accentb: #9e611e;
-  --onacc: #fff7ec;
-  --good: #5e8f86;
-  --goodb: #456c64;
-  --warn: #c99a3e;
-  --danger: #be4a3a;
-  --dangerb: #8f3324;
-  --dangerbg: #f0dbd6;
-  --dangerline: #dcb8ae;
-  --sh: rgba(30, 50, 65, 0.4);
-  --round: 18px;
-}
-.omd-root[data-theme='clean'] {
-  --bg: #e7e7e9;
-  --wa: #e4e4e7;
-  --wb: #cfcfd4;
-  --panel: #ffffff;
-  --panel2: #f1f1f3;
-  --pill: #ffffff;
-  --line: #e6e6ea;
-  --ink: #1c1c1e;
-  --muted: #8a8a90;
-  --accent: #e0663b;
-  --accentb: #bf4d28;
-  --onacc: #ffffff;
-  --good: #4e9e6a;
-  --goodb: #3b7d52;
-  --warn: #e0a030;
-  --danger: #e0503b;
-  --dangerb: #b93b29;
-  --dangerbg: #fce7e2;
-  --dangerline: #f4c8be;
-  --sh: rgba(0, 0, 0, 0.24);
-  --round: 22px;
-}
-
-@keyframes omdPulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: scale(0.9);
-  }
-}
-@keyframes omdRise {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes omdToastIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes omdFlash {
-  0%,
-  100% {
-    background: var(--dangerbg);
-  }
-  50% {
-    background: #f3c9bf;
-  }
+  --bg0: #0a0c16;
+  --bg1: #10131f;
+  --bg2: #171b2b;
+  --line: rgba(233, 226, 209, 0.08);
+  --line2: rgba(233, 226, 209, 0.14);
+  --ink: #f3ede1;
+  --muted: #9aa0b5;
+  --accent: #ffb35c;
+  --accent2: #ff8a3d;
+  --accent-deep: #c96a24;
+  --on-accent: #241505;
+  --good: #7fd6a2;
+  --warn: #ffcf70;
+  --danger: #ff6b5e;
+  --blue: #7fb3ff;
+  --violet: #b79bff;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-ui: 'Sora', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 .omd-root,
@@ -126,1537 +34,1434 @@
   box-sizing: border-box;
 }
 
+/* ---------- root + phone frame ---------- */
+
 .omd-root {
+  height: 100%;
+  display: flex;
   background:
-    radial-gradient(120% 60% at 50% 0%, var(--wa), transparent 70%),
-    linear-gradient(160deg, var(--wa), var(--wb));
-  background-color: var(--bg);
+    radial-gradient(120% 90% at 50% 120%, #241426 0%, transparent 55%),
+    radial-gradient(90% 60% at 50% -10%, #10182e 0%, transparent 60%),
+    #06070d;
   color: var(--ink);
-  font-family: var(--font-body);
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
 
-.omd-shell {
-  max-width: 1160px;
-  margin: 0 auto;
-  padding: clamp(10px, 2.4vw, 22px) clamp(10px, 2.4vw, 22px) 90px;
+.omd-phone {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  background: var(--bg0);
+  overflow: hidden;
+}
+
+/* Desktop just centers the phone in an ambient frame. */
+@media (min-width: 520px) {
+  .omd-root {
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .omd-phone {
+    max-width: 414px;
+    height: min(880px, 100%);
+    border-radius: 38px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow:
+      0 60px 120px -30px rgba(0, 0, 0, 0.85),
+      0 0 0 10px rgba(255, 255, 255, 0.02);
+  }
+}
+
+.omd-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.omd-screen {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
 }
 
 /* ---------- helpers ---------- */
-.omd-mono {
-  font-family: var(--font-mono);
-}
-.tone-good {
-  color: var(--good);
-}
-.tone-warn {
-  color: var(--warn);
-}
-.tone-danger {
-  color: var(--danger);
-}
-.tone-muted {
+
+.omd-mono { font-family: var(--font-mono); }
+.tone-good { color: var(--good); }
+.tone-warn { color: var(--warn); }
+.tone-danger { color: var(--danger); }
+.tone-muted { color: var(--muted); }
+.tone-accent { color: var(--accent); }
+
+.omd-note {
+  font: 500 11.5px/1.55 var(--font-ui);
   color: var(--muted);
 }
-.tone-ink {
-  color: var(--ink);
-}
+.omd-note--center { text-align: center; }
 
-/* ---------- boot ---------- */
-.omd-boot {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+.omd-foot {
   text-align: center;
-  padding: 24px;
+  font: 600 8.5px var(--font-mono);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
   color: var(--muted);
-  font: 700 14px var(--font-body);
-}
-.omd-boot-title {
-  font: 700 22px var(--font-display);
-  letter-spacing: 2px;
-  color: var(--ink);
-}
-.omd-boot--err {
-  color: var(--danger);
+  opacity: 0.55;
+  padding: 6px 0 4px;
 }
 
-/* ---------- top bar ---------- */
-.omd-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.omd-top-id {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.omd-top-name {
-  font: 700 clamp(17px, 3.6vw, 24px) var(--font-display);
-  letter-spacing: 2px;
-  color: var(--ink);
-  line-height: 1.1;
-  white-space: nowrap;
-}
-.omd-top-sub {
-  font: 700 10px var(--font-mono);
-  color: var(--muted);
-  letter-spacing: 0.5px;
-}
-.omd-top-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.omd-daychip {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  background: var(--pill);
-  border: 1.5px solid var(--line);
-  border-radius: 14px;
-  padding: 4px 12px;
-  box-shadow: 0 3px 0 var(--line), 0 5px 8px var(--sh);
-}
-.omd-daychip-day {
-  font: 700 15px var(--font-display);
-  letter-spacing: 1px;
-  color: var(--ink);
-  line-height: 1.05;
-  white-space: nowrap;
-}
-.omd-daychip-sub {
-  font: 700 8px var(--font-mono);
-  color: var(--muted);
-  letter-spacing: 0.5px;
-}
-.omd-iconbtn {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--panel);
-  border: 1.5px solid var(--line);
-  border-radius: 50%;
-  font-size: 17px;
-  box-shadow: 0 3px 0 var(--line), 0 5px 8px var(--sh);
-  cursor: pointer;
+.omd-link {
+  background: none;
+  border: 0;
   padding: 0;
-  color: var(--ink);
-  flex: none;
+  cursor: pointer;
+  font: 700 11px var(--font-ui);
+  color: var(--accent);
 }
-.omd-iconbtn:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 var(--line), 0 3px 6px var(--sh);
-}
+.omd-link:active { opacity: 0.7; }
 
-/* ---------- resource pills ---------- */
-.omd-pills {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+@keyframes omdRise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
 }
-.omd-pill {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: var(--pill);
-  border: 1.5px solid var(--line);
-  border-radius: 99px;
-  padding: 4px 10px 4px 7px;
-  box-shadow: 0 3px 0 var(--line), 0 5px 8px var(--sh);
-}
-.omd-pill-icon {
-  font-size: 15px;
-  line-height: 1;
-}
-.omd-pill-val {
-  font: 800 13px var(--font-mono);
-}
-.omd-pill-trend {
-  font: 800 10px var(--font-mono);
-}
-.omd-pill-label {
-  font: 800 8px var(--font-body);
-  color: var(--muted);
-  letter-spacing: 0.5px;
-}
-
-/* ---------- alert strip ---------- */
-.omd-alerts {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-.omd-alert {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: var(--dangerbg);
-  border: 1.5px solid var(--dangerline);
-  border-radius: 99px;
-  padding: 6px 14px;
-  box-shadow: 0 4px 10px var(--sh);
-  font: 800 11px var(--font-body);
-  color: var(--danger);
-  letter-spacing: 0.3px;
-}
-.omd-alert-icon {
-  font-size: 14px;
-  animation: omdPulse 1.2s infinite;
-}
-.omd-alert--now {
-  animation: omdFlash 1.1s infinite;
-}
-.omd-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--pill);
-  border: 1.5px solid var(--line);
-  border-radius: 99px;
-  padding: 5px 12px;
-  box-shadow: 0 3px 0 var(--line);
-  font: 700 10.5px var(--font-body);
-  color: var(--ink);
-}
-.omd-chip small {
-  font: 700 9.5px var(--font-body);
-  color: var(--muted);
+@keyframes omdPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.88); }
 }
 
 /* ==========================================================================
-   CITY SCENE — living skyline hero strip (panels/CityScene.tsx).
-   Pure CSS + emoji, theme-aware, state-reactive (power/threat/raid/morale).
+   CITY SKY — the cinematic dusk hero (CitySky.tsx). CSS only.
    ========================================================================== */
-@keyframes omdRing {
-  0% {
-    transform: scale(0.7);
-    opacity: 0.9;
-  }
-  100% {
-    transform: scale(2.2);
-    opacity: 0;
-  }
+
+@keyframes omdTwinkle {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.35; }
+}
+@keyframes omdHaze {
+  from { transform: translateX(-5%); }
+  to { transform: translateX(5%); }
+}
+@keyframes omdWinFlicker {
+  0%, 100% { opacity: 1; }
+  7% { opacity: 0.35; }
+  11% { opacity: 0.95; }
+  46% { opacity: 0.85; }
+  52% { opacity: 0.3; }
+  57% { opacity: 1; }
+}
+@keyframes omdBeacon {
+  0%, 100% { opacity: 1; box-shadow: 0 0 10px 3px rgba(255, 180, 90, 0.85), 0 0 34px 12px rgba(255, 150, 70, 0.3); }
+  50% { opacity: 0.5; box-shadow: 0 0 6px 2px rgba(255, 180, 90, 0.45), 0 0 20px 6px rgba(255, 150, 70, 0.14); }
 }
 @keyframes omdSmoke {
-  0% {
-    transform: translateY(0) scale(0.7);
-    opacity: 0.55;
-  }
-  100% {
-    transform: translateY(-16px) scale(1.25);
-    opacity: 0;
-  }
+  0% { transform: translateY(0) scale(0.7); opacity: 0.4; }
+  100% { transform: translateY(-26px) scale(1.5); opacity: 0; }
 }
-@keyframes omdSceneShake {
-  0%,
-  90%,
-  100% {
-    transform: translateX(0);
-  }
-  92% {
-    transform: translateX(-2px);
-  }
-  94% {
-    transform: translateX(2px);
-  }
-  96% {
-    transform: translateX(-1px);
-  }
-  98% {
-    transform: translateX(1px);
-  }
+@keyframes omdAlarm {
+  0%, 100% { opacity: 0.05; }
+  50% { opacity: 0.4; }
 }
-@keyframes omdGlowPulse {
-  0%,
-  100% {
-    opacity: 0.05;
-  }
-  50% {
-    opacity: 0.5;
-  }
+@keyframes omdSkyShake {
+  0%, 90%, 100% { transform: translateX(0); }
+  92% { transform: translateX(-2px); }
+  94% { transform: translateX(2px); }
+  96% { transform: translateX(-1px); }
+  98% { transform: translateX(1px); }
 }
 
-.omd-scene {
+.omd-sky {
   position: relative;
-  height: clamp(112px, 22vw, 180px);
-  border: 1.5px solid var(--line);
-  border-radius: var(--round);
-  box-shadow: 0 3px 0 var(--line), 0 5px 8px var(--sh);
+  height: clamp(250px, 68vw, 300px);
+  flex: none;
   overflow: hidden;
-  animation: omdRise 0.28s ease;
+  /* the dusk: deep indigo night burning down to dawn orange */
+  background: linear-gradient(
+    180deg,
+    #0a0e24 0%,
+    #131a3c 30%,
+    #33224e 52%,
+    #6c3350 70%,
+    #b55a41 84%,
+    #f79a52 97%
+  );
 }
-.omd-scene-world {
+
+.omd-sky-world {
   position: absolute;
   inset: 0;
-  transition: filter 0.6s;
+  transition: filter 0.8s;
 }
-.omd-scene--raid .omd-scene-world {
-  animation: omdSceneShake 2.6s ease-in-out infinite;
+.omd-sky--raid .omd-sky-world {
+  animation: omdSkyShake 3.2s ease-in-out infinite;
 }
-.omd-scene-sky {
+
+.omd-sky-stars {
+  position: absolute;
+  inset: 0 0 42% 0;
+  background-image:
+    radial-gradient(circle, rgba(255, 246, 228, 0.85) 0.7px, transparent 1.4px),
+    radial-gradient(circle, rgba(214, 224, 255, 0.6) 0.6px, transparent 1.2px);
+  background-size: 120px 90px, 74px 58px;
+  background-position: 12px 8px, 40px 30px;
+  animation: omdTwinkle 4.4s ease-in-out infinite;
+}
+.omd-sky-stars--2 {
+  inset: 0 0 55% 0;
+  background-size: 96px 72px, 58px 44px;
+  background-position: 60px 20px, 8px 12px;
+  animation-delay: 2.2s;
+  opacity: 0.7;
+}
+
+/* dawn glow rising behind the skyline */
+.omd-sky-glow {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(60% 55% at 20% 82%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 70%),
-    linear-gradient(180deg, var(--panel2) 0%, var(--wa) 55%, var(--wb) 100%);
-}
-.omd-scene-sun {
-  position: absolute;
-  left: 15%;
-  bottom: 22%;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
   background: radial-gradient(
-    circle at 50% 42%,
-    color-mix(in srgb, var(--warn) 80%, #fff) 0 28%,
-    color-mix(in srgb, var(--warn) 50%, transparent) 55%,
+    75% 52% at 32% 98%,
+    rgba(255, 176, 92, 0.65) 0%,
+    rgba(255, 130, 66, 0.22) 45%,
     transparent 72%
   );
-  transition: opacity 0.6s;
-}
-.omd-scene--lowpower .omd-scene-sun {
-  opacity: 0.35;
 }
 
-/* skyline rows: flex of box-buildings anchored to the ground line */
-.omd-scene-row {
+/* threat paints the horizon red (opacity set inline from city.threat) */
+.omd-sky-threat {
   position: absolute;
-  left: -1%;
-  right: -1%;
-  top: 0;
+  inset: 0;
+  background: radial-gradient(
+    95% 55% at 74% 102%,
+    rgba(255, 62, 48, 0.8) 0%,
+    rgba(200, 40, 40, 0.28) 48%,
+    transparent 74%
+  );
+  transition: opacity 1s;
+}
+
+.omd-sky-haze {
+  position: absolute;
+  width: 150%;
+  height: 36%;
+  left: -25%;
+  bottom: 16%;
+  background: radial-gradient(50% 100% at 50% 50%, rgba(244, 188, 140, 0.11), transparent 70%);
+  animation: omdHaze 26s ease-in-out infinite alternate;
+}
+.omd-sky-haze--2 {
+  bottom: 30%;
+  height: 26%;
+  background: radial-gradient(50% 100% at 50% 50%, rgba(180, 160, 220, 0.09), transparent 70%);
+  animation-duration: 34s;
+  animation-direction: alternate-reverse;
+}
+
+/* skyline rows — parallax silhouettes anchored above the ground line */
+.omd-sky-row {
+  position: absolute;
+  left: -2%;
+  right: -2%;
   display: flex;
   align-items: flex-end;
-  gap: clamp(3px, 0.9vw, 9px);
 }
-.omd-scene-row--back {
-  bottom: 16px;
-  z-index: 1;
-  opacity: 0.5;
-  padding: 0 6%;
-}
-.omd-scene-row--front {
-  bottom: 8px;
-  z-index: 2;
-}
-.omd-scene-bld {
+.omd-sky-row--far { bottom: 34px; gap: 3px; opacity: 0.75; }
+.omd-sky-row--mid { bottom: 20px; gap: 3px; }
+.omd-sky-row--near { bottom: 10px; gap: 4px; }
+
+.omd-sky-bld {
   position: relative;
   flex-basis: 0;
-  border-radius: 3px 3px 0 0;
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.08);
+  display: block;
+  border-radius: 2px 2px 0 0;
 }
-.omd-scene-row--back .omd-scene-bld {
-  background: color-mix(in srgb, var(--ink) 26%, var(--wb));
+.omd-sky-row--far .omd-sky-bld { background: #2a3161; }
+.omd-sky-row--mid .omd-sky-bld { background: #181d3c; }
+.omd-sky-row--near .omd-sky-bld { background: #0a0c1b; }
+
+/* broken rooflines — the ruin reads in the silhouette */
+.omd-sky-bld--ruin {
+  border-radius: 0;
+  clip-path: polygon(0 20%, 12% 12%, 24% 28%, 40% 6%, 56% 24%, 72% 0%, 84% 18%, 100% 10%, 100% 100%, 0 100%);
 }
-.omd-scene-bld--b {
-  background: color-mix(in srgb, var(--ink) 46%, var(--wb));
+.omd-sky-bld--ruinb {
+  border-radius: 0;
+  clip-path: polygon(0 8%, 18% 22%, 34% 2%, 52% 26%, 70% 12%, 86% 30%, 100% 20%, 100% 100%, 0 100%);
 }
-.omd-scene-bld--c {
-  background: color-mix(in srgb, var(--ink) 62%, var(--wb));
+.omd-sky-bld--slant {
+  border-radius: 0;
+  clip-path: polygon(0 26%, 100% 0, 100% 100%, 0 100%);
 }
-.omd-scene-bld--antenna::before {
+.omd-sky-bld--spire::after {
   content: '';
   position: absolute;
-  top: -11px;
-  left: 20%;
+  top: -14px;
+  left: 48%;
   width: 2px;
-  height: 11px;
-  background: color-mix(in srgb, var(--ink) 62%, var(--wb));
-}
-.omd-scene-bld--chimney::after {
-  content: '';
-  position: absolute;
-  top: -7px;
-  left: 14%;
-  width: 6px;
-  height: 7px;
-  border-radius: 1px 1px 0 0;
+  height: 14px;
   background: inherit;
 }
-/* lit windows: a dot-grid of warm lights that goes dark when power fails */
-.omd-scene-win {
+
+/* lit windows — small warm dots that flicker; dark when power fails */
+.omd-sky-win {
   position: absolute;
-  inset: 6px 5px 4px;
-  background-image: radial-gradient(
-    color-mix(in srgb, var(--warn) 75%, #ffe6b0) 1.3px,
-    transparent 1.6px
-  );
-  background-size: 8px 10px;
-  background-position: 2px 3px;
-  opacity: 0.9;
-  transition: opacity 0.7s;
+  width: 3px;
+  height: 4px;
+  border-radius: 0.5px;
+  background: #ffd08e;
+  box-shadow: 0 0 7px 1.5px rgba(255, 178, 92, 0.55);
+  animation: omdWinFlicker 5.6s ease-in-out infinite;
+  transition: opacity 0.9s;
 }
-.omd-scene--lowpower .omd-scene-win {
-  opacity: 0.1;
+.omd-sky--dark .omd-sky-win {
+  opacity: 0.07;
+  animation: none;
+  box-shadow: none;
 }
-/* chimney smoke — three staggered puffs rising from the roofline */
-.omd-scene-smokes {
+
+/* the watchtower beacon — one light that never goes out */
+.omd-sky-beacon {
   position: absolute;
-  top: -12px;
-  left: 10%;
-  width: 14px;
-  height: 10px;
-  pointer-events: none;
-}
-.omd-scene-smoke {
-  position: absolute;
-  left: 2px;
-  bottom: 0;
+  top: -5px;
+  left: 50%;
+  margin-left: -3px;
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--muted) 55%, transparent);
-  animation: omdSmoke 3.2s ease-out infinite;
+  background: #ffcf8a;
+  animation: omdBeacon 2.8s ease-in-out infinite;
 }
-.omd-scene-smoke--2 {
-  left: 5px;
-  width: 5px;
-  height: 5px;
-  animation-delay: 1.1s;
-}
-.omd-scene-smoke--3 {
-  left: 0;
-  width: 4px;
-  height: 4px;
-  animation-delay: 2.2s;
+.omd-sky--alarm .omd-sky-beacon {
+  background: #ff8d7a;
+  animation-duration: 1.1s;
 }
 
-.omd-scene-ground {
+.omd-sky-smokes {
+  position: absolute;
+  top: -8px;
+  left: 24%;
+  width: 16px;
+  height: 10px;
+  display: block;
+}
+.omd-sky-smoke {
+  position: absolute;
+  left: 2px;
+  bottom: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(190, 178, 200, 0.28);
+  filter: blur(1px);
+  animation: omdSmoke 4.2s ease-out infinite;
+  display: block;
+}
+.omd-sky-smoke--2 {
+  left: 6px;
+  width: 5px;
+  height: 5px;
+  animation-delay: 1.9s;
+}
+
+.omd-sky-ground {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 10px;
-  z-index: 3;
-  background: color-mix(in srgb, var(--ink) 28%, var(--wb));
-  border-top: 2px solid color-mix(in srgb, var(--ink) 42%, var(--wb));
-}
-.omd-scene-tree {
-  position: absolute;
-  bottom: 8px;
-  z-index: 3;
-  font-size: 17px;
-  line-height: 1;
-  opacity: 0.55;
-  filter: grayscale(0.3);
+  height: 12px;
+  background: #07080f;
+  border-top: 1px solid rgba(255, 170, 90, 0.14);
 }
 
-/* state overlays */
-.omd-scene-tint {
+/* raid tonight — a slow red alarm wash over everything */
+.omd-sky-alarm {
   position: absolute;
   inset: 0;
-  z-index: 4;
+  background: rgba(255, 62, 48, 0.35);
+  animation: omdAlarm 1.7s ease-in-out infinite;
   pointer-events: none;
 }
-.omd-scene-threat {
+
+/* the scene melts into the page so the Marked card can rise out of it */
+.omd-sky-fade {
   position: absolute;
-  inset: 0;
-  z-index: 4;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 74px;
+  background: linear-gradient(180deg, transparent, var(--bg0));
   pointer-events: none;
-  background: radial-gradient(
-    75% 60% at 84% 88%,
-    color-mix(in srgb, var(--danger) 58%, transparent),
-    transparent 72%
-  );
-  opacity: 0;
-  transition: opacity 0.6s;
 }
-.omd-scene-dim {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  pointer-events: none;
-  background: color-mix(in srgb, var(--ink) 26%, transparent);
-}
-.omd-scene-alarmflash {
+
+/* ---------- standing bar (overlay on the sky) ---------- */
+
+.omd-standing {
   position: absolute;
   inset: 0;
   z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px 16px 44px;
   pointer-events: none;
-  background: color-mix(in srgb, var(--danger) 24%, transparent);
-  animation: omdGlowPulse 1.4s ease-in-out infinite;
+  animation: omdRise 0.4s ease;
+}
+.omd-standing > * { pointer-events: auto; }
+
+.omd-standing-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.omd-standing-sub {
+  font: 600 9.5px var(--font-mono);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: rgba(243, 237, 225, 0.82);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
 }
 
-/* survivor pin — "you are here", ring-pulse from the design */
-.omd-scene-pin {
-  position: absolute;
-  left: 58%;
-  bottom: 26%;
-  z-index: 5;
-  width: 34px;
-  height: 34px;
-}
-.omd-scene-pin-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 2px solid var(--accent);
-  animation: omdRing 1.8s ease-out infinite;
-}
-.omd-scene-pin-face {
-  position: absolute;
-  inset: 0;
+.omd-iconbtn {
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--panel);
-  border: 2px solid var(--accent);
+  background: rgba(10, 12, 22, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 50%;
+  color: var(--ink);
   font-size: 15px;
-  box-shadow: 0 4px 10px var(--sh);
+  cursor: pointer;
+  padding: 0;
+  backdrop-filter: blur(6px);
+  transition: transform 0.15s;
 }
-.omd-scene--alarm .omd-scene-pin-ring {
-  border-color: var(--danger);
-  animation-duration: 0.9s;
-}
-.omd-scene--alarm .omd-scene-pin-face {
-  border-color: var(--danger);
-}
+.omd-iconbtn:active { transform: rotate(180deg) scale(0.92); }
 
-/* caption + mood line, readable over the scene */
-.omd-scene-caption {
-  position: absolute;
-  left: 10px;
-  bottom: 8px;
-  z-index: 6;
+.omd-standing-main {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+}
+.omd-standing-name {
+  margin: 0;
+  font: 600 clamp(26px, 7.6vw, 31px) var(--font-display);
+  letter-spacing: 0.4px;
+  line-height: 1.02;
+  color: var(--ink);
+  text-shadow: 0 2px 22px rgba(0, 0, 0, 0.65);
+}
+.omd-standing-tag {
+  font: 600 8.5px var(--font-mono);
+  letter-spacing: 3.2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-top: 4px;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.7);
+}
+.omd-standing-day {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 1px;
-  background: color-mix(in srgb, var(--panel) 80%, transparent);
-  border: 1.5px solid var(--line);
-  border-radius: 10px;
-  padding: 5px 10px;
-  backdrop-filter: blur(2px);
+  background: rgba(10, 12, 22, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  padding: 7px 12px;
+  backdrop-filter: blur(6px);
 }
-.omd-scene-caption-title {
-  font: 700 11px var(--font-display);
-  letter-spacing: 1px;
+.omd-standing-day-num {
+  font: 600 15px var(--font-display);
+  letter-spacing: 1.4px;
   color: var(--ink);
+  white-space: nowrap;
 }
-.omd-scene-caption-sub {
-  font: 700 8.5px var(--font-mono);
+.omd-standing-day-sub {
+  font: 600 8.5px var(--font-mono);
+  letter-spacing: 0.6px;
   color: var(--muted);
-  letter-spacing: 0.4px;
+  white-space: nowrap;
 }
-.omd-scene-mood {
-  position: absolute;
-  right: 10px;
-  bottom: 8px;
-  z-index: 6;
-  font: 700 8px var(--font-mono);
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--muted);
-  opacity: 0.85;
-  background: color-mix(in srgb, var(--panel) 65%, transparent);
-  border-radius: 8px;
-  padding: 3px 7px;
-}
-.omd-scene-mood--danger {
-  color: var(--danger);
-  opacity: 1;
-}
-@media (max-width: 480px) {
-  .omd-scene-mood {
-    display: none;
-  }
+.omd-standing-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
 }
 
-/* ---------- mini building glyphs (action cards) ---------- */
-.omd-bhouse {
+/* ---------- chips ---------- */
+
+.omd-chip {
   display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(16, 19, 31, 0.72);
+  border: 1px solid var(--line2);
+  border-radius: 99px;
+  padding: 5px 11px;
+  font: 600 10.5px var(--font-ui);
+  color: var(--ink);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+.omd-chip small { font: 600 9px var(--font-ui); color: var(--muted); }
+.omd-chip-icon { font-size: 12px; line-height: 1; }
+.omd-chip--accent { border-color: rgba(255, 179, 92, 0.45); color: var(--accent); }
+.omd-chip--danger { border-color: rgba(255, 107, 94, 0.45); color: var(--danger); }
+
+/* ==========================================================================
+   HOME — body under the sky, THE MARKED rises out of the horizon.
+   ========================================================================== */
+
+.omd-home-body {
+  position: relative;
+  z-index: 6;
+  margin-top: -34px;
+  padding: 0 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ---------- THE MARKED (hero card) ---------- */
+
+@keyframes omdShimmer {
+  0% { transform: translateX(-130%); }
+  55%, 100% { transform: translateX(230%); }
+}
+@keyframes omdFloatUp {
+  0% { opacity: 0; transform: translateY(6px); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-22px); }
+}
+@keyframes omdSurge {
+  0% { box-shadow: 0 24px 50px -12px rgba(0, 0, 0, 0.65), 0 0 0 rgba(255, 170, 80, 0); }
+  30% { box-shadow: 0 24px 50px -12px rgba(0, 0, 0, 0.65), 0 0 34px rgba(255, 170, 80, 0.4); }
+  100% { box-shadow: 0 24px 50px -12px rgba(0, 0, 0, 0.65), 0 0 0 rgba(255, 170, 80, 0); }
+}
+
+.omd-marked {
+  position: relative;
+  border-radius: 22px;
+  padding: 15px 16px 14px;
+  background: linear-gradient(168deg, #241a39 0%, #16122a 52%, #110f1e 100%);
+  border: 1px solid rgba(255, 179, 92, 0.3);
+  box-shadow:
+    0 24px 50px -12px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+  animation: omdRise 0.45s ease;
+  transition: border-color 0.5s;
+}
+.omd-marked::before {
+  content: '';
+  position: absolute;
+  inset: -30% -20% auto;
+  height: 110%;
+  background: radial-gradient(58% 58% at 72% 4%, rgba(255, 150, 80, 0.16), transparent 70%);
+  pointer-events: none;
+}
+.omd-marked--surge {
+  border-color: rgba(255, 195, 115, 0.6);
+  animation: omdSurge 1.5s ease-out;
+}
+
+.omd-yesterday {
+  margin: -15px -16px 13px;
+  padding: 8px 16px;
+  font: 600 10.5px var(--font-ui);
+  letter-spacing: 0.3px;
+}
+.omd-yesterday--saved {
+  color: #a9ebc6;
+  background: rgba(127, 214, 162, 0.1);
+  border-bottom: 1px solid rgba(127, 214, 162, 0.16);
+}
+.omd-yesterday--lost {
+  color: #ffa39a;
+  background: rgba(255, 107, 94, 0.1);
+  border-bottom: 1px solid rgba(255, 107, 94, 0.16);
+}
+
+.omd-marked-eyebrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font: 700 9.5px var(--font-mono);
+  letter-spacing: 2.6px;
+  color: var(--accent);
+}
+.omd-marked-dawn {
+  font: 600 9px var(--font-mono);
+  letter-spacing: 1px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.omd-marked-name {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin-top: 9px;
+  font: italic 600 clamp(21px, 6vw, 24px) var(--font-display);
+  line-height: 1.12;
+  color: var(--ink);
+}
+.omd-marked-kind {
+  font-size: 19px;
+  font-style: normal;
+  flex: none;
+}
+.omd-marked-blurb {
+  margin: 7px 0 0;
+  font: 500 12.5px/1.55 var(--font-ui);
+  color: var(--muted);
+}
+
+.omd-marked-bar { position: relative; margin-top: 13px; }
+.omd-marked-track {
+  position: relative;
+  height: 14px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.omd-marked-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #ff8a3d, #ffc06a);
+  box-shadow: 0 0 14px rgba(255, 160, 70, 0.5);
+  transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.omd-marked--surge .omd-marked-fill {
+  box-shadow: 0 0 24px rgba(255, 175, 85, 0.9);
+}
+.omd-marked-shimmer {
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  animation: omdShimmer 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+.omd-marked-float {
+  position: absolute;
+  right: 4px;
+  top: -20px;
+  font: 700 12px var(--font-mono);
+  color: var(--accent);
+  text-shadow: 0 0 12px rgba(255, 160, 70, 0.6);
+  animation: omdFloatUp 1.4s ease-out forwards;
+  pointer-events: none;
+}
+.omd-marked-nums {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 7px;
+  font: 600 11.5px var(--font-mono);
+  color: var(--ink);
+}
+.omd-marked-pct {
+  font: 700 12.5px var(--font-mono);
+  color: var(--accent);
+}
+
+/* ---------- one-tap pledge ---------- */
+
+.omd-pledge {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+}
+.omd-pledge-head {
+  font: 700 9px var(--font-mono);
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.omd-pledge-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.omd-pledge-btn {
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  margin-left: auto;
-  align-self: flex-start;
-  flex: none;
+  padding: 12px 8px 10px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 179, 92, 0.22);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: transform 0.08s, border-color 0.2s, background 0.2s;
 }
-.omd-bhouse-fig {
+.omd-pledge-btn:active {
+  transform: scale(0.94);
+  border-color: rgba(255, 195, 115, 0.65);
+  background: rgba(255, 179, 92, 0.12);
+}
+.omd-pledge-btn-icon { font-size: 22px; line-height: 1; }
+.omd-pledge-btn-label { font: 700 12.5px var(--font-ui); }
+.omd-pledge-btn-effect { font: 600 9px var(--font-mono); color: var(--muted); letter-spacing: 0.3px; }
+
+.omd-pledge-done {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  height: 28px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 13px;
+  border-radius: 14px;
+  background: rgba(255, 179, 92, 0.08);
+  border: 1px solid rgba(255, 179, 92, 0.2);
+  font: 500 12.5px/1.55 var(--font-ui);
+  color: var(--ink);
+  animation: omdRise 0.35s ease;
 }
-.omd-bhouse-roof {
-  width: 0;
-  height: 0;
-  border-left: 13px solid transparent;
-  border-right: 13px solid transparent;
-  border-bottom: 9px solid var(--accentb);
-  margin-bottom: -1px;
+.omd-pledge-done b { color: var(--accent); }
+.omd-pledge-done-icon { font-size: 20px; line-height: 1.2; flex: none; }
+
+/* ==========================================================================
+   Cards (generic sections)
+   ========================================================================== */
+
+.omd-card {
+  background: linear-gradient(175deg, #131727 0%, var(--bg1) 100%);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 14px;
+  box-shadow: 0 12px 32px -20px rgba(0, 0, 0, 0.9);
+  animation: omdRise 0.4s ease;
 }
-.omd-bhouse-body {
-  position: relative;
-  width: 22px;
-  height: 12px;
-  background: var(--panel2);
-  border: 2px solid var(--ink);
-  border-radius: 0 0 3px 3px;
-}
-.omd-bhouse-win {
-  position: absolute;
-  left: 3px;
-  top: 3px;
-  width: 4px;
-  height: 4px;
-  border-radius: 1px;
-  background: var(--warn);
-  box-shadow: 7px 0 0 var(--warn);
-}
-.omd-bhouse-tag {
-  font: 800 6.5px var(--font-mono);
-  letter-spacing: 0.7px;
-  color: var(--muted);
-}
-/* farm — wide gable, green roof, extra grain-lit window */
-.omd-bhouse--farm .omd-bhouse-roof {
-  border-bottom-color: var(--good);
-}
-.omd-bhouse--farm .omd-bhouse-body {
-  width: 26px;
-}
-.omd-bhouse--farm .omd-bhouse-win {
-  box-shadow: 7px 0 0 var(--warn), 14px 0 0 var(--warn);
-}
-/* generator — flat roof, warn stripe, smoke-stack */
-.omd-bhouse--generator .omd-bhouse-roof {
-  border: 0;
-  width: 24px;
-  height: 5px;
-  background: var(--warn);
-  border-radius: 2px 2px 0 0;
-}
-.omd-bhouse--generator .omd-bhouse-body {
-  width: 24px;
-  height: 13px;
-}
-.omd-bhouse--generator .omd-bhouse-body::after {
-  content: '';
-  position: absolute;
-  top: -11px;
-  right: 3px;
-  width: 4px;
-  height: 6px;
-  border-radius: 1px 1px 0 0;
-  background: var(--ink);
-}
-/* clinic — red roof, white face, cross */
-.omd-bhouse--clinic .omd-bhouse-roof {
-  border-bottom-color: var(--danger);
-}
-.omd-bhouse--clinic .omd-bhouse-body {
-  background: var(--pill);
-}
-.omd-bhouse--clinic .omd-bhouse-win {
-  display: none;
-}
-.omd-bhouse-cross {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 8px;
-  height: 8px;
-  background:
-    linear-gradient(var(--danger), var(--danger)) center / 8px 3px no-repeat,
-    linear-gradient(var(--danger), var(--danger)) center / 3px 8px no-repeat;
-}
-/* watchtower — tall, narrow, accent cap, one high lookout window */
-.omd-bhouse--watchtower .omd-bhouse-roof {
-  border-left-width: 9px;
-  border-right-width: 9px;
-  border-bottom: 7px solid var(--accent);
-}
-.omd-bhouse--watchtower .omd-bhouse-body {
-  width: 14px;
-  height: 20px;
-}
-.omd-bhouse--watchtower .omd-bhouse-win {
-  left: 3px;
-  top: 3px;
-  width: 4px;
-  height: 5px;
-  box-shadow: none;
+.omd-card--danger {
+  border-color: rgba(255, 107, 94, 0.25);
+  background: linear-gradient(170deg, rgba(255, 107, 94, 0.07) 0%, var(--bg1) 45%);
 }
 
-/* respect reduced-motion for the ambient layer */
-@media (prefers-reduced-motion: reduce) {
-  .omd-scene-world,
-  .omd-scene-pin-ring,
-  .omd-scene-smoke,
-  .omd-scene-alarmflash,
-  .omd-va-sprite {
-    animation: none !important;
-  }
-}
-
-/* ---------- panel grid ---------- */
-.omd-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-  align-items: start;
-}
-@media (min-width: 720px) {
-  .omd-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .omd-span2 {
-    grid-column: span 2;
-  }
-}
-@media (min-width: 1100px) {
-  .omd-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-.omd-panel {
-  background: var(--panel);
-  border: 1.5px solid var(--line);
-  border-radius: var(--round);
-  box-shadow: 0 3px 0 var(--line), 0 5px 8px var(--sh);
-  overflow: hidden;
-  animation: omdRise 0.28s ease;
-}
-.omd-panel--danger {
-  border-color: var(--dangerline);
-  background: linear-gradient(var(--panel), var(--dangerbg));
-}
-.omd-panel-head {
+.omd-card-head {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 12px 14px 8px;
-  border-bottom: 1.5px solid var(--line);
+  margin-bottom: 11px;
 }
-.omd-panel-icon {
-  font-size: 16px;
-  align-self: center;
-}
-.omd-panel-title {
-  font: 700 13px var(--font-display);
-  letter-spacing: 1.2px;
+.omd-card-icon { font-size: 14px; align-self: center; }
+.omd-card-title {
+  margin: 0;
+  font: 700 11px var(--font-ui);
+  letter-spacing: 2.2px;
   color: var(--ink);
 }
-.omd-panel-sub {
+.omd-card-sub {
   margin-left: auto;
-  font: 700 9px var(--font-mono);
+  font: 600 9px var(--font-mono);
+  letter-spacing: 0.4px;
   color: var(--muted);
-  letter-spacing: 0.5px;
   text-align: right;
 }
-.omd-panel-body {
-  padding: 12px 14px 14px;
+.omd-card-action { margin-left: auto; }
+
+/* ---------- city status (vitals) ---------- */
+
+.omd-vitals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px 14px;
+}
+.omd-vitals--alert {
+  border-radius: 12px;
+  outline: 1px solid rgba(255, 107, 94, 0.25);
+  outline-offset: 6px;
+}
+.omd-vital-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.omd-vital-label {
+  font: 600 9px var(--font-mono);
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.omd-vital-num {
+  font: 700 13px var(--font-mono);
+  white-space: nowrap;
+}
+.omd-vital-num small { font: 600 9px var(--font-mono); }
+.omd-vital-track {
+  margin-top: 5px;
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.omd-vital-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.omd-vital-fill--good { background: linear-gradient(90deg, #4fae7c, var(--good)); }
+.omd-vital-fill--warn { background: linear-gradient(90deg, #d9a13f, var(--warn)); }
+.omd-vital-fill--danger { background: linear-gradient(90deg, #d84c40, var(--danger)); box-shadow: 0 0 8px rgba(255, 107, 94, 0.5); }
+.omd-status-note {
+  margin-top: 11px;
+  font: 700 11px var(--font-ui);
+}
+
+/* ---------- preview cards (crisis / drama) ---------- */
+
+.omd-preview {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  transition: transform 0.08s, border-color 0.2s;
+}
+.omd-preview:active { transform: scale(0.985); }
+.omd-preview--crisis {
+  border-color: rgba(255, 107, 94, 0.32);
+  background: linear-gradient(165deg, rgba(255, 107, 94, 0.1) 0%, var(--bg1) 55%);
+}
+.omd-preview-eyebrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font: 700 9.5px var(--font-mono);
+  letter-spacing: 2.4px;
+  color: #ff9b8f;
+}
+.omd-preview-go {
+  font: 700 11px var(--font-ui);
+  letter-spacing: 0.2px;
+  color: var(--accent);
+  text-transform: none;
+}
+.omd-preview-title {
+  margin-top: 8px;
+  font: 600 19px var(--font-display);
+  line-height: 1.15;
+  color: var(--ink);
+}
+.omd-preview-sub {
+  margin-top: 5px;
+  font: 500 11.5px var(--font-ui);
+  color: var(--muted);
+}
+
+/* ---------- drama feed ---------- */
+
+.omd-drama {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.omd-drama-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid var(--line2);
+  border-radius: 0 12px 12px 0;
+}
+.omd-drama-icon { font-size: 14px; line-height: 1.3; flex: none; }
+.omd-drama-text {
+  font: 500 12px/1.5 var(--font-ui);
+  color: #d9d6e2;
+}
+
+/* ==========================================================================
+   Screens: shared header + stack
+   ========================================================================== */
+
+.omd-screen-head {
+  padding: 20px 16px 6px;
+  animation: omdRise 0.35s ease;
+}
+.omd-screen-eyebrow {
+  font: 700 9px var(--font-mono);
+  letter-spacing: 2.6px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.omd-screen-title {
+  margin: 4px 0 0;
+  font: 600 26px var(--font-display);
+  letter-spacing: 0.3px;
+  color: var(--ink);
+}
+.omd-stack {
+  padding: 12px 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ---------- crisis vote ---------- */
+
+.omd-crisis-title {
+  font: 600 19px var(--font-display);
+  line-height: 1.2;
+  color: var(--ink);
+}
+.omd-crisis-narrative {
+  margin: 7px 0 12px;
+  font: 500 12.5px/1.6 var(--font-ui);
+  color: var(--muted);
+}
+.omd-votes {
   display: flex;
   flex-direction: column;
   gap: 9px;
+  margin-bottom: 11px;
 }
-
-/* ---------- meters (city vitals) ---------- */
-.omd-meter {
-  display: grid;
-  grid-template-columns: 86px 1fr 74px;
-  align-items: center;
-  gap: 8px;
-}
-.omd-meter-label {
-  font: 800 10px var(--font-body);
-  color: var(--muted);
-  letter-spacing: 0.4px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  white-space: nowrap;
-}
-.omd-meter-track {
-  position: relative;
-  height: 12px;
-  background: var(--line);
-  border-radius: 99px;
-  overflow: hidden;
-}
-.omd-meter-fill {
-  height: 100%;
-  border-radius: 99px;
-  transition: width 0.5s;
-}
-.omd-meter-ghost {
-  position: absolute;
-  top: -2px;
-  bottom: -2px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--ink);
-  opacity: 0.45;
-}
-.omd-meter-num {
-  font: 800 12px var(--font-mono);
-  text-align: right;
-  white-space: nowrap;
-}
-.omd-meter-num small {
-  font: 800 9px var(--font-mono);
-  color: var(--muted);
-}
-.omd-forecast-note {
-  font: 700 9.5px var(--font-mono);
-  color: var(--muted);
-  letter-spacing: 0.4px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.omd-forecast-mark {
-  display: inline-block;
-  width: 3px;
-  height: 10px;
-  border-radius: 2px;
-  background: var(--ink);
-  opacity: 0.45;
-}
-
-/* ---------- vote options / plan bars ---------- */
 .omd-vote {
   display: flex;
-  align-items: center;
-  gap: 11px;
+  align-items: flex-start;
+  gap: 10px;
   width: 100%;
   text-align: left;
-  background: var(--pill);
-  border: 2px solid var(--line);
-  border-radius: 15px;
-  padding: 10px 12px;
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+  padding: 12px;
   cursor: pointer;
-  box-shadow: 0 3px 0 var(--line);
-  font-family: var(--font-body);
   color: var(--ink);
+  font-family: var(--font-ui);
+  transition: transform 0.08s, border-color 0.2s;
 }
-.omd-vote:disabled {
-  cursor: default;
-}
+.omd-vote:not(:disabled):active { transform: scale(0.98); }
+.omd-vote:disabled { cursor: default; }
 .omd-vote--mine {
-  border-color: var(--accent);
+  border-color: rgba(255, 179, 92, 0.55);
+  box-shadow: 0 0 20px -6px rgba(255, 160, 70, 0.35);
 }
 .omd-vote-letter {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--panel2);
-  border: 1.5px solid var(--line);
+  background: rgba(255, 255, 255, 0.07);
   border-radius: 10px;
-  font: 700 13px var(--font-display);
+  font: 600 13px var(--font-display);
   color: var(--ink);
 }
 .omd-vote--mine .omd-vote-letter {
-  background: linear-gradient(var(--accent), var(--accentb));
-  color: var(--onacc);
-  border-color: var(--accentb);
+  background: linear-gradient(180deg, var(--accent), var(--accent2));
+  color: var(--on-accent);
 }
-.omd-vote-main {
-  flex: 1;
-  min-width: 0;
-}
+.omd-vote-main { flex: 1; min-width: 0; }
 .omd-vote-title {
-  font: 800 13px var(--font-body);
-  color: var(--ink);
   display: flex;
   align-items: center;
   gap: 7px;
   flex-wrap: wrap;
+  font: 700 13.5px var(--font-ui);
+  color: var(--ink);
 }
 .omd-vote-desc {
-  font: 700 10.5px var(--font-body);
+  display: block;
+  margin-top: 2px;
+  font: 500 11.5px/1.45 var(--font-ui);
   color: var(--muted);
-  margin-top: 1px;
 }
 .omd-vote-effects {
-  font: 700 10.5px var(--font-mono);
+  display: block;
+  margin-top: 5px;
+  font: 600 10.5px var(--font-mono);
   color: var(--muted);
-  margin-top: 3px;
+}
+.omd-vote-bar {
+  display: block;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  margin-top: 9px;
+  overflow: hidden;
+}
+.omd-vote-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .omd-vote-tally {
-  width: 56px;
   flex: none;
+  width: 42px;
   text-align: right;
 }
 .omd-vote-pct {
-  font: 800 14px var(--font-mono);
+  display: block;
+  font: 700 14px var(--font-mono);
   color: var(--ink);
 }
 .omd-vote-count {
-  font: 700 8.5px var(--font-mono);
+  display: block;
+  font: 600 9px var(--font-mono);
   color: var(--muted);
 }
-.omd-minibar {
-  height: 5px;
-  width: 100%;
-  background: var(--line);
-  border-radius: 99px;
-  margin-top: 3px;
-  overflow: hidden;
-}
-.omd-minibar > span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  border-radius: 99px;
-  transition: width 0.5s;
-}
+
 .omd-tag {
-  font: 800 8px var(--font-body);
+  font: 700 8px var(--font-ui);
+  letter-spacing: 0.5px;
   border-radius: 99px;
-  padding: 1px 6px;
+  padding: 2px 7px;
   white-space: nowrap;
 }
-.omd-tag--mine {
-  color: var(--good);
-  border: 1px solid var(--good);
-}
-.omd-tag--backed {
-  color: var(--accent);
-  border: 1px solid var(--accent);
-}
-.omd-tag--lead {
-  color: var(--onacc);
-  background: var(--good);
-  border: 1px solid var(--goodb);
-}
-.omd-tag--star {
-  color: var(--accentb);
-  border: 1px solid var(--accent);
-  background: var(--pill);
-}
+.omd-tag--mine { color: var(--accent); border: 1px solid rgba(255, 179, 92, 0.5); }
+.omd-tag--backed { color: var(--accent); border: 1px solid rgba(255, 179, 92, 0.5); }
+.omd-tag--lead { color: #10241a; background: var(--good); }
 
-/* labeled horizontal bar rows (council plans, factions) */
-.omd-bar {
+/* ---------- council plans ---------- */
+
+.omd-plans {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 11px;
+}
+.omd-plan {
   width: 100%;
   text-align: left;
-  background: var(--pill);
-  border: 2px solid var(--line);
+  background: var(--bg2);
+  border: 1px solid var(--line2);
   border-radius: 14px;
-  padding: 9px 12px;
+  padding: 10px 12px;
   cursor: pointer;
-  box-shadow: 0 3px 0 var(--line);
-  font-family: var(--font-body);
   color: var(--ink);
+  font-family: var(--font-ui);
+  transition: transform 0.08s, border-color 0.2s;
 }
-.omd-bar--static {
-  cursor: default;
-}
-.omd-bar--mine {
-  border-color: var(--accent);
-}
-.omd-bar-row {
+.omd-plan:not(:disabled):active { transform: scale(0.98); }
+.omd-plan--mine { border-color: rgba(255, 179, 92, 0.55); }
+.omd-plan-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.omd-bar-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-.omd-bar-title {
-  font: 800 12.5px var(--font-body);
-  color: var(--ink);
+.omd-plan-icon { font-size: 16px; line-height: 1; }
+.omd-plan-title {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 7px;
-  min-width: 0;
   flex-wrap: wrap;
-}
-.omd-bar-val {
-  font: 800 13px var(--font-mono);
+  font: 700 12.5px var(--font-ui);
   color: var(--ink);
-  white-space: nowrap;
 }
-.omd-bar-val small {
-  font: 700 9px var(--font-mono);
-  color: var(--muted);
-}
-.omd-bar-track {
-  height: 7px;
-  background: var(--line);
+.omd-plan-val { font: 700 12px var(--font-mono); color: var(--ink); white-space: nowrap; }
+.omd-plan-val small { font: 600 9px var(--font-mono); color: var(--muted); }
+.omd-plan-track {
+  display: block;
+  height: 6px;
   border-radius: 99px;
-  margin-top: 7px;
+  background: rgba(255, 255, 255, 0.07);
+  margin-top: 8px;
   overflow: hidden;
 }
-.omd-bar-fill {
+.omd-plan-fill {
+  display: block;
   height: 100%;
   border-radius: 99px;
-  transition: width 0.5s;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------- pledge ledger (FEED) ---------- */
+
+.omd-ledger-mine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 11px 12px;
+  font: 500 12px/1.5 var(--font-ui);
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+.omd-ledger-mine b { color: var(--accent); }
+.omd-ledger-block { margin-bottom: 12px; }
+.omd-ledger-head {
+  font: 700 9px var(--font-mono);
+  letter-spacing: 2px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.omd-ledger-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.omd-ledger-row:last-child { border-bottom: 0; }
+.omd-ledger-medal { width: 20px; text-align: center; font-size: 13px; flex: none; }
+.omd-ledger-name { font: 600 12px var(--font-mono); color: var(--ink); }
+.omd-ledger-note { margin-left: auto; font: 600 9.5px var(--font-mono); color: var(--muted); }
+.omd-ledger-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.omd-ledger-chip {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 4px 10px;
+  font: 600 10.5px var(--font-mono);
+  color: #cfccdd;
+}
+
+/* ---------- YOU: identity ---------- */
+
+.omd-identity-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.omd-identity-orb {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 25px;
+  border-radius: 50%;
+  background: linear-gradient(165deg, #2b2144, #181428);
+  border: 1px solid rgba(255, 179, 92, 0.35);
+  box-shadow: 0 8px 24px -8px rgba(255, 150, 70, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.omd-identity-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.omd-identity-user {
+  font: 600 10px var(--font-mono);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.omd-identity-role {
+  font: 600 20px var(--font-display);
+  line-height: 1.1;
+  color: var(--ink);
+}
+.omd-identity-title { font: 700 11px var(--font-ui); color: var(--accent); }
+.omd-identity-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.omd-identity-chips .omd-chip { background: var(--bg2); }
+
+/* ---------- energy ---------- */
+
+.omd-energy {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: 12px;
+  padding: 7px 10px;
+  flex: none;
+}
+.omd-energy-label {
+  font: 700 7.5px var(--font-mono);
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+.omd-dots { display: inline-flex; gap: 4px; }
+.omd-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 179, 92, 0.35);
+}
+.omd-dot--on {
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(255, 179, 92, 0.6);
+}
+
+/* ---------- actions grid (YOU) ---------- */
+
+.omd-actiongrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+.omd-action {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+  padding: 12px;
+  cursor: pointer;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  transition: transform 0.08s, border-color 0.2s;
+}
+.omd-action:not(:disabled):active { transform: scale(0.95); border-color: rgba(255, 179, 92, 0.5); }
+.omd-action:disabled { cursor: default; opacity: 0.45; filter: saturate(0.5); }
+.omd-action-badge {
+  position: absolute;
+  top: -8px;
+  right: 10px;
+  background: linear-gradient(180deg, var(--accent), var(--accent2));
+  color: var(--on-accent);
+  font: 700 8px var(--font-ui);
+  padding: 2px 8px;
+  border-radius: 99px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+.omd-action-icon { font-size: 23px; line-height: 1.15; }
+.omd-action-title { font: 700 12.5px var(--font-ui); margin-top: 3px; }
+.omd-action-effect { font: 600 10.5px var(--font-mono); color: var(--good); }
+.omd-action-count { font: 600 9.5px var(--font-mono); color: var(--accent); margin-top: 2px; }
+
+.omd-routes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 /* ---------- buttons ---------- */
+
 .omd-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 42px;
-  padding: 8px 14px;
+  min-height: 44px;
+  padding: 9px 14px;
   border-radius: 14px;
   border: 0;
   cursor: pointer;
-  font: 800 13px var(--font-body);
-  transition: transform 0.06s;
+  font: 700 13px var(--font-ui);
+  transition: transform 0.08s, filter 0.2s;
 }
+.omd-btn small { font: 600 10.5px var(--font-ui); opacity: 0.75; }
 .omd-btn--primary {
-  background: linear-gradient(var(--accent), var(--accentb));
-  color: var(--onacc);
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), 0 4px 0 var(--accentb), 0 7px 12px var(--sh);
+  background: linear-gradient(180deg, var(--accent), var(--accent2));
+  color: var(--on-accent);
+  box-shadow: 0 8px 22px -8px rgba(255, 150, 60, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 .omd-btn--ghost {
-  background: var(--pill);
+  background: var(--bg2);
   color: var(--ink);
-  border: 1.5px solid var(--line);
-  box-shadow: 0 3px 0 var(--line), 0 5px 8px var(--sh);
+  border: 1px solid var(--line2);
 }
 .omd-btn--danger {
-  background: linear-gradient(var(--danger), var(--dangerb));
-  color: var(--onacc);
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.3), 0 4px 0 var(--dangerb), 0 7px 12px var(--sh);
+  background: linear-gradient(180deg, #ff7e69, #e34c3c);
+  color: #2b0b06;
+  box-shadow: 0 8px 22px -8px rgba(255, 90, 70, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-.omd-btn:not(:disabled):active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 var(--accentb);
-}
-.omd-btn:disabled {
-  cursor: default;
-  opacity: 0.55;
-  filter: saturate(0.5);
-}
+.omd-btn:not(:disabled):active { transform: translateY(1px) scale(0.98); }
+.omd-btn:disabled { cursor: default; opacity: 0.45; filter: saturate(0.5); }
 
-/* action cards */
-.omd-actiongrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-@media (max-width: 420px) {
-  .omd-actiongrid {
-    grid-template-columns: 1fr;
-  }
-}
-.omd-action {
-  position: relative;
-  text-align: left;
-  background: var(--pill);
-  border: 1.5px solid var(--line);
-  border-radius: 16px;
-  padding: 11px 12px 10px;
-  cursor: pointer;
-  box-shadow: 0 4px 0 var(--line), 0 6px 12px var(--sh);
-  font-family: var(--font-body);
-  color: var(--ink);
-}
-.omd-action:not(:disabled):active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 var(--line);
-}
-.omd-action:disabled {
-  cursor: default;
-  opacity: 0.55;
-  filter: saturate(0.4);
-}
-.omd-action-top {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-.omd-action-icon {
-  font-size: 26px;
-  line-height: 1;
-}
-.omd-action-title {
-  font: 800 13px var(--font-body);
-  color: var(--ink);
-}
-.omd-action-effect {
-  font: 800 12px var(--font-mono);
-  color: var(--good);
-  margin-top: 1px;
-}
-.omd-action-foot {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 8px;
-  padding-top: 7px;
-  border-top: 1px dashed var(--line);
-  font: 700 9.5px var(--font-body);
-  color: var(--muted);
-}
-.omd-action-badge {
-  position: absolute;
-  top: -9px;
-  right: 10px;
-  background: var(--good);
-  color: #fff;
-  font: 800 8px var(--font-body);
-  padding: 3px 8px;
-  border-radius: 99px;
-  box-shadow: 0 3px 6px var(--sh);
-}
-.omd-action-badge--star {
-  background: linear-gradient(var(--accent), var(--accentb));
-  color: var(--onacc);
-}
+/* ---------- role cards ---------- */
 
-/* ---------- energy dots ---------- */
-.omd-dots {
-  display: inline-flex;
-  gap: 3px;
-}
-.omd-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--line);
-  border: 1.5px solid var(--accentb);
-}
-.omd-dot--on {
-  background: var(--warn);
-}
-.omd-energy {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  background: var(--pill);
-  border: 1.5px solid var(--line);
-  border-radius: 14px;
-  padding: 6px 10px;
-  box-shadow: 0 3px 0 var(--line);
-}
-.omd-energy-label {
-  font: 800 8px var(--font-body);
-  color: var(--muted);
-  letter-spacing: 0.5px;
-}
-
-/* ---------- role panel ---------- */
-.omd-role-hero {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.omd-role-orb {
-  width: 58px;
-  height: 58px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(var(--panel), var(--panel2));
-  border: 2px solid var(--line);
-  border-radius: 50%;
-  font-size: 26px;
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 4px 0 var(--line), 0 7px 10px var(--sh);
-}
-.omd-role-name {
-  font: 700 16px var(--font-display);
-  letter-spacing: 1px;
-  color: var(--ink);
-  line-height: 1.15;
-}
-.omd-role-title {
-  font: 800 10.5px var(--font-body);
-  color: var(--accent);
-}
-.omd-role-meta {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
 .omd-rolegrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 9px;
+  gap: 8px;
 }
-@media (max-width: 420px) {
-  .omd-rolegrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+@media (max-width: 380px) {
+  .omd-rolegrid { grid-template-columns: repeat(2, 1fr); }
 }
 .omd-rolecard {
-  background: var(--pill);
-  border: 2px solid var(--line);
+  background: var(--bg2);
+  border: 1px solid var(--line2);
   border-radius: 14px;
-  padding: 11px 8px;
+  padding: 12px 6px 10px;
   text-align: center;
   cursor: pointer;
-  box-shadow: 0 3px 0 var(--line);
-  font-family: var(--font-body);
   color: var(--ink);
+  font-family: var(--font-ui);
+  transition: transform 0.08s, border-color 0.2s;
 }
-.omd-rolecard:not(:disabled):active {
-  transform: translateY(2px);
-}
+.omd-rolecard:not(:disabled):active { transform: scale(0.95); }
 .omd-rolecard--active {
-  border-color: var(--accent);
+  border-color: rgba(255, 179, 92, 0.6);
+  box-shadow: 0 0 16px -4px rgba(255, 160, 70, 0.35);
 }
-.omd-rolecard-icon {
-  font-size: 27px;
-  line-height: 1;
-}
-.omd-rolecard-name {
-  font: 800 12.5px var(--font-body);
-  margin-top: 3px;
-}
-.omd-rolecard-bonus {
-  font: 700 9.5px/1.3 var(--font-body);
-  color: var(--muted);
-  margin-top: 3px;
-}
+.omd-rolecard-icon { font-size: 24px; line-height: 1; }
+.omd-rolecard-name { font: 700 12px var(--font-ui); margin-top: 5px; }
+.omd-rolecard-bonus { font: 500 9px/1.4 var(--font-ui); color: var(--muted); margin-top: 3px; }
 
-/* ---------- role gate (first visit) ---------- */
-.omd-gate {
-  min-height: 100vh;
+/* ==========================================================================
+   Bottom tab bar
+   ========================================================================== */
+
+.omd-tabbar {
+  flex: none;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+  gap: 4px;
+  padding: 7px 10px calc(7px + env(safe-area-inset-bottom, 0px));
+  background: rgba(11, 13, 23, 0.92);
+  border-top: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+  z-index: 20;
 }
-.omd-gate-card {
-  width: min(560px, 100%);
-  background: var(--panel);
-  border: 1.5px solid var(--line);
-  border-radius: 22px;
-  box-shadow: 0 3px 0 var(--line), 0 18px 40px var(--sh);
-  padding: 22px 18px;
-  text-align: center;
-  animation: omdRise 0.3s ease;
-}
-.omd-gate-title {
-  font: 700 20px var(--font-display);
-  letter-spacing: 2px;
-  color: var(--ink);
-}
-.omd-gate-sub {
-  font: 700 11.5px var(--font-body);
-  color: var(--muted);
-  margin: 6px 0 14px;
-}
-
-/* ---------- roster: villager avatar cluster ---------- */
-.omd-vgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
-  gap: 8px;
-  max-height: 240px;
-  overflow-y: auto;
-  padding: 2px;
-}
-.omd-vgrid .omd-note {
-  grid-column: 1 / -1;
-}
-.omd-vgr {
+.omd-tab {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  background: var(--pill);
-  border: 1.5px solid var(--line);
-  border-radius: 12px;
-  padding: 8px 4px 7px;
-  text-align: center;
-  min-width: 0;
-}
-.omd-vgr--off {
-  opacity: 0.78;
-}
-.omd-vgr-name {
-  font: 800 10.5px var(--font-mono);
-  color: var(--ink);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.omd-vgr-role {
-  font: 700 9px var(--font-body);
+  background: none;
+  border: 0;
+  border-radius: 14px;
+  padding: 6px 0 5px;
+  cursor: pointer;
   color: var(--muted);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  transition: background 0.2s, color 0.2s, transform 0.08s;
 }
-.omd-vgr-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font: 700 8px var(--font-mono);
-  color: var(--muted);
-}
-
-/* pixel-person avatar (hair cap + face + body, dark outline, gentle bob) */
-.omd-va {
+.omd-tab:active { transform: scale(0.92); }
+.omd-tab-icon {
   position: relative;
-  width: 30px;
-  height: 34px;
-  display: inline-flex;
-  align-items: flex-end;
-  justify-content: center;
-  flex: none;
+  font-size: 19px;
+  line-height: 1;
+  filter: grayscale(1) opacity(0.55);
+  transition: filter 0.2s;
 }
-.omd-va-sprite {
-  position: relative;
-  z-index: 1;
-  width: 26px;
-  animation: omdBob 1.4s ease-in-out infinite;
+.omd-tab-label {
+  font: 700 9px var(--font-ui);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
 }
-.omd-va-hair {
-  display: block;
-  width: 16px;
-  height: 9px;
-  margin: 0 auto;
-  border: 2px solid var(--ink);
-  border-bottom: none;
-  border-radius: 5px 5px 0 0;
+.omd-tab--active {
+  color: var(--accent);
+  background: rgba(255, 179, 92, 0.1);
 }
-.omd-va-face {
-  display: block;
-  width: 14px;
-  height: 7px;
-  margin: 0 auto;
-  background: #d9a878;
-  border-left: 2px solid var(--ink);
-  border-right: 2px solid var(--ink);
-}
-.omd-va-body {
-  display: block;
-  width: 22px;
-  height: 13px;
-  margin: -1px auto 0;
-  border: 2px solid var(--ink);
-  border-radius: 4px;
-}
-.omd-va-shadow {
+.omd-tab--active .omd-tab-icon { filter: none; }
+.omd-tab-dot {
   position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 18px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--sh);
-  opacity: 0.3;
-}
-.omd-va--off .omd-va-sprite {
-  animation: none;
-  filter: grayscale(0.65) opacity(0.6);
-}
-@keyframes omdBob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-2px);
-  }
-}
-.omd-onlinedot {
+  top: -2px;
+  right: -7px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--line);
-  flex: none;
-}
-.omd-onlinedot--on {
-  background: var(--good);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent);
-  animation: omdPulse 2s infinite;
+  background: var(--danger);
+  border: 2px solid #0b0d17;
+  animation: omdPulse 1.6s infinite;
 }
 
-/* ---------- activity feed ---------- */
-.omd-feed {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 250px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-.omd-feed-entry {
-  border-left: 3px solid var(--line);
-  padding-left: 10px;
-}
-.omd-feed-entry--raid {
-  border-left-color: var(--danger);
-}
-.omd-feed-day {
-  font: 700 11px var(--font-display);
-  letter-spacing: 0.8px;
-  color: var(--ink);
-}
-.omd-feed-line {
-  font: 700 10.5px var(--font-body);
-  color: var(--muted);
-  margin-top: 2px;
-}
-.omd-feed-line--raid {
-  color: var(--danger);
-}
+/* ==========================================================================
+   Toasts (inside the phone frame, above the tab bar)
+   ========================================================================== */
 
-/* ---------- leaderboard ---------- */
-.omd-lb-cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+@keyframes omdToastIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: none; }
 }
-@media (max-width: 420px) {
-  .omd-lb-cols {
-    grid-template-columns: 1fr;
-  }
-}
-.omd-lb-head {
-  font: 700 9px var(--font-mono);
-  color: var(--muted);
-  letter-spacing: 1px;
-  margin-bottom: 6px;
-}
-.omd-lb-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 0;
-  border-bottom: 1px dashed var(--line);
-  font: 700 11px var(--font-body);
-  color: var(--ink);
-  min-width: 0;
-}
-.omd-lb-row:last-child {
-  border-bottom: 0;
-}
-.omd-lb-medal {
-  width: 18px;
-  flex: none;
-  text-align: center;
-  font-size: 12px;
-}
-.omd-lb-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.omd-lb-score {
-  font: 800 11px var(--font-mono);
-  color: var(--accent);
-}
-
-/* ---------- toasts ---------- */
 .omd-toasts {
-  position: fixed;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 84px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   z-index: 90;
   pointer-events: none;
-  width: max-content;
-  max-width: 92vw;
 }
 .omd-toast {
-  background: var(--ink);
-  color: var(--pill);
-  font: 800 12px var(--font-body);
+  background: #f4ead8;
+  color: #221607;
+  font: 700 12px var(--font-ui);
   padding: 9px 18px;
   border-radius: 99px;
-  box-shadow: 0 8px 20px var(--sh);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55);
   animation: omdToastIn 0.22s ease;
   max-width: 100%;
   text-align: center;
 }
 
-/* ---------- modal / sheet ---------- */
+/* ==========================================================================
+   Modal / bottom sheet
+   ========================================================================== */
+
 .omd-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  background: rgba(20, 15, 8, 0.45);
-  backdrop-filter: blur(2px);
+  background: rgba(4, 5, 11, 0.62);
+  backdrop-filter: blur(3px);
   z-index: 70;
   display: flex;
   align-items: flex-end;
   justify-content: center;
 }
-@media (min-width: 720px) {
-  .omd-overlay {
-    align-items: center;
-    padding: 24px;
-  }
-}
 .omd-sheet {
-  width: min(620px, 100%);
-  max-height: min(86vh, 640px);
-  background: var(--panel);
+  width: 100%;
+  max-height: 88%;
+  background: #141828;
   border-radius: 26px 26px 0 0;
-  box-shadow: 0 -18px 40px var(--sh);
+  border-top: 1px solid var(--line2);
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   animation: omdRise 0.28s ease;
   overflow: hidden;
   color: var(--ink);
-  font-family: var(--font-body);
-}
-@media (min-width: 720px) {
-  .omd-sheet {
-    border-radius: 24px;
-    border: 1.5px solid var(--line);
-    box-shadow: 0 3px 0 var(--line), 0 24px 60px var(--sh);
-  }
+  font-family: var(--font-ui);
 }
 .omd-sheet-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px 10px;
-  border-bottom: 1.5px solid var(--line);
+  padding: 15px 18px 11px;
+  border-bottom: 1px solid var(--line);
 }
-.omd-sheet-titlebox {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
+.omd-sheet-titlebox { display: flex; align-items: center; gap: 9px; }
 .omd-sheet-title {
-  font: 700 16px var(--font-display);
-  letter-spacing: 1px;
+  font: 600 16px var(--font-display);
+  letter-spacing: 0.6px;
   color: var(--ink);
 }
 .omd-sheet-x {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--panel2);
-  border: 1.5px solid var(--line);
+  background: var(--bg2);
+  border: 1px solid var(--line2);
   border-radius: 50%;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
   cursor: pointer;
   padding: 0;
@@ -1664,60 +1469,131 @@
 .omd-sheet-body {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 18px 18px;
+  padding: 14px 18px calc(18px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
 /* dawn report */
-.omd-dawn-sun {
-  text-align: center;
-  font-size: 42px;
-  line-height: 1;
+.omd-dawn-sun { text-align: center; font-size: 40px; line-height: 1; }
+.omd-dawn-box {
+  background: var(--bg2);
+  border-radius: 14px;
+  padding: 12px 13px;
 }
 .omd-dawn-head {
-  font: 700 10px var(--font-mono);
+  font: 700 9px var(--font-mono);
+  letter-spacing: 1.8px;
   color: var(--muted);
-  letter-spacing: 1.4px;
   margin-bottom: 5px;
 }
 .omd-dawn-line {
-  font: 700 12px/1.5 var(--font-body);
+  font: 500 12.5px/1.55 var(--font-ui);
   color: var(--ink);
 }
-.omd-dawn-box {
-  background: var(--panel2);
-  border-radius: 14px;
-  padding: 11px 13px;
-}
 
-/* ---------- fallen city ---------- */
-.omd-fallen {
-  min-height: 100vh;
-  background: radial-gradient(120% 80% at 50% 0%, #2e2620, #17120d);
-  color: #d8cfc0;
+/* ==========================================================================
+   Boot / gate / fallen
+   ========================================================================== */
+
+@keyframes omdBreathe {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+.omd-boot {
+  flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 12px;
+  text-align: center;
   padding: 24px;
-  font-family: var(--font-body);
 }
-.omd-fallen-card {
-  width: min(560px, 100%);
+.omd-boot-sun {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #ffd9a0 0%, var(--accent) 45%, rgba(255, 138, 61, 0.4) 75%, transparent 100%);
+  box-shadow: 0 0 44px 10px rgba(255, 160, 70, 0.35);
+  animation: omdBreathe 2.6s ease-in-out infinite;
+}
+.omd-boot-title {
+  font: 600 24px var(--font-display);
+  letter-spacing: 0.6px;
+  color: var(--ink);
+}
+.omd-boot-sub { font: 600 11px var(--font-mono); letter-spacing: 1px; color: var(--muted); }
+.omd-boot--err .omd-boot-title { color: var(--danger); }
+
+.omd-gate {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  padding: 20px 16px;
+  background:
+    radial-gradient(90% 40% at 50% 108%, rgba(255, 140, 70, 0.18), transparent 70%),
+    var(--bg0);
+}
+.omd-gate-card {
+  margin: auto;
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.8);
+  padding: 24px 16px 18px;
   text-align: center;
   animation: omdRise 0.4s ease;
 }
+.omd-gate-sun {
+  font-size: 38px;
+  line-height: 1;
+}
+.omd-gate-title {
+  font: 600 26px var(--font-display);
+  letter-spacing: 0.4px;
+  color: var(--ink);
+  margin-top: 8px;
+}
+.omd-gate-sub {
+  font: 500 12px/1.6 var(--font-ui);
+  color: var(--muted);
+  margin: 8px 0 16px;
+}
+.omd-gate-card .omd-note { margin-top: 14px; }
+
+.omd-fallen {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  padding: 24px 18px;
+  background:
+    radial-gradient(110% 70% at 50% 0%, #221a18 0%, transparent 60%),
+    #0c0908;
+}
+.omd-fallen-card {
+  margin: auto;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  animation: omdRise 0.5s ease;
+}
+.omd-fallen-candle { font-size: 42px; }
 .omd-fallen-title {
-  font: 700 clamp(22px, 5vw, 30px) var(--font-display);
-  letter-spacing: 3px;
-  color: #e8ddc8;
+  font: 600 clamp(24px, 6.5vw, 29px) var(--font-display);
+  letter-spacing: 0.6px;
+  color: #ead9bd;
   margin-top: 10px;
 }
 .omd-fallen-sub {
-  font: 700 12px var(--font-body);
+  font: 500 12px/1.6 var(--font-ui);
   color: #9a8f7d;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .omd-fallen-feed {
   margin-top: 18px;
@@ -1729,60 +1605,25 @@
   max-height: 260px;
   overflow-y: auto;
 }
-.omd-fallen-feed .omd-feed-day {
-  color: #d8cfc0;
+.omd-fallen-entry { margin-bottom: 10px; }
+.omd-fallen-entry:last-child { margin-bottom: 0; }
+.omd-fallen-day {
+  font: 700 9px var(--font-mono);
+  letter-spacing: 1.6px;
+  color: #c9a15c;
 }
-.omd-fallen-feed .omd-feed-line {
-  color: #9a8f7d;
-}
-.omd-fallen-feed .omd-feed-line--raid {
-  color: #d97b62;
-}
+.omd-fallen-line { font: 500 12px/1.5 var(--font-ui); color: #9a8f7d; margin-top: 2px; }
+.omd-fallen-line--raid { color: #d97b62; }
 
-/* misc */
-.omd-note {
-  font: 700 10.5px var(--font-body);
-  color: var(--muted);
-}
-.omd-note--center {
-  text-align: center;
-}
-.omd-inline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.omd-spread {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.omd-lawcard {
-  background: var(--panel2);
-  border-radius: 14px;
-  padding: 11px 13px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.omd-lawcard-name {
-  font: 800 12.5px var(--font-body);
-  color: var(--ink);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.omd-lawcard-line {
-  font: 700 10.5px var(--font-mono);
-}
-.omd-footer-tag {
-  text-align: center;
-  font: 700 8.5px var(--font-mono);
-  color: var(--muted);
-  opacity: 0.7;
-  letter-spacing: 1px;
-  padding-bottom: 8px;
+/* ==========================================================================
+   Reduced motion — the city stands still, nothing breaks
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .omd-root *,
+  .omd-root *::before,
+  .omd-root *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

@@ -1,16 +1,20 @@
 import type {
   ActionType,
+  DramaEvent,
   FactionId,
+  Marked,
   MissionRoute,
+  PledgeKind,
   ResourceDelta,
   Role,
   StrategyPlanId,
 } from '../../shared/types';
 
 /**
- * Display-only definitions for the dashboard. Labels/icons live here so panel
- * code stays lean; game numbers stay server-side (shared/balance.ts) — the
- * effect strings below mirror them for display and are not used in math.
+ * Display-only definitions for the mobile hook-layer client. Labels/icons live
+ * here so screen code stays lean; game numbers stay server-side
+ * (shared/balance.ts) — the effect strings below mirror them for display and
+ * are not used in math.
  */
 
 export type RoleDef = { icon: string; name: string; bonus: string };
@@ -33,9 +37,6 @@ export const ROLE_DEFS: Record<Role, RoleDef> = {
   speaker: { icon: '📣', name: 'Speaker', bonus: 'Every action also lifts morale' },
 };
 
-/** The village building each city action tends (mini glyph on action cards). */
-export type BuildingId = 'farm' | 'generator' | 'clinic' | 'watchtower';
-
 export type ActionDef = {
   id: ActionType;
   icon: string;
@@ -43,51 +44,13 @@ export type ActionDef = {
   effect: string;
   role: Role;
   toast: string;
-  building: BuildingId;
-  buildingName: string;
 };
 
 export const ACTION_DEFS: readonly ActionDef[] = [
-  {
-    id: 'grow_food',
-    icon: '🌾',
-    title: 'Grow Food',
-    effect: '+3 🍞',
-    role: 'farmer',
-    toast: '🍞 Food grown — the greenhouse holds',
-    building: 'farm',
-    buildingName: 'FARM',
-  },
-  {
-    id: 'repair_power',
-    icon: '🔧',
-    title: 'Repair Power',
-    effect: '+4 ⚡',
-    role: 'engineer',
-    toast: '⚡ Generator steadied',
-    building: 'generator',
-    buildingName: 'GENERATOR',
-  },
-  {
-    id: 'treat_sick',
-    icon: '⛑️',
-    title: 'Treat Sick',
-    effect: '+2 🩹',
-    role: 'medic',
-    toast: '🩹 The sick rest easier',
-    building: 'clinic',
-    buildingName: 'CLINIC',
-  },
-  {
-    id: 'guard_wall',
-    icon: '🛡️',
-    title: 'Guard Wall',
-    effect: '−5 ☠️ +2 🛡️',
-    role: 'guard',
-    toast: '🛡️ The wall holds',
-    building: 'watchtower',
-    buildingName: 'WATCHTOWER',
-  },
+  { id: 'grow_food', icon: '🌾', title: 'Grow Food', effect: '+3 🍞', role: 'farmer', toast: '🍞 Food grown — the greenhouse holds' },
+  { id: 'repair_power', icon: '🔧', title: 'Repair Power', effect: '+4 ⚡', role: 'engineer', toast: '⚡ Generator steadied' },
+  { id: 'treat_sick', icon: '⛑️', title: 'Treat Sick', effect: '+2 🩹', role: 'medic', toast: '🩹 The sick rest easier' },
+  { id: 'guard_wall', icon: '🛡️', title: 'Guard Wall', effect: '−5 ☠️ +2 🛡️', role: 'guard', toast: '🛡️ The wall holds' },
 ];
 
 export type PlanDef = {
@@ -110,7 +73,7 @@ export const PLAN_DEFS: Record<StrategyPlanId, PlanDef> = {
   repair_power: { icon: '⚡', title: 'Repair Power', fill: 'var(--good)', action: 'repair_power' },
   prepare_raid: { icon: '🛡️', title: 'Prepare for Raid', fill: 'var(--danger)', action: 'guard_wall' },
   send_scouts: { icon: '🧭', title: 'Send Scouts', fill: 'var(--accent)', action: null },
-  treat_sick: { icon: '⛑️', title: 'Treat the Sick', fill: 'var(--goodb)', action: 'treat_sick' },
+  treat_sick: { icon: '⛑️', title: 'Treat the Sick', fill: 'var(--blue)', action: 'treat_sick' },
 };
 
 export type FactionDef = { icon: string; name: string; fill: string };
@@ -131,6 +94,46 @@ export const ROUTE_DEFS: readonly RouteDef[] = [
   { id: 'deep', icon: '🌆', title: 'Deep Ruins', blurb: '7 crates · real risk' },
   { id: 'desperate', icon: '☠️', title: 'Desperate Dive', blurb: '9 crates · deadly, richer loot' },
 ];
+
+// ---------- hook layer (Marked / pledge / drama) ----------
+
+/** Optimistic bump applied to the Marked bar while the pledge is in flight. */
+export const PLEDGE_OPTIMISTIC_BUMP = 3;
+
+/** Past-tense line per pledge, used to build the confirmation toast. */
+export const PLEDGE_VERBS: Record<PledgeKind, string> = {
+  stand_vigil: 'You stood vigil',
+  share_rations: 'You shared rations',
+  run_messages: 'You ran messages',
+  back_council: 'You backed the council',
+};
+
+export const MARKED_KIND_ICON: Record<Marked['kind'], string> = {
+  person: '🧒',
+  place: '🏰',
+  symbol: '🕯️',
+};
+
+/** "Mira, the greenhouse child" → "Mira"; "The North Wall" → itself. */
+export const markedShortName = (marked: Marked): string =>
+  marked.name.split(',')[0]?.trim() ?? marked.name;
+
+/** Verb for the goal framing: people are saved, places/symbols protected. */
+export const markedGoalWord = (marked: Marked): string =>
+  marked.kind === 'person' ? 'saved' : 'protected';
+
+export const markedPct = (marked: Marked): number =>
+  Math.max(0, Math.min(100, Math.round((marked.pledged / Math.max(1, marked.goal)) * 100)));
+
+/** Accent color per drama-event kind (Live Drama Feed). */
+export const DRAMA_TINTS: Record<DramaEvent['kind'], string> = {
+  action: 'var(--good)',
+  raid: 'var(--danger)',
+  law: 'var(--violet)',
+  marked: 'var(--accent)',
+  city: 'var(--blue)',
+  crisis: 'var(--warn)',
+};
 
 // ---------- resource formatting ----------
 
@@ -166,22 +169,5 @@ export const formatDelta = (delta: ResourceDelta): string => {
   }
   return parts.length > 0 ? parts.join('  ') : 'no immediate change';
 };
-
-/** Stable hex color string for a villager's numeric color. */
-export const villagerColor = (color: number): string =>
-  `#${color.toString(16).padStart(6, '0')}`;
-
-/** Deterministic hair tone for a villager avatar, derived from their color. */
-const HAIR_TONES: readonly string[] = [
-  '#3a2c22',
-  '#6b4a2e',
-  '#22303a',
-  '#5a3a2a',
-  '#2c2c2c',
-  '#7a5230',
-];
-
-export const villagerHair = (color: number): string =>
-  HAIR_TONES[Math.abs(color) % HAIR_TONES.length] ?? '#3a2c22';
 
 export const MEDALS: readonly string[] = ['🥇', '🥈', '🥉'];

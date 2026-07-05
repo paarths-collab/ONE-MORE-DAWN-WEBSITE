@@ -1,6 +1,7 @@
 import type {
-  ActionType, CityState, FactionId, PlayerProfile, TimelineEntry, VoteTally,
+  ActionType, CityState, FactionId, PledgeKind, PlayerProfile, TimelineEntry, VoteTally,
 } from '../../shared/types';
+import { isPledgeKind, type PledgerEntry } from '../game/pledges';
 import { KEYS } from './redisKeys';
 
 /** The subset of the Devvit redis client the store uses. Tests provide a fake. */
@@ -181,6 +182,56 @@ export class Store {
     return updated;
   }
 
+  // ----- The Marked + one-tap pledges (hook layer) -----
+  /** 'pledged' counter and per-kind tap counts share the day's marked hash. */
+  async bumpMarkedPledge(day: number, by: number): Promise<void> {
+    if (by === 0) return;
+    await this.redis.hIncrBy(KEYS.dayMarked(day), 'pledged', by);
+  }
+
+  async getMarkedPledge(day: number): Promise<number> {
+    return Number((await this.redis.hGet(KEYS.dayMarked(day), 'pledged')) ?? '0');
+  }
+
+  async bumpPledgeKind(day: number, kind: PledgeKind): Promise<void> {
+    await this.redis.hIncrBy(KEYS.dayMarked(day), kind, 1);
+  }
+
+  async getPledgeKindCounts(day: number): Promise<Partial<Record<PledgeKind, number>>> {
+    const raw = await this.redis.hGetAll(KEYS.dayMarked(day));
+    const out: Partial<Record<PledgeKind, number>> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      if (isPledgeKind(k)) out[k] = Number(v);
+    }
+    return out;
+  }
+
+  async recordPledger(day: number, userId: string, entry: PledgerEntry): Promise<void> {
+    await this.redis.hSet(KEYS.dayPledgers(day), { [userId]: JSON.stringify(entry) });
+  }
+
+  async getPledger(day: number, userId: string): Promise<PledgerEntry | undefined> {
+    const raw = await this.redis.hGet(KEYS.dayPledgers(day), userId);
+    return raw ? (JSON.parse(raw) as PledgerEntry) : undefined;
+  }
+
+  async getPledgers(day: number): Promise<Record<string, PledgerEntry>> {
+    const raw = await this.redis.hGetAll(KEYS.dayPledgers(day));
+    return Object.fromEntries(
+      Object.entries(raw).map(([userId, json]) => [userId, JSON.parse(json) as PledgerEntry]),
+    );
+  }
+
+  /** Dawn verdict for a resolved day — next day's `savedYesterday` reads it. */
+  async setMarkedOutcome(day: number, outcome: { name: string; saved: boolean }): Promise<void> {
+    await this.redis.hSet(KEYS.markedOutcomes, { [String(day)]: JSON.stringify(outcome) });
+  }
+
+  async getMarkedOutcome(day: number): Promise<{ name: string; saved: boolean } | null> {
+    const raw = await this.redis.hGet(KEYS.markedOutcomes, String(day));
+    return raw ? (JSON.parse(raw) as { name: string; saved: boolean }) : null;
+  }
+
   // ----- missions -----
   async bumpDayMissions(day: number, fields: Record<string, number>): Promise<void> {
     await Promise.all(
@@ -222,6 +273,19 @@ export class Store {
       by: 'rank',
     });
     return rows.map((r) => ({ userId: r.member, score: r.score }));
+  }
+
+  /**
+   * 1-based contribution rank (zRevRank-style via zRange — RedisLike exposes no
+   * rank op). Null when the member has never contributed.
+   */
+  async getContributionRank(userId: string): Promise<number | null> {
+    const rows = await this.redis.zRange(KEYS.lbContribution, 0, -1, {
+      reverse: true,
+      by: 'rank',
+    });
+    const idx = rows.findIndex((r) => r.member === userId);
+    return idx === -1 ? null : idx + 1;
   }
 
   // ----- timeline + history -----

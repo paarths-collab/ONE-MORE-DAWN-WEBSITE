@@ -2,12 +2,13 @@ body {
   margin: 0;
   padding: 0;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #0f0f0f;
+  background-color: #07080f;
 }
 
 #app {
   width: 100%;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -20,7 +21,7 @@ body {
 .pv-boot{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#8f8578;font-family:var(--mono-font);padding:24px;}
 .pv-boot--err{color:#d66666;}
 
-/* One More Dawn dashboard: let the React root own scrolling inside the
-   fixed-height webview (#app stays overflow:hidden). */
-#game-container:has(.omd-root){background:#dad3c4;}
-#game-container > .omd-root{height:100vh;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+/* One More Dawn hook-layer app: the React root owns the whole webview and
+   scrolls per-screen inside the phone frame (#app stays overflow:hidden). */
+#game-container:has(.omd-root){background:#07080f;}
+#game-container > .omd-root{height:100vh;height:100dvh;overflow:hidden;}

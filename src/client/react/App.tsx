@@ -1,45 +1,52 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { ActionType, InitResponse, MissionRoute, Role, StrategyPlanId } from '../../shared/types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import type {
+  ActionType,
+  InitResponse,
+  MissionRoute,
+  PledgeKind,
+  Role,
+  StrategyPlanId,
+  VillageResponse,
+} from '../../shared/types';
 import { api } from '../game/api';
 import './omd.css';
-import { Dashboard } from './Dashboard';
-import { ACTION_DEFS, ROLE_DEFS } from './defs';
+import { TabBar } from './TabBar';
+import type { Tab } from './TabBar';
+import {
+  ACTION_DEFS,
+  PLEDGE_OPTIMISTIC_BUMP,
+  PLEDGE_VERBS,
+  ROLE_DEFS,
+  markedGoalWord,
+  markedPct,
+  markedShortName,
+} from './defs';
 import type { Handlers } from './handlers';
 import { ToastLayer, useToasts } from './kit/Toast';
-import { DawnReportModal, FallenCity } from './panels/moments';
-import { RoleGate } from './panels/role';
+import { useFetch } from './kit/useFetch';
+import { CrisisScreen } from './screens/CrisisScreen';
+import { FeedScreen } from './screens/FeedScreen';
+import { HomeScreen } from './screens/HomeScreen';
+import { YouScreen } from './screens/YouScreen';
+import { DawnReportModal, FallenCity, RoleGate } from './screens/moments';
 
-// One More Dawn — dashboard-only React client. One rich command-center screen
-// wired to the live backend (src/client/game/api.ts). Design source:
-// docs/design/One More Dawn UI.dc.html (warm board-game HUD, 3 themes).
+// One More Dawn — mobile-first hook-layer client (locked direction,
+// docs/superpowers/plans/2026-07-06-reddit-native-hook-layer.md).
+// Four screens behind a bottom tab bar: HOME · CRISIS · FEED · YOU.
 
 type Net =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'ready'; data: InitResponse };
 
-type Theme = 'warm' | 'arctic' | 'clean';
-const THEME_ORDER: readonly Theme[] = ['warm', 'arctic', 'clean'];
-const THEME_LABEL: Record<Theme, string> = {
-  warm: 'Field Report',
-  arctic: 'Arctic Frost',
-  clean: 'Clean Neutral',
-};
-
-const readTheme = (): Theme => {
-  try {
-    const t = window.localStorage.getItem('omd-theme');
-    return t === 'arctic' || t === 'clean' ? t : 'warm';
-  } catch {
-    return 'warm';
-  }
-};
-
 export function App() {
   const [net, setNet] = useState<Net>({ kind: 'loading' });
-  const [theme, setTheme] = useState<Theme>(readTheme);
+  const [tab, setTab] = useState<Tab>('home');
   const [dawnSeen, setDawnSeen] = useState(false);
   const { toasts, push } = useToasts();
+  const village = useFetch<VillageResponse>(() => api.village());
+  const subreddit = village.kind === 'ready' ? village.data.subreddit : null;
 
   // ---- data plumbing ----
 
@@ -65,20 +72,50 @@ export function App() {
     setNet((n) => (n.kind === 'ready' ? { kind: 'ready', data: fn(n.data) } : n));
   }, []);
 
-  const cycleTheme = useCallback(() => {
-    setTheme((t) => {
-      const next = THEME_ORDER[(THEME_ORDER.indexOf(t) + 1) % THEME_ORDER.length] ?? 'warm';
-      try {
-        window.localStorage.setItem('omd-theme', next);
-      } catch {
-        // storage unavailable in some webviews — theme just won't persist
-      }
-      push(`🎨 Theme · ${THEME_LABEL[next]}`);
-      return next;
-    });
-  }, [push]);
+  /** Latest ready data, for handlers that need to read state before patching. */
+  const dataRef = useRef<InitResponse | null>(null);
+  useEffect(() => {
+    dataRef.current = net.kind === 'ready' ? net.data : null;
+  }, [net]);
 
   // ---- mutations (optimistic + reconcile with server response) ----
+
+  const onPledge = useCallback(
+    (kind: PledgeKind) => {
+      const current = dataRef.current;
+      patch((d) => ({
+        ...d,
+        marked: {
+          ...d.marked,
+          pledged: Math.min(d.marked.goal, d.marked.pledged + PLEDGE_OPTIMISTIC_BUMP),
+        },
+        pledge: {
+          ...d.pledge,
+          usedToday: true,
+          ledger: { ...d.pledge.ledger, mine: d.pledge.ledger.mine + 1 },
+        },
+      }));
+      if (current !== null) {
+        const after = {
+          ...current.marked,
+          pledged: Math.min(current.marked.goal, current.marked.pledged + PLEDGE_OPTIMISTIC_BUMP),
+        };
+        push(
+          `🕯️ ${PLEDGE_VERBS[kind]} — ${markedShortName(after)} is ${markedPct(after)}% ${markedGoalWord(after)}`,
+        );
+      } else {
+        push('🕯️ Your pledge is counted');
+      }
+      api
+        .pledge(kind)
+        .then((r) => patch((d) => ({ ...d, marked: r.marked, pledge: r.pledge, player: r.player })))
+        .catch((err: Error) => {
+          push(`⚠️ ${err.message}`);
+          refresh();
+        });
+    },
+    [patch, push, refresh],
+  );
 
   const onVote = useCallback(
     (optionId: string) => {
@@ -188,63 +225,65 @@ export function App() {
     [patch, push, refresh],
   );
 
-  const handlers: Handlers = { onVote, onStrategy, onAction, onRole, onMission };
+  const handlers: Handlers = { onPledge, onVote, onStrategy, onAction, onRole, onMission };
 
   // ---- render ----
 
-  if (net.kind === 'loading') {
-    return (
-      <div className="omd-root" data-theme={theme}>
-        <div className="omd-boot">
-          <div style={{ fontSize: 36 }}>🌅</div>
-          <div className="omd-boot-title">ONE MORE DAWN</div>
-          <div>Waking the city…</div>
-        </div>
+  const frame = (inner: ReactNode) => (
+    <div className="omd-root">
+      <div className="omd-phone">
+        {inner}
+        <ToastLayer toasts={toasts} />
       </div>
+    </div>
+  );
+
+  if (net.kind === 'loading') {
+    return frame(
+      <div className="omd-boot">
+        <div className="omd-boot-sun" aria-hidden="true" />
+        <div className="omd-boot-title">One More Dawn</div>
+        <div className="omd-boot-sub">waking the city…</div>
+      </div>,
     );
   }
 
   if (net.kind === 'error') {
-    return (
-      <div className="omd-root" data-theme={theme}>
-        <div className="omd-boot omd-boot--err">
-          <div style={{ fontSize: 36 }}>🕯️</div>
-          <div className="omd-boot-title">SIGNAL LOST</div>
-          <div>Could not reach the city. {net.message}</div>
-        </div>
-      </div>
+    return frame(
+      <div className="omd-boot omd-boot--err">
+        <div style={{ fontSize: 36 }}>🕯️</div>
+        <div className="omd-boot-title">Signal Lost</div>
+        <div className="omd-boot-sub">Could not reach the city. {net.message}</div>
+      </div>,
     );
   }
 
   const { data } = net;
 
   if (data.city.status === 'fallen') {
-    return (
-      <div className="omd-root" data-theme={theme}>
-        <FallenCity data={data} />
-        <ToastLayer toasts={toasts} />
-      </div>
-    );
+    return frame(<FallenCity data={data} />);
   }
 
   if (data.player.role === null) {
-    return (
-      <div className="omd-root" data-theme={theme}>
-        <RoleGate handlers={handlers} />
-        <ToastLayer toasts={toasts} />
-      </div>
-    );
+    return frame(<RoleGate handlers={handlers} />);
   }
 
   const showDawn = data.firstVisitToday && data.dawnReport !== null && !dawnSeen;
 
-  return (
-    <div className="omd-root" data-theme={theme}>
-      <Dashboard data={data} handlers={handlers} onTheme={cycleTheme} onRefresh={refresh} />
+  return frame(
+    <>
+      <div className="omd-view">
+        {tab === 'home' && (
+          <HomeScreen data={data} handlers={handlers} subreddit={subreddit} onRefresh={refresh} go={setTab} />
+        )}
+        {tab === 'crisis' && <CrisisScreen data={data} handlers={handlers} />}
+        {tab === 'feed' && <FeedScreen data={data} />}
+        {tab === 'you' && <YouScreen data={data} handlers={handlers} />}
+      </div>
+      <TabBar tab={tab} onTab={setTab} crisisPending={data.yourCrisisVote === null} />
       {showDawn && data.dawnReport !== null && (
         <DawnReportModal report={data.dawnReport} onDismiss={() => setDawnSeen(true)} />
       )}
-      <ToastLayer toasts={toasts} />
-    </div>
+    </>,
   );
 }

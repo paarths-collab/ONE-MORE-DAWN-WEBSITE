@@ -1,52 +1,14 @@
 import type { ReactNode } from 'react';
-import type { BuildingId } from '../defs';
 
-// Small display atoms: resource pill, chip, energy dots, building glyph.
+// Small display atoms: chip, energy dots, section header.
 
-export type Trend = 'up-good' | 'up-bad' | 'down-good' | 'down-bad' | 'flat' | 'none';
+export type ChipProps = { icon: string; children: ReactNode; tone?: 'default' | 'accent' | 'danger' };
 
-const trendArrow = (t: Trend): string => {
-  if (t === 'up-good' || t === 'up-bad') return '↑';
-  if (t === 'down-good' || t === 'down-bad') return '↓';
-  if (t === 'flat') return '→';
-  return '';
-};
-
-const trendTone = (t: Trend): string => {
-  if (t === 'up-good' || t === 'down-good') return 'tone-good';
-  if (t === 'up-bad' || t === 'down-bad') return 'tone-danger';
-  return 'tone-muted';
-};
-
-export type PillProps = {
-  icon: string;
-  label: string;
-  value: number;
-  trend?: Trend;
-  tone?: 'good' | 'warn' | 'danger' | 'muted' | 'ink';
-};
-
-/** Rounded resource pill: icon + mono value + trend arrow. */
-export function Pill({ icon, label, value, trend = 'none', tone = 'ink' }: PillProps) {
+/** Rounded status chip (streak, rank, faction, injuries…). */
+export function Chip({ icon, children, tone = 'default' }: ChipProps) {
   return (
-    <div className="omd-pill" title={label}>
-      <span className="omd-pill-icon">{icon}</span>
-      <span className={`omd-pill-val tone-${tone}`}>{value}</span>
-      {trend !== 'none' && (
-        <span className={`omd-pill-trend ${trendTone(trend)}`}>{trendArrow(trend)}</span>
-      )}
-      <span className="omd-pill-label">{label}</span>
-    </div>
-  );
-}
-
-export type ChipProps = { icon: string; children: ReactNode };
-
-/** Neutral rounded chip for the alert strip (law, trait, faction). */
-export function Chip({ icon, children }: ChipProps) {
-  return (
-    <span className="omd-chip">
-      <span>{icon}</span>
+    <span className={`omd-chip omd-chip--${tone}`}>
+      <span className="omd-chip-icon">{icon}</span>
       {children}
     </span>
   );
@@ -54,7 +16,7 @@ export function Chip({ icon, children }: ChipProps) {
 
 export type DotsProps = { total: number; filled: number };
 
-/** Energy dots: warm-filled up to `filled`, hollow after. */
+/** Energy dots: amber-filled up to `filled`, hollow after. */
 export function Dots({ total, filled }: DotsProps) {
   const dots: ReactNode[] = [];
   for (let i = 0; i < total; i++) {
@@ -65,7 +27,7 @@ export function Dots({ total, filled }: DotsProps) {
 
 export type EnergyBadgeProps = { total: number; filled: number };
 
-/** Boxed ENERGY n/m readout used in the role and actions panels. */
+/** Boxed ENERGY n/m readout. */
 export function EnergyBadge({ total, filled }: EnergyBadgeProps) {
   return (
     <span className="omd-energy">
@@ -77,24 +39,18 @@ export function EnergyBadge({ total, filled }: EnergyBadgeProps) {
   );
 }
 
-export type BuildingGlyphProps = { kind: BuildingId; name: string };
+export type SectionHeadProps = { icon: string; title: string; sub?: string; action?: ReactNode };
 
-/**
- * Mini CSS building (roof + body + lit windows) that gives each city action a
- * place in the village: farm, generator, clinic, watchtower. Same visual
- * language as the CITY SCENE skyline — shapes, not sprites.
- */
-export function BuildingGlyph({ kind, name }: BuildingGlyphProps) {
+/** Card section header: icon + letterspaced title + right-aligned sub/action. */
+export function SectionHead({ icon, title, sub, action }: SectionHeadProps) {
   return (
-    <span className={`omd-bhouse omd-bhouse--${kind}`} aria-hidden="true">
-      <span className="omd-bhouse-fig">
-        <span className="omd-bhouse-roof" />
-        <span className="omd-bhouse-body">
-          <span className="omd-bhouse-win" />
-          {kind === 'clinic' && <span className="omd-bhouse-cross" />}
-        </span>
+    <header className="omd-card-head">
+      <span className="omd-card-icon" aria-hidden="true">
+        {icon}
       </span>
-      <span className="omd-bhouse-tag">{name}</span>
-    </span>
+      <h2 className="omd-card-title">{title}</h2>
+      {sub !== undefined && <span className="omd-card-sub">{sub}</span>}
+      {action !== undefined && <span className="omd-card-action">{action}</span>}
+    </header>
   );
 }

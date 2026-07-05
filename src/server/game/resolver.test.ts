@@ -18,6 +18,9 @@ const noInputs: DayInputs = {
   roleCounts: {},
   activeUserCount: 0,
   factionInfluence: {},
+  markedPledged: 0,
+  pledges: {},
+  markedActivePlayers: 0,
 };
 
 describe('resolveDay', () => {
@@ -108,6 +111,9 @@ describe('resolveDay', () => {
       roleCounts: { speaker: 2 },
       activeUserCount: 3,
       factionInfluence: {},
+      markedPledged: 10,
+      pledges: { stand_vigil: 2 },
+      markedActivePlayers: 3,
     };
     expect(resolveDay(city(), inputs)).toEqual(resolveDay(city(), inputs));
   });
@@ -315,6 +321,74 @@ describe('resolveDay', () => {
         ...noInputs,
         actions: { repair_power: 7, grow_food: 3 },
         strategyVotes: { repair_power: 4, stockpile_food: 1 },
+      };
+      expect(resolveDay(city(), inp)).toEqual(resolveDay(city(), inp));
+    });
+  });
+
+  describe('hook layer: the Marked + one-tap pledges', () => {
+    it('saved vs lost: pledged resolve is judged against the daily goal', () => {
+      const lost = resolveDay(city(), noInputs); // 0 pledged < goalBase
+      const saved = resolveDay(city(), { ...noInputs, markedPledged: BALANCE.marked.goalBase });
+      expect(lost.marked.saved).toBe(false);
+      expect(saved.marked.saved).toBe(true);
+      expect(saved.marked.name).toBe(lost.marked.name); // same day, same objective
+      expect(saved.city.morale - lost.city.morale).toBe(
+        BALANCE.marked.savedMoraleBonus + BALANCE.marked.lostMoralePenalty,
+      );
+      expect(lost.entry.events.some((e) => /^Memorial:/.test(e))).toBe(true);
+      expect(saved.entry.events.some((e) => /was saved/.test(e))).toBe(true);
+    });
+
+    it("goal scales with yesterday's actives — the same pledges can fall short", () => {
+      const small = resolveDay(city(), { ...noInputs, markedPledged: BALANCE.marked.goalBase });
+      const big = resolveDay(city(), {
+        ...noInputs,
+        markedPledged: BALANCE.marked.goalBase,
+        markedActivePlayers: 10,
+      });
+      expect(small.marked.saved).toBe(true);
+      expect(big.marked.saved).toBe(false);
+    });
+
+    it('stand_vigil pressure raises defense and lowers threat per tap', () => {
+      const base = resolveDay(city(), noInputs).city;
+      const vigil = resolveDay(city(), { ...noInputs, pledges: { stand_vigil: 5 } }).city;
+      expect(vigil.defense - base.defense).toBe(5);
+      expect(base.threat - vigil.threat).toBe(5);
+    });
+
+    it('share_rations adds food; run_messages adds morale', () => {
+      const base = resolveDay(city(), noInputs).city;
+      const fed = resolveDay(city(), { ...noInputs, pledges: { share_rations: 4 } }).city;
+      const cheered = resolveDay(city(), { ...noInputs, pledges: { run_messages: 4 } }).city;
+      expect(fed.food - base.food).toBe(4);
+      expect(cheered.morale - base.morale).toBe(4);
+    });
+
+    it('back_council pledges complete the unity quorum but cannot elect a plan alone', () => {
+      const actions = { grow_food: 5 }; // fully aligned with stockpile_food
+      const alone = resolveDay(city(), { ...noInputs, actions, strategyVotes: { stockpile_food: 1 } });
+      expect(alone.entry.events.some((e) => /unity/i.test(e))).toBe(false); // 1 voter < quorum 3
+      const backed = resolveDay(city(), {
+        ...noInputs,
+        actions,
+        strategyVotes: { stockpile_food: 1 },
+        pledges: { back_council: 2 }, // 1 voter + 2 taps = quorum
+      });
+      expect(backed.city.morale - alone.city.morale).toBe(BALANCE.unity.moraleBonus);
+      expect(backed.entry.events.some((e) => /unity/i.test(e))).toBe(true);
+      // No real votes: pledges alone never elect a plan.
+      const pledgesOnly = resolveDay(city(), { ...noInputs, actions, pledges: { back_council: 5 } });
+      expect(pledgesOnly.entry.events.some((e) => /unity/i.test(e))).toBe(false);
+    });
+
+    it('stays deterministic with pledges present', () => {
+      const inp = {
+        ...noInputs,
+        markedPledged: 15,
+        pledges: { stand_vigil: 2, share_rations: 1, back_council: 3 },
+        markedActivePlayers: 4,
       };
       expect(resolveDay(city(), inp)).toEqual(resolveDay(city(), inp));
     });

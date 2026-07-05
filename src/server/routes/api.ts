@@ -12,6 +12,9 @@ import type {
   InitResponse,
   LeaderboardEntry,
   LeaderboardResponse,
+  Marked,
+  PledgeRequest,
+  PledgeResponse,
   RoleRequest,
   RoleResponse,
   StrategyRequest,
@@ -23,7 +26,11 @@ import type {
 } from '../../shared/types';
 import { hashString } from '../../shared/rng';
 import { validateAction, validateRoleChange } from '../game/actionRules';
-import { buildVillagers, buildZones } from '../game/village';
+import { buildDrama } from '../game/drama';
+import { pickMarked } from '../game/marked';
+import { buildPledgeInfo, isPledgeKind, type PledgerEntry } from '../game/pledges';
+import { buildStanding } from '../game/standing';
+import { buildVillagers, buildZones, maskName } from '../game/village';
 import { bumpRoleRep, effectiveEnergy, freshPlayer, resetPlayerForDay } from '../game/dayLogic';
 import { runLazyResolution } from '../game/lazyResolve';
 import { resolveDay } from '../game/resolver';
@@ -136,6 +143,9 @@ api.get('/init', async (c) => {
     activeUserCount: 0,
     factionInfluence: {},
     strategyVotes: {},
+    markedPledged: 0,
+    pledges: {},
+    markedActivePlayers: 0,
   }).city;
   const forecast: Forecast = {
     food: projected.food,
@@ -170,8 +180,14 @@ api.get('/init', async (c) => {
     yourActionsToday,
     timeline,
     factionInfluence,
-    yesterdayActions,
+    allYesterdayActions,
     yesterdayVote,
+    dayActions,
+    dayMissions,
+    markedPledged,
+    pledgers,
+    markedOutcome,
+    contributionRank,
   ] = await Promise.all([
     store.getVoteTally(city.day),
     store.getVoterChoice(city.day, user.userId),
@@ -180,9 +196,28 @@ api.get('/init', async (c) => {
     store.getUserActions(city.day, user.userId),
     store.getTimeline(1),
     store.getFactionInfluence(city.day),
-    store.getUserActions(city.day - 1, user.userId),
+    // Full map: this user's slice feeds the dawn report, the key count scales
+    // the Marked goal (yesterday's action-takers — stable all day).
+    store.getAllUserActions(city.day - 1),
     store.getVoterChoice(city.day - 1, user.userId),
+    store.getDayActions(city.day),
+    store.getDayMissions(city.day),
+    store.getMarkedPledge(city.day),
+    store.getPledgers(city.day),
+    store.getMarkedOutcome(city.day - 1),
+    store.getContributionRank(user.userId),
   ]);
+  const yesterdayActions = allYesterdayActions[user.userId] ?? {};
+
+  // ---- Reddit-native hook layer (Plan 1) ----
+  const marked: Marked = {
+    ...pickMarked(city.worldSeed, city.cycle, city.day, Object.keys(allYesterdayActions).length),
+    pledged: markedPledged,
+    savedYesterday: markedOutcome,
+  };
+  const pledge = buildPledgeInfo(pledgers, user.userId);
+  const drama = buildDrama(city, timeline, dayActions, dayMissions, marked, factionInfluence);
+  const standing = buildStanding(city, contributionRank);
 
   // Dawn report: yesterday's story + this player's part in it. Only when a
   // timeline entry for yesterday exists (i.e. at least one resolution ran).
@@ -253,6 +288,10 @@ api.get('/init', async (c) => {
       label: BALANCE.traits[city.trait].label,
       blurb: BALANCE.traits[city.trait].blurb,
     },
+    marked,
+    pledge,
+    drama,
+    standing,
   });
 });
 
@@ -426,6 +465,79 @@ api.post('/strategy', async (c) => {
     type: 'strategy',
     strategyVotes: await store.getStrategyTally(city.day),
     yourStrategyVote: body.planId,
+  });
+});
+
+/**
+ * One-tap pledge (hook layer, Plan 1) — the lurker path. FREE: never touches
+ * the 3-energy action budget; the only cap is one pledge per user per day,
+ * enforced with the same watch/multi lock pattern as the crisis vote.
+ */
+api.post('/pledge', async (c) => {
+  const user = requireUser();
+  if (!user) return c.json<ApiError>({ status: 'error', message: 'Not logged in' }, 401);
+  const store = getStore();
+  const city = await store.getCityState();
+  if (!city || city.status !== 'alive') {
+    return c.json<ApiError>({ status: 'error', message: 'The city is beyond saving.' }, 409);
+  }
+
+  const body = await parseBody<PledgeRequest>(c);
+  if (!body || !isPledgeKind(body.kind)) {
+    return c.json<ApiError>({ status: 'error', message: 'Bad request' }, 400);
+  }
+  const player = await store.getPlayer(user.userId);
+  if (!player) return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
+
+  const pledgersKey = KEYS.dayPledgers(city.day);
+  const tx = await redis.watch(pledgersKey);
+  const existing = await store.getPledger(city.day, user.userId);
+  if (existing) {
+    await tx.unwatch();
+    return c.json<ApiError>({ status: 'error', message: 'You already pledged today.' }, 409);
+  }
+  const entry: PledgerEntry = {
+    kind: body.kind,
+    name: maskName(player.username),
+    at: Date.now(),
+    contribution: player.totalContribution,
+  };
+  await tx.multi();
+  await tx.hSet(pledgersKey, { [user.userId]: JSON.stringify(entry) });
+  await tx.hIncrBy(KEYS.dayMarked(city.day), 'pledged', BALANCE.marked.pledgePerTap);
+  await tx.hIncrBy(KEYS.dayMarked(city.day), body.kind, 1);
+  if (!(await execOrConflict(tx))) {
+    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+  }
+
+  // Public credit: pledges count toward contribution/status (never energy).
+  // Re-read after the tx so a concurrent action's energy spend isn't clobbered.
+  const fresh = (await store.getPlayer(user.userId)) ?? player;
+  const updated = {
+    ...fresh,
+    totalContribution: fresh.totalContribution + BALANCE.contributionPerPledge,
+  };
+  await Promise.all([
+    store.savePlayer(updated),
+    store.addContribution(user.userId, BALANCE.contributionPerPledge),
+  ]);
+
+  const [pledged, pledgers, allYesterdayActions, markedOutcome] = await Promise.all([
+    store.getMarkedPledge(city.day),
+    store.getPledgers(city.day),
+    store.getAllUserActions(city.day - 1),
+    store.getMarkedOutcome(city.day - 1),
+  ]);
+  const marked: Marked = {
+    ...pickMarked(city.worldSeed, city.cycle, city.day, Object.keys(allYesterdayActions).length),
+    pledged,
+    savedYesterday: markedOutcome,
+  };
+  return c.json<PledgeResponse>({
+    type: 'pledge',
+    marked,
+    pledge: buildPledgeInfo(pledgers, user.userId),
+    player: updated,
   });
 });
 

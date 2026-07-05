@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { BALANCE } from '../../shared/balance';
 import { generateMap, rollCrateContents } from '../../shared/mapgen';
 import { deriveLayoutSeed, hashString } from '../../shared/rng';
-import type { CityState, PlayerProfile } from '../../shared/types';
+import type { CityState, Marked, PlayerProfile } from '../../shared/types';
 import { validateAction, validateRoleChange } from '../game/actionRules';
 import { freshPlayer, resetPlayerForDay } from '../game/dayLogic';
+import { buildDrama } from '../game/drama';
 import { runLazyResolution } from '../game/lazyResolve';
+import { pickMarked } from '../game/marked';
 import { evaluateMission, type MissionToken } from '../game/missionRules';
+import { buildPledgeInfo } from '../game/pledges';
 import { newCityState, resolveDay, type DayInputs } from '../game/resolver';
+import { buildStanding } from '../game/standing';
 import { Store } from '../storage/store';
 import { makeFakeRedis } from '../storage/store.test';
 
@@ -20,6 +24,9 @@ const noInputs = (): DayInputs => ({
   roleCounts: {},
   activeUserCount: 0,
   factionInfluence: {},
+  markedPledged: 0,
+  pledges: {},
+  markedActivePlayers: 0,
 });
 
 /**
@@ -320,5 +327,103 @@ describe('conflict layer', () => {
     expect(deepResult.ok).toBe(false);
     if (deepResult.ok) throw new Error('impossible');
     expect(deepResult.reason).toBe('Too many crates claimed.');
+  });
+});
+
+/**
+ * Reddit-native hook layer (Plan 1) integration — the Marked, one-tap pledges,
+ * ledger, drama feed, and standing, driven through the Store + pure game logic
+ * exactly like the vertical slice above (Hono routes need the Devvit runtime;
+ * the store writes here mirror POST /api/pledge 1:1).
+ */
+describe('hook layer (Plan 1)', () => {
+  it('one-tap pledges save the Marked at dawn; ledger, drama, and standing follow', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    const worldSeed = hashString('t5_hook');
+    const day1 = new Date('2026-07-05T09:00:00Z');
+    const day2 = new Date('2026-07-06T09:00:00Z');
+
+    const first = await runLazyResolution(store, redis, day1, worldSeed);
+    // Day 1: no action-takers yesterday, so the goal is the base.
+    const marked = pickMarked(worldSeed, first.city.cycle, first.city.day, 0);
+    expect(marked.goal).toBe(BALANCE.marked.goalBase);
+
+    // Enough one-tap pledges to clear the goal (mirrors /api/pledge writes).
+    const taps = Math.ceil(marked.goal / BALANCE.marked.pledgePerTap);
+    for (let i = 0; i < taps; i++) {
+      const userId = `t2_p${i}`;
+      await store.recordPledger(1, userId, {
+        kind: 'stand_vigil',
+        name: `pled${i}•••`,
+        at: 1_000 + i,
+        contribution: i,
+      });
+      await store.bumpMarkedPledge(1, BALANCE.marked.pledgePerTap);
+      await store.bumpPledgeKind(1, 'stand_vigil');
+      await store.addContribution(userId, BALANCE.contributionPerPledge);
+    }
+    expect(await store.getMarkedPledge(1)).toBe(taps * BALANCE.marked.pledgePerTap);
+
+    // One-per-day rule: the route 409s when getPledger finds a record.
+    expect(await store.getPledger(1, 't2_p0')).toBeDefined();
+    expect(await store.getPledger(1, 't2_lurker')).toBeUndefined();
+
+    // Public-credit ledger straight from the day's pledgers.
+    const info = buildPledgeInfo(await store.getPledgers(1), 't2_p0');
+    expect(info.usedToday).toBe(true);
+    expect(info.ledger.mine).toBe(BALANCE.marked.pledgePerTap);
+    expect(info.ledger.recent.length).toBe(Math.min(taps, BALANCE.marked.ledgerRecent));
+
+    // Dawn: resolution judges pledged vs goal, records the outcome, and the
+    // vigil pressure lands on the city (defense up vs a pledge-free control).
+    const control = resolveDay(first.city, noInputs()).city;
+    const resolved = await runLazyResolution(store, redis, day2, worldSeed);
+    expect(resolved.city.day).toBe(2);
+    expect(resolved.city.defense - control.defense).toBe(taps);
+
+    const outcome = await store.getMarkedOutcome(1);
+    expect(outcome).toEqual({ name: marked.name, saved: true });
+    const timeline = await store.getTimeline(1);
+    expect(timeline[0]!.events.some((e) => e.includes(marked.name))).toBe(true);
+    expect(timeline[0]!.events.some((e) => /was saved/.test(e))).toBe(true);
+
+    // Next day's surfaces: savedYesterday + drama feed + standing.
+    const today: Marked = {
+      ...pickMarked(worldSeed, resolved.city.cycle, resolved.city.day, 0),
+      pledged: 0,
+      savedYesterday: outcome,
+    };
+    expect(today.name).not.toBe(marked.name); // never the same objective twice
+    const drama = buildDrama(
+      resolved.city,
+      timeline,
+      {},
+      {},
+      today,
+      await store.getFactionInfluence(2),
+    );
+    expect(drama.length).toBeGreaterThan(0);
+    expect(drama.length).toBeLessThanOrEqual(BALANCE.drama.maxEvents);
+    expect(drama.some((d) => d.kind === 'marked' && /was saved at dawn/.test(d.text))).toBe(true);
+
+    const standing = buildStanding(resolved.city, await store.getContributionRank('t2_p0'));
+    expect(standing.survivalDays).toBe(2);
+    expect(standing.contributionRank).not.toBeNull();
+  });
+
+  it('a lost Marked writes a memorial outcome at dawn', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    const worldSeed = hashString('t5_quiet');
+    await runLazyResolution(store, redis, new Date('2026-07-05T09:00:00Z'), worldSeed);
+    // Nobody pledges. Dawn comes anyway.
+    const resolved = await runLazyResolution(store, redis, new Date('2026-07-06T09:00:00Z'), worldSeed);
+    expect(resolved.city.day).toBe(2);
+
+    const marked = pickMarked(worldSeed, 1, 1, 0);
+    expect(await store.getMarkedOutcome(1)).toEqual({ name: marked.name, saved: false });
+    const timeline = await store.getTimeline(1);
+    expect(timeline[0]!.events.some((e) => /^Memorial:/.test(e))).toBe(true);
   });
 });

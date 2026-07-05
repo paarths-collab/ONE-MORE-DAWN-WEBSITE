@@ -2,8 +2,9 @@ import { BALANCE } from '../../shared/balance';
 import { getCrisis, pickNextCrisis } from '../../shared/crises';
 import { makeRng } from '../../shared/rng';
 import type {
-  CityState, CityTraitId, FactionId, ResourceDelta, Role, StrategyPlanId, TimelineEntry,
+  CityState, CityTraitId, FactionId, PledgeKind, ResourceDelta, Role, StrategyPlanId, TimelineEntry,
 } from '../../shared/types';
+import { pickMarked } from './marked';
 
 /** Aggregates for the day being resolved. All plain data from Redis hashes. */
 export type DayInputs = {
@@ -17,6 +18,12 @@ export type DayInputs = {
   activeUserCount: number;
   /** today's faction influence tally (actionType/mission-driven) */
   factionInfluence: Partial<Record<FactionId, number>>;
+  /** pledged "resolve" toward today's Marked (hook layer); 0 = nobody pledged */
+  markedPledged: number;
+  /** per-kind one-tap pledge counts for the day (city-stat pressure) */
+  pledges: Partial<Record<PledgeKind, number>>;
+  /** YESTERDAY's action-taker count — scales the Marked goal (stable all day) */
+  markedActivePlayers: number;
 };
 
 type LawId = FactionId;
@@ -71,7 +78,7 @@ const lawMultipliers = (city: CityState) => {
 const FACTION_ORDER: FactionId[] = ['builders', 'wardens', 'seekers', 'hearth'];
 
 /** Highest-influence faction today (ties break by FACTION_ORDER); null if none. */
-const winningFaction = (influence: Partial<Record<FactionId, number>>): FactionId | null => {
+export const winningFaction = (influence: Partial<Record<FactionId, number>>): FactionId | null => {
   let leader: FactionId | null = null;
   let best = 0;
   for (const f of FACTION_ORDER) {
@@ -92,7 +99,12 @@ const winningPlan = (votes: Record<string, number>): StrategyPlanId | null => {
   return leader;
 };
 
-export type ResolveResult = { city: CityState; entry: TimelineEntry };
+export type ResolveResult = {
+  city: CityState;
+  entry: TimelineEntry;
+  /** Dawn verdict for the day's Marked — callers persist it for savedYesterday. */
+  marked: { name: string; saved: boolean };
+};
 
 const TRAIT_IDS: CityTraitId[] = ['standard', 'frozen', 'crowded', 'militarized', 'sick'];
 
@@ -191,6 +203,22 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
   let morale = city.morale + (inputs.roleCounts.speaker ?? 0) * BALANCE.speakerMoralePerAction;
   let population = city.population;
 
+  // --- 1b. one-tap pledge pressure (hook layer): each tap nudges a vital ---
+  let pledgeTaps = 0;
+  for (const kind of Object.keys(BALANCE.marked.pledgePressure) as PledgeKind[]) {
+    const taps = inputs.pledges[kind] ?? 0;
+    if (taps === 0) continue;
+    pledgeTaps += taps;
+    const fx: ResourceDelta = BALANCE.marked.pledgePressure[kind];
+    food += taps * (fx.food ?? 0);
+    power += taps * (fx.power ?? 0);
+    medicine += taps * (fx.medicine ?? 0);
+    morale += taps * (fx.morale ?? 0);
+    threat += taps * (fx.threat ?? 0);
+    defense += taps * (fx.defense ?? 0);
+  }
+  if (pledgeTaps > 0) events.push(`${pledgeTaps} citizen pledge${pledgeTaps > 1 ? 's' : ''} steadied the city.`);
+
   const acted = Object.values(inputs.actions).reduce((s, n) => s + n, 0);
   if (acted > 0) events.push(`${acted} citizen actions strengthened the city.`);
   if (m('totalRuns') > 0) {
@@ -223,7 +251,11 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
   // --- 2b. council unity (S2): morale bonus BEFORE consumption/penalties so
   // the bonus participates in the day's morale math (collapse check etc.).
   const plan = winningPlan(inputs.strategyVotes);
-  const planVoterCount = Object.values(inputs.strategyVotes).reduce((s, n) => s + n, 0);
+  // back_council pledges nudge unity: each tap counts toward the QUORUM only
+  // (a plan still needs real votes to win).
+  const planVoterCount =
+    Object.values(inputs.strategyVotes).reduce((s, n) => s + n, 0) +
+    (inputs.pledges.back_council ?? 0) * BALANCE.marked.backCouncilQuorumWeight;
   if (plan && planVoterCount >= BALANCE.unity.minPlanVoters) {
     const alignedAction = BALANCE.planActionMap[plan];
     // send_scouts aligns with mission runs; every other plan maps to a city action.
@@ -237,6 +269,24 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
         `Unity: the city rallied behind "${plan.replace(/_/g, ' ')}" — morale +${BALANCE.unity.moraleBonus}.`,
       );
     }
+  }
+
+  // --- 2c. The Marked (hook layer): pledged resolve vs the daily goal.
+  // pickMarked is pure per (worldSeed, cycle, day, actives), so the resolver
+  // judges exactly the objective /init displayed. Morale lands BEFORE the
+  // penalty phase so it participates in the collapse check, like unity.
+  const marked = pickMarked(city.worldSeed, city.cycle, city.day, inputs.markedActivePlayers);
+  const markedSaved = inputs.markedPledged >= marked.goal;
+  if (markedSaved) {
+    morale += BALANCE.marked.savedMoraleBonus;
+    events.push(
+      `${marked.name} was saved — ${inputs.markedPledged}/${marked.goal} resolve pledged. The city takes heart.`,
+    );
+  } else {
+    morale -= BALANCE.marked.lostMoralePenalty;
+    events.push(
+      `Memorial: ${marked.name} was lost at dawn — only ${inputs.markedPledged}/${marked.goal} resolve pledged.`,
+    );
   }
 
   // --- 3. consumption + penalties ---
@@ -373,5 +423,5 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     winningOptionId: winner,
   };
 
-  return { city: next, entry };
+  return { city: next, entry, marked: { name: marked.name, saved: markedSaved } };
 };

@@ -1,12 +1,24 @@
 import type {
-  ActionResponse, ActionType, ApiError, CityTraitId, InitResponse, LeaderboardResponse,
-  MissionCompleteRequest, MissionCompleteResponse, MissionRoute, MissionStartResponse,
-  Role, RoleResponse, StrategyPlanId, StrategyResponse, TimelineResponse, VillageResponse,
+  ActionResponse, ActionType, ApiError, CityTraitId, DramaEvent, InitResponse,
+  LeaderboardResponse, Marked, MissionCompleteRequest, MissionCompleteResponse, MissionRoute,
+  MissionStartResponse, PledgeInfo, PledgeKind, PledgeRequest, PledgeResponse, Role,
+  RoleResponse, Standing, StrategyPlanId, StrategyResponse, TimelineResponse, VillageResponse,
   VoteResponse,
 } from '../../shared/types';
 
-/** Flip to true to develop scenes without a Devvit playtest. */
-const MOCK = false;
+/** Flip to true to force mock mode even inside a Devvit playtest. */
+const FORCE_MOCK = false;
+
+/**
+ * Mock mode auto-engages when the client is served standalone (localhost /
+ * `?mock=1`) so the UI is reviewable in a plain browser; inside a Devvit
+ * webview (webview.devvit.net) the real endpoints are used.
+ */
+const MOCK =
+  FORCE_MOCK ||
+  (typeof window !== 'undefined' &&
+    (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname) ||
+      /[?&]mock=1\b/.test(window.location.search)));
 
 export class ApiClientError extends Error {}
 
@@ -25,6 +37,56 @@ const request = async <T>(path: string, body?: unknown): Promise<T> => {
 
 // ---------- mock fixtures ----------
 
+// Varied masked citizen names (mirrors the server-side name generator pool).
+const NAMES = {
+  you: 'lastferry',
+  helpers: ['ashen_fox', 'quiet_marrow', 'saltcedar'],
+  recent: ['brackenwren', 'ferrous_ivy', 'palewick', 'sable_reed', 'mx_ember', 'coldharbor'],
+} as const;
+
+const mockMarked: Marked = {
+  id: 'marked_mira_d5',
+  name: 'Mira, the greenhouse child',
+  kind: 'person',
+  blurb: 'Fever took her at the greenhouse. The medics need resolve by dawn.',
+  goal: 40,
+  pledged: 23,
+  unit: 'resolve',
+  savedYesterday: { name: 'The North Wall', saved: true },
+};
+
+const mockPledge: PledgeInfo = {
+  options: [
+    { id: 'stand_vigil', label: 'Stand Vigil', icon: '🕯️', effect: '+defense · +resolve' },
+    { id: 'share_rations', label: 'Share Rations', icon: '🍞', effect: '+food · +resolve' },
+    { id: 'run_messages', label: 'Run Messages', icon: '🕊️', effect: '+morale · +resolve' },
+    { id: 'back_council', label: 'Back the Council', icon: '🏛️', effect: '+unity · +resolve' },
+  ],
+  usedToday: false,
+  ledger: {
+    topHelpers: [...NAMES.helpers],
+    recent: [...NAMES.recent],
+    mine: 2,
+  },
+};
+
+const mockDrama: DramaEvent[] = [
+  { icon: '🕯️', text: 'ashen_fox stood vigil for Mira — the medics take heart.', kind: 'marked' },
+  { icon: '⚔️', text: 'Raiders probed the North Wall at dusk. The watch held.', kind: 'raid' },
+  { icon: '🎒', text: 'quiet_marrow crawled back from the deep ruins with 7 food.', kind: 'action' },
+  { icon: '🗳️', text: '25 citizens have voted on the Convoy at the Gate.', kind: 'crisis' },
+  { icon: '📜', text: 'The Council leans toward Prepare for Raid — 9 backers.', kind: 'law' },
+  { icon: '🩹', text: 'saltcedar treated the sick through the night shift.', kind: 'action' },
+  { icon: '🏚️', text: 'A rival city went dark last night. Theirs, not ours.', kind: 'city' },
+  { icon: '🌅', text: 'Dawn broke over the city — day 5, still standing.', kind: 'city' },
+];
+
+const mockStanding: Standing = {
+  survivalDays: 5,
+  rankLabel: 'The city holds · Day 5',
+  contributionRank: 3,
+};
+
 const mockInit: InitResponse = {
   type: 'init',
   postId: 't3_mock',
@@ -35,7 +97,7 @@ const mockInit: InitResponse = {
     crisisId: 'refugee_convoy', activeLaw: null, lawExpiresDay: 0,
   },
   player: {
-    userId: 't2_mock', username: 'mock_citizen', role: 'scout', roleChangedDay: 3,
+    userId: 't2_mock', username: NAMES.you, role: 'scout', roleChangedDay: 3,
     faction: null, factionRep: 0, energyUsedToday: 1, lastActiveDay: 5,
     injuredUntilDay: 0, totalContribution: 120, streak: 3,
     roleRep: { scout: 80 }, title: 'Night Scout',
@@ -84,13 +146,42 @@ const mockInit: InitResponse = {
     label: 'Frozen Start',
     blurb: 'Power decays 50% faster; food keeps 15% longer.',
   } satisfies { id: CityTraitId; label: string; blurb: string },
+  // ---- Reddit-native hook layer (Plan 1) ----
+  marked: mockMarked,
+  pledge: mockPledge,
+  drama: mockDrama,
+  standing: mockStanding,
 };
+
+/** How much one mock pledge moves the Marked bar. */
+const MOCK_PLEDGE_PRESSURE = 3;
 
 // ---------- public api ----------
 
 export const api = {
   init: (): Promise<InitResponse> =>
     MOCK ? Promise.resolve(mockInit) : request<InitResponse>('/api/init'),
+
+  pledge: (kind: PledgeKind): Promise<PledgeResponse> =>
+    MOCK
+      ? Promise.resolve({
+          type: 'pledge',
+          marked: {
+            ...mockMarked,
+            pledged: Math.min(mockMarked.goal, mockMarked.pledged + MOCK_PLEDGE_PRESSURE),
+          },
+          pledge: {
+            ...mockPledge,
+            usedToday: true,
+            ledger: {
+              ...mockPledge.ledger,
+              mine: mockPledge.ledger.mine + 1,
+              recent: [NAMES.you, ...mockPledge.ledger.recent].slice(0, 6),
+            },
+          },
+          player: { ...mockInit.player, totalContribution: mockInit.player.totalContribution + 5 },
+        } satisfies PledgeResponse)
+      : request<PledgeResponse>('/api/pledge', { kind } satisfies PledgeRequest),
 
   chooseRole: (role: Role): Promise<RoleResponse> =>
     MOCK
@@ -161,8 +252,17 @@ export const api = {
     MOCK
       ? Promise.resolve({
           type: 'leaderboard',
-          contributors: [{ userId: 't2_mock', username: 'mock_citizen', score: 120 }],
-          scouts: [{ userId: 't2_mock', username: 'mock_citizen', score: 6 }],
+          contributors: [
+            { userId: 't2_m1', username: 'ashen_fox', score: 210 },
+            { userId: 't2_m2', username: 'quiet_marrow', score: 164 },
+            { userId: 't2_mock', username: NAMES.you, score: 120 },
+            { userId: 't2_m3', username: 'saltcedar', score: 96 },
+          ],
+          scouts: [
+            { userId: 't2_m4', username: 'brackenwren', score: 8 },
+            { userId: 't2_mock', username: NAMES.you, score: 6 },
+            { userId: 't2_m5', username: 'ferrous_ivy', score: 4 },
+          ],
           factions: {
             builders: { rep: 8, standing: 2 },
             wardens: { rep: 6, standing: 3 },
@@ -192,10 +292,10 @@ export const api = {
             { id: 'guard_wall', name: 'Watchtower', count: 3 },
           ],
           villagers: [
-            { maskedName: 'ari•••', role: 'scout', faction: 'seekers', color: 0x6c8be0, online: true, since: 'day 3' },
-            { maskedName: 'kai•••', role: 'engineer', faction: 'builders', color: 0xe8c34a, online: true, since: 'day 1' },
-            { maskedName: 'noo•••', role: 'farmer', faction: null, color: 0x4caf50, online: false, since: 'day 2' },
-            { maskedName: 'sen•••', role: 'speaker', faction: 'hearth', color: 0xa03030, online: true, since: 'day 1' },
+            { maskedName: 'ashen•••', role: 'scout', faction: 'seekers', color: 0x6c8be0, online: true, since: 'day 3' },
+            { maskedName: 'salt•••', role: 'engineer', faction: 'builders', color: 0xe8c34a, online: true, since: 'day 1' },
+            { maskedName: 'brack•••', role: 'farmer', faction: null, color: 0x4caf50, online: false, since: 'day 2' },
+            { maskedName: 'ember•••', role: 'speaker', faction: 'hearth', color: 0xa03030, online: true, since: 'day 1' },
           ],
           onlineCount: 3,
           totalCount: 4,

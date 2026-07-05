@@ -64,13 +64,20 @@ export const runLazyResolution = async (
     // One hGetAll for userActions (roleCounts needs it), then the independent
     // day inputs in parallel.
     const userActions = await store.getAllUserActions(city.day);
-    const [actions, missions, crisisVotes, strategyVotes, factionInfluence, roleCounts] = await Promise.all([
+    const [
+      actions, missions, crisisVotes, strategyVotes, factionInfluence, roleCounts,
+      markedPledged, pledges, yesterdayUserActions,
+    ] = await Promise.all([
       store.getDayActions(city.day),
       store.getDayMissions(city.day),
       store.getVoteTally(city.day),
       store.getStrategyTally(city.day),
       store.getFactionInfluence(city.day),
       countActionsByRole(store, userActions),
+      store.getMarkedPledge(city.day),
+      store.getPledgeKindCounts(city.day),
+      // Yesterday's action-takers scale the Marked goal (see BALANCE.marked).
+      store.getAllUserActions(city.day - 1),
     ]);
     const inputs: DayInputs = {
       actions,
@@ -80,11 +87,15 @@ export const runLazyResolution = async (
       roleCounts,
       activeUserCount: Object.keys(userActions).length,
       factionInfluence,
+      markedPledged,
+      pledges,
+      markedActivePlayers: Object.keys(yesterdayUserActions).length,
     };
-    const { city: nextCity, entry } = resolveDay(city, inputs);
+    const { city: nextCity, entry, marked } = resolveDay(city, inputs);
 
     await store.snapshotCity(nextCity);
     await store.appendTimeline(entry);
+    await store.setMarkedOutcome(city.day, marked);
     await store.setCityState(nextCity);
     await store.setCityMeta({ lastResolvedDate: today });
     return { city: nextCity, resolving: false };

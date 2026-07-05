@@ -166,6 +166,61 @@ export type InitResponse = {
   firstVisitToday: boolean;
   forecast: Forecast;
   trait: { id: CityTraitId; label: string; blurb: string };
+  // ---- Reddit-native hook layer (Plan 1) ----
+  marked: Marked;
+  pledge: PledgeInfo;
+  drama: DramaEvent[];
+  standing: Standing;
+};
+
+// ========== Reddit-native hook layer (2026-07-06 locked direction) ==========
+
+/** The daily shared objective the city rallies to save before dawn. Not a real
+ *  user, not permadeath of a player — a named person/place/symbol. */
+export type Marked = {
+  id: string;
+  name: string; // "Mira, the greenhouse child" / "The North Wall"
+  kind: 'person' | 'place' | 'symbol';
+  blurb: string; // one line of stakes
+  goal: number; // pledged "resolve" needed to save it
+  pledged: number; // pledged so far today
+  unit: string; // display unit, e.g. "resolve"
+  savedYesterday: { name: string; saved: boolean } | null;
+};
+
+export type PledgeKind = 'stand_vigil' | 'share_rations' | 'run_messages' | 'back_council';
+
+export type PledgeOption = { id: PledgeKind; label: string; icon: string; effect: string };
+
+export type PledgeLedger = { topHelpers: string[]; recent: string[]; mine: number };
+
+/** One-tap, one-per-day, low/no-energy contribution — the lurker path. */
+export type PledgeInfo = {
+  options: PledgeOption[];
+  usedToday: boolean;
+  ledger: PledgeLedger;
+};
+
+/** An event in the Live Drama Feed (generated from game events; no realtime). */
+export type DramaEvent = {
+  icon: string;
+  text: string;
+  kind: 'action' | 'raid' | 'law' | 'marked' | 'city' | 'crisis';
+};
+
+/** Status/standing surfaced across screens (the "status spine"). */
+export type Standing = {
+  survivalDays: number; // how long THIS city has survived
+  rankLabel: string; // Plan 1: within-sub framing / "rank coming"; Plan 2: "#7 of 42 cities"
+  contributionRank: number | null; // your rank among this city's citizens
+};
+
+export type PledgeRequest = { kind: PledgeKind };
+export type PledgeResponse = {
+  type: 'pledge';
+  marked: Marked;
+  pledge: PledgeInfo;
+  player: PlayerProfile;
 };
 
 export type RoleRequest = { role: Role };

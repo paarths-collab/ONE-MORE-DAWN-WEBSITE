@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "omd-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/preview-server.mjs"],
+      "port": 4519
+    }
+  ]
+}

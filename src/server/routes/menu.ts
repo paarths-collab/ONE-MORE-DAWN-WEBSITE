@@ -38,10 +38,14 @@ menu.post('/force-resolve', async (c) => {
     roleCounts: {},
     activeUserCount: 0,
     factionInfluence: await store.getFactionInfluence(city.day),
+    markedPledged: await store.getMarkedPledge(city.day),
+    pledges: await store.getPledgeKindCounts(city.day),
+    markedActivePlayers: Object.keys(await store.getAllUserActions(city.day - 1)).length,
   };
-  const { city: next, entry } = resolveDay(city, inputs);
+  const { city: next, entry, marked } = resolveDay(city, inputs);
   await store.snapshotCity(next);
   await store.appendTimeline(entry);
+  await store.setMarkedOutcome(city.day, marked);
   await store.setCityState(next);
   await store.setCityMeta({ lastResolvedDate: utcDateString(new Date()) });
 
@@ -64,6 +68,7 @@ menu.post('/reset', async (c) => {
     KEYS.players,
     KEYS.lbContribution,
     KEYS.lbScouts,
+    KEYS.markedOutcomes,
   ];
   for (let d = 1; d <= lastDay + 1; d++) {
     keysToDelete.push(
@@ -75,6 +80,8 @@ menu.post('/reset', async (c) => {
       KEYS.dayFactionInfluence(d),
       KEYS.dayStrategyPlan(d),
       KEYS.dayStrategyVoters(d),
+      KEYS.dayMarked(d),
+      KEYS.dayPledgers(d),
     );
   }
   // Long cycles build a big key list — delete in bounded batches so a single
