@@ -8,6 +8,8 @@ import type {
   ApiError,
   FactionId,
   InitResponse,
+  LeaderboardEntry,
+  LeaderboardResponse,
   RoleRequest,
   RoleResponse,
   StrategyRequest,
@@ -307,4 +309,41 @@ api.get('/timeline', async (c) => {
   const store = getStore();
   const entries = await store.getTimeline(30);
   return c.json<TimelineResponse>({ type: 'timeline', entries });
+});
+
+api.get('/leaderboard', async (c) => {
+  const store = getStore();
+  const [contribRows, scoutRows] = await Promise.all([
+    store.topContributors(10),
+    store.topScouts(10),
+  ]);
+
+  // Resolve usernames from the players hash; fall back to 'citizen' if unknown.
+  const resolve = async (
+    rows: { userId: string; score: number }[],
+  ): Promise<LeaderboardEntry[]> => {
+    const out: LeaderboardEntry[] = [];
+    for (const r of rows) {
+      const p = await store.getPlayer(r.userId);
+      out.push({ userId: r.userId, username: p?.username ?? 'citizen', score: Math.round(r.score) });
+    }
+    return out;
+  };
+  const [contributors, scouts] = await Promise.all([resolve(contribRows), resolve(scoutRows)]);
+
+  // Faction standings: rank today's influence tally per faction (deterministic
+  // FactionId order as tie-break), standing 1 = highest.
+  const city = await store.getCityState();
+  const influence = city
+    ? await store.getFactionInfluence(city.day)
+    : { builders: 0, wardens: 0, seekers: 0, hearth: 0 };
+  const order = (['builders', 'wardens', 'seekers', 'hearth'] as FactionId[])
+    .map((f) => ({ f, rep: influence[f] }))
+    .sort((a, b) => b.rep - a.rep);
+  const factions = {} as Record<FactionId, { rep: number; standing: number }>;
+  order.forEach((o, i) => {
+    factions[o.f] = { rep: o.rep, standing: i + 1 };
+  });
+
+  return c.json<LeaderboardResponse>({ type: 'leaderboard', contributors, scouts, factions });
 });

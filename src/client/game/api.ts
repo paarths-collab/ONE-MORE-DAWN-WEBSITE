@@ -1,7 +1,7 @@
 import type {
-  ActionResponse, ActionType, ApiError, InitResponse, MissionCompleteRequest,
-  MissionCompleteResponse, MissionStartResponse, Role, RoleResponse,
-  StrategyPlanId, StrategyResponse, TimelineResponse, VoteResponse,
+  ActionResponse, ActionType, ApiError, InitResponse, LeaderboardResponse,
+  MissionCompleteRequest, MissionCompleteResponse, MissionStartResponse, Role,
+  RoleResponse, StrategyPlanId, StrategyResponse, TimelineResponse, VoteResponse,
 } from '../../shared/types';
 
 /** Flip to true to develop scenes without a Devvit playtest. */
@@ -138,4 +138,19 @@ export const api = {
     MOCK
       ? Promise.resolve({ type: 'timeline', entries: [mockInit.timelinePreview!] })
       : request<TimelineResponse>('/api/timeline'),
+
+  leaderboard: (): Promise<LeaderboardResponse> =>
+    MOCK
+      ? Promise.resolve({
+          type: 'leaderboard',
+          contributors: [{ userId: 't2_mock', username: 'mock_citizen', score: 120 }],
+          scouts: [{ userId: 't2_mock', username: 'mock_citizen', score: 6 }],
+          factions: {
+            builders: { rep: 8, standing: 2 },
+            wardens: { rep: 6, standing: 3 },
+            seekers: { rep: 12, standing: 1 },
+            hearth: { rep: 4, standing: 4 },
+          },
+        })
+      : request<LeaderboardResponse>('/api/leaderboard'),
 };

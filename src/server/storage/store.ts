@@ -183,6 +183,24 @@ export class Store {
     }
   }
 
+  /** Top-N contributors by lifetime contribution, highest score first. */
+  async topContributors(limit: number): Promise<{ userId: string; score: number }[]> {
+    const rows = await this.redis.zRange(KEYS.lbContribution, 0, limit - 1, {
+      reverse: true,
+      by: 'rank',
+    });
+    return rows.map((r) => ({ userId: r.member, score: r.score }));
+  }
+
+  /** Top-N scouts by best single expedition haul, highest score first. */
+  async topScouts(limit: number): Promise<{ userId: string; score: number }[]> {
+    const rows = await this.redis.zRange(KEYS.lbScouts, 0, limit - 1, {
+      reverse: true,
+      by: 'rank',
+    });
+    return rows.map((r) => ({ userId: r.member, score: r.score }));
+  }
+
   // ----- timeline + history -----
   async appendTimeline(entry: TimelineEntry): Promise<void> {
     await this.redis.hSet(KEYS.timeline, { [String(entry.day)]: JSON.stringify(entry) });

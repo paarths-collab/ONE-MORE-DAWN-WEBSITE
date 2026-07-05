@@ -9,6 +9,7 @@ import { Vote } from './game/scenes/Vote';
 import { Mission } from './game/scenes/Mission';
 import { MissionEnd } from './game/scenes/MissionEnd';
 import { Timeline } from './game/scenes/Timeline';
+import { Leaderboard } from './game/scenes/Leaderboard';
 import { H, W } from './game/ui';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -21,7 +22,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: W,
     height: H,
   },
-  scene: [Boot, Preloader, Dashboard, RoleSelect, Actions, Vote, Mission, MissionEnd, Timeline],
+  scene: [Boot, Preloader, Dashboard, RoleSelect, Actions, Vote, Mission, MissionEnd, Timeline, Leaderboard],
 };
 
 document.addEventListener('DOMContentLoaded', () => {

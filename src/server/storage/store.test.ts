@@ -137,4 +137,26 @@ describe('Store', () => {
     const entries = await store.getTimeline(10);
     expect(entries.map((e) => e.day)).toEqual([2, 1]);
   });
+
+  it('returns top contributors highest-first, capped at the limit', async () => {
+    const store = new Store(makeFakeRedis());
+    await store.addContribution('t2_a', 30);
+    await store.addContribution('t2_b', 90);
+    await store.addContribution('t2_c', 60);
+    expect(await store.topContributors(2)).toEqual([
+      { userId: 't2_b', score: 90 },
+      { userId: 't2_c', score: 60 },
+    ]);
+  });
+
+  it('returns top scouts by best haul, highest-first', async () => {
+    const store = new Store(makeFakeRedis());
+    await store.recordScoutHaul('t2_a', 4);
+    await store.recordScoutHaul('t2_b', 9);
+    await store.recordScoutHaul('t2_a', 7); // improves a's best to 7
+    expect(await store.topScouts(10)).toEqual([
+      { userId: 't2_b', score: 9 },
+      { userId: 't2_a', score: 7 },
+    ]);
+  });
 });
