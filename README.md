@@ -6,6 +6,36 @@
 
 Built for **Reddit's Games with a Hook Hackathon** using Devvit Web + Phaser 4.
 
+## Pitch
+
+> One More Dawn is a cooperative survival-strategy game where a subreddit
+> manages the last city after collapse. Players gather resources, run
+> dangerous expeditions, vote on moral crises, and compete through internal
+> factions for influence over the city's laws. Everyone wants the city to
+> survive — but not everyone agrees what kind of city it should become.
+
+## Why it's Reddit-native
+
+The subreddit is the game's parliament. The community decides the day's
+crisis vote and the council plan; the game does not simulate a legislature,
+it *uses* one that already exists.
+
+Factions form emergently from what players actually do. Repairs feed the
+Builders. Guarding feeds the Wardens. Expeditions feed the Seekers. Treating
+the sick feeds the Hearth. Identity is earned by contribution, not chosen
+from a menu — and the leading faction sets tomorrow's law.
+
+The city persists across sessions. Consequences are collective and delayed:
+come back tomorrow to see what your community's choices did. Food stores
+carry over. So does threat. So does the raid clock.
+
+The comments section becomes the game's chat. Strategy talk, faction
+rivalry, moral debate — the debate is the mechanic, not a garnish on it.
+
+No live realtime multiplayer needed. Everything is async through shared
+Redis state, the way Reddit already works — no websockets, no lobbies, no
+sync problems.
+
 ## Status
 
 **Vertical slice complete** (tag: `vertical-slice`).
