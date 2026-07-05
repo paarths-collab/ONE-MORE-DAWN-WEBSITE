@@ -54,10 +54,14 @@ export class Timeline extends Phaser.Scene {
     for (const entry of entries.slice(0, MAX_ENTRIES)) {
       if (y > Y_CUTOFF) break;
 
+      const isRaid =
+        /\braid\b|red signal/i.test(entry.headline) ||
+        entry.events.some((e) => /\braid\b|red signal/i.test(e));
+      const headlineColor = isRaid ? '#c4453c' : COLORS.accentText;
       this.add.text(30, y, entry.headline, {
         fontFamily: FONT,
         fontSize: '22px',
-        color: COLORS.accentText,
+        color: headlineColor,
         fontStyle: 'bold',
         wordWrap: { width: W - 60 },
       });

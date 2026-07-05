@@ -50,6 +50,7 @@ export class Mission extends Phaser.Scene {
   private airLeft_ = 0;
   private airText_!: Phaser.GameObjects.Text;
   private lootText_!: Phaser.GameObjects.Text;
+  private airHeartbeatOn_ = false;
 
   private startedAt_ = 0;
   private done_ = false;
@@ -84,6 +85,7 @@ export class Mission extends Phaser.Scene {
     this.done_ = false;
     this.airLeft_ = this.start_.airSeconds;
     this.startedAt_ = Date.now();
+    this.airHeartbeatOn_ = false;
 
     const gridWidth = this.map_.width * TILE;
     this.gridX = Math.round((W - gridWidth) / 2);
@@ -406,6 +408,8 @@ export class Mission extends Phaser.Scene {
         hz.armedUntil = this.time.now + HAZARD_ARMED_LIFETIME_MS;
         hz.rect.setAlpha(0.85);
         hz.rect.setFillStyle(COLORS.bad, 0.85);
+        // subtle warning shake as the hazard goes hot
+        this.cameras.main.shake(150, 0.003);
         // if player is standing on it right now → fire
         if (this.pos_.x === hz.x && this.pos_.y === hz.y) {
           this.cameras.main.shake(240, 0.012);
@@ -439,6 +443,17 @@ export class Mission extends Phaser.Scene {
     const low = this.airLeft_ <= LOW_AIR_SECONDS;
     this.airText_.setText(`AIR  ${this.airLeft_}s`);
     this.airText_.setColor(low ? '#c4453c' : COLORS.text);
+    if (low && !this.airHeartbeatOn_) {
+      this.airHeartbeatOn_ = true;
+      this.tweens.add({
+        targets: this.airText_,
+        scale: 1.12,
+        yoyo: true,
+        duration: 300,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
   }
 
   private refreshLootLabel() {
@@ -461,6 +476,11 @@ export class Mission extends Phaser.Scene {
   private finish(status: MissionStatus) {
     if (this.done_) return;
     this.done_ = true;
+    if (this.airHeartbeatOn_) {
+      this.tweens.killTweensOf(this.airText_);
+      this.airText_.setScale(1);
+      this.airHeartbeatOn_ = false;
+    }
     const collectedCrateIds = [...this.collected_];
     const clientDurationMs = Date.now() - this.startedAt_;
     api

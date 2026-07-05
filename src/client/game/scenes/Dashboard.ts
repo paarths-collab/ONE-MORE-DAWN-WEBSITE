@@ -90,6 +90,24 @@ export class Dashboard extends Phaser.Scene {
       }),
     );
 
+    if (city.power < 25) {
+      this.tweens.add({
+        targets: res,
+        alpha: 0.85,
+        yoyo: true,
+        duration: 1200,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      res.add(
+        this.add.text(30, 226, '⚠ LOW POWER — sickness costs more, morale bleeds', {
+          fontFamily: FONT,
+          fontSize: '15px',
+          color: '#c4453c',
+        }),
+      );
+    }
+
     if (data.timelinePreview) {
       const yest = panel(this, 20, 386, W - 40, 130, 'YESTERDAY');
       yest.add(
