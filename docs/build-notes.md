@@ -35,6 +35,10 @@ One lesson per bullet. Update rather than duplicate; delete if proven wrong.
   stale-day tokens are rejected.
 
 ## TypeScript gotchas
+- The client tsconfig compiles against BUILT shared declarations
+  (`dist/types/shared`, via project references). If shared types changed and
+  the client check reports phantom missing members, run
+  `npx tsc -b tools/tsconfig.shared.json` first (or use `tsc --build`).
 - The SERVER tsconfig overrides `exactOptionalPropertyTypes` to false; the
   CLIENT project has it true — client code must not assign `undefined` to
   optional props (build opts objects conditionally).
@@ -60,6 +64,18 @@ One lesson per bullet. Update rather than duplicate; delete if proven wrong.
   against `makeFakeRedis` — Hono routes are NOT exercised (they need the
   Devvit runtime). Extend this file (do not replace it) when new game flow
   ships, so the slice-alive proof keeps up.
+
+## Multi-subreddit scoping (verified from SDK source, 2026-07-05)
+- Devvit Redis is INSTALLATION-scoped: `@devvit/redis/index.js:5` constructs
+  the default client with `RedisKeyScope.INSTALLATION`, and every RPC passes
+  `scope`. Two subreddit installs of this app CANNOT see each other's keys —
+  `city:state` is per-subreddit automatically. Do NOT add `sub:{id}:` key
+  prefixes; the platform already partitions harder than app code can.
+- One user in many subreddits = separate player profile/energy/faction per
+  city, automatically (the `players` hash is per-installation).
+- Mission tokens cannot cross subreddits for the same reason.
+- Cross-installation features (global leaderboard, "which city survived
+  longest") would use `redis.global` (`RedisKeyScope.GLOBAL`) — post-MVP.
 
 ## Accepted risks (reviewed 2026-07-05)
 - Mission `status`/injury is client-attested — a dishonest client can report

@@ -605,3 +605,85 @@ time is short.
 
 In-app realtime chat · Redis message feed · DM system · websocket chat ·
 city-vs-city live war · free-text unmoderated chat inside the app.
+
+## 11. Multi-Subreddit Scope (verified)
+
+**One subreddit = one city.** Devvit Redis is installation-scoped: the SDK's
+default client is constructed with `RedisKeyScope.INSTALLATION`
+(`@devvit/redis/index.js:5`) and every RPC in `RedisClient.js` passes
+`scope: this.scope`. Two installs of this app can never see each other's keys,
+so `city:state`, `players`, `day:{n}:*`, and `mission:tokens` are all
+per-subreddit with zero app code.
+
+**One Reddit user = many independent city memberships.** The same user in
+r/CityA and r/CityB has a separate role, energy, injury, streak, and faction
+in each — the `players` hash lives inside each installation's keyspace.
+
+Key prefixes like `sub:{id}:` are **deliberately not used**: the platform
+already partitions harder than app code can, and prefixes would only add
+noise and bugs.
+
+Global cross-city features (global leaderboard, "which city survived
+longest?") are post-MVP and would use `redis.global`
+(`new RedisClient(RedisKeyScope.GLOBAL)` per `RedisClient.js`) — a shared
+keyspace across all installations of the app.
+
+## 12. Reward & Retention Layer (Plan 3)
+
+**Hook:** *"My city changes tomorrow because of what I did today — and
+everyone can see my contribution."*
+
+### The Dawn Report
+
+On the **first visit of each day**, before the Dashboard, the player sees:
+
+- Yesterday's city summary (what the resolver did overnight)
+- A personalized **YOUR IMPACT** list: actions taken, loot banked, vote cast,
+  rep gained
+- Their current title
+
+Shown exactly once per day (`firstVisitToday` from `/api/init`).
+
+### Role reputation
+
+Each player accrues **rep per role**, stored on the player profile
+(`roleRep`). City actions bump the acting role's rep; completing an
+expedition bumps rep for the role the player held at mission start
+(scout-style credit). Rep never decays.
+
+### Titles
+
+Threshold table per role in `balance.ts` — e.g. Scout: 25 → *Runner*,
+75 → *Night Scout*, 150 → *Ruin Walker*, with equivalents for all six roles
+(scout, engineer, medic, farmer, guard, speaker). Unlocks are announced
+**instantly** in the action/mission response (`unlockedTitle`) and displayed
+on the Leaderboard and Dashboard.
+
+### Instant reward framing
+
+The mission end screen already shows haul + contribution; title unlocks stack
+onto the same moment. Recognition lands in the same tap that earned it.
+
+### Explicitly deferred (post-MVP)
+
+- **City projects** — multi-day shared builds; needs a stable resource economy
+  first, then it's the natural long-horizon goal.
+- **Expedition route choice** — risk/reward branching; right after the base
+  mini-game loop is proven fun.
+- **Council unity bonus** — small resolver bonus when energy follows the plan;
+  turns the social signal into a mechanic once trust in the signal exists.
+- **Forecasting** — "tomorrow's raid odds" preview; valuable once players have
+  history to reason from.
+- **Crisis chains** — multi-day narrative crises; needs the single-day crisis
+  cadence validated first.
+- **City archive collectibles** — mementos of past cycles; only meaningful
+  after cities have died at least once.
+- **Global cross-city competition** — `redis.global` leaderboards (§11); only
+  worth it with multiple live cities.
+
+### Anti-dark-pattern note
+
+No loot boxes, no punishing streak loss, no fake urgency. Retention comes
+from **consequence** (the city is different tomorrow because of you) and
+**recognition** (titles, leaderboards, the Dawn Report) — not from
+manufactured anxiety.
