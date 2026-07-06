@@ -7,8 +7,21 @@ import type {
   MissionStartResponse,
   MissionStatus,
 } from '../../../shared/types';
-import { api } from '../api';
 import { COLORS, FONT, W } from '../ui';
+
+/** Raw result the mission scene reports on finish. The host (React) turns this
+ *  into the /mission/complete request — the scene never touches the network. */
+export type MissionPlayResult = {
+  status: MissionStatus;
+  collectedCrateIds: string[];
+  clientDurationMs: number;
+};
+
+export type MissionSceneData = {
+  start: MissionStartResponse;
+  threat: number;
+  onDone: (result: MissionPlayResult) => void;
+};
 
 const TILE = 48;
 const STEP_MS = 160;
@@ -60,6 +73,7 @@ export class Mission extends Phaser.Scene {
 
   private startedAt_ = 0;
   private done_ = false;
+  private onDone_!: (result: MissionPlayResult) => void;
 
   private keys_!: {
     w: Phaser.Input.Keyboard.Key;
@@ -76,9 +90,10 @@ export class Mission extends Phaser.Scene {
     super('Mission');
   }
 
-  create(data: { start: MissionStartResponse; threat: number }) {
+  create(data: MissionSceneData) {
     this.start_ = data.start;
     this.threat_ = data.threat;
+    this.onDone_ = data.onDone;
     // Route must match the server token — it regenerates with token.route,
     // so a mismatch would produce crate ids that fail validation.
     this.map_ = generateMap(this.start_.layoutSeed, this.threat_, this.start_.route);
@@ -510,18 +525,9 @@ export class Mission extends Phaser.Scene {
     }
     const collectedCrateIds = [...this.collected_];
     const clientDurationMs = Date.now() - this.startedAt_;
-    api
-      .missionComplete({
-        tokenId: this.start_.tokenId,
-        status,
-        collectedCrateIds,
-        clientDurationMs,
-      })
-      .then((result) => {
-        this.scene.start('MissionEnd', { result, status });
-      })
-      .catch((err: Error) => {
-        this.scene.start('MissionEnd', { error: err.message, status });
-      });
+    // Hand the raw result to the host (React), which owns the /mission/complete
+    // request and the native result screen. Small delay so the "Heading home…"
+    // frame paints before the scene is torn down.
+    this.time.delayedCall(280, () => this.onDone_({ status, collectedCrateIds, clientDurationMs }));
   }
 }
