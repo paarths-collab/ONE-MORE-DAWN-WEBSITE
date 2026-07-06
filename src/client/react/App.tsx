@@ -13,6 +13,7 @@ import type {
 } from '../../shared/types';
 import { api } from '../game/api';
 import './omd.css';
+import './pixel.css';
 import { MissionOverlay } from './mission/MissionOverlay';
 import { TabBar } from './TabBar';
 import type { Tab } from './TabBar';
