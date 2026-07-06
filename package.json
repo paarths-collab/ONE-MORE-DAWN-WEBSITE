@@ -22,6 +22,8 @@
   "dependencies": {
     "@devvit/start": "0.13.6",
     "@devvit/web": "0.13.6",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/silkscreen": "^5.2.8",
     "@hono/node-server": "2.0.6",
     "devvit": "0.13.6",
     "hono": "4.12.27",
