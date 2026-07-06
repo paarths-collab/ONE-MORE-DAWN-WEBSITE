@@ -482,6 +482,12 @@ api.post('/vote', async (c) => {
   if (!body || typeof body.optionId !== 'string') {
     return c.json<ApiError>({ status: 'error', message: 'Bad request' }, 400);
   }
+  // Reject a stale vote: a client held open past UTC midnight is voting on
+  // YESTERDAY's crisis. Without this its optionId ('a') would silently count for
+  // a DIFFERENT crisis's option 'a' today.
+  if (typeof body.crisisId === 'string' && body.crisisId !== city.crisisId) {
+    return c.json<ApiError>({ status: 'error', message: 'A new day has dawned — reload.' }, 409);
+  }
   const crisis = getCrisis(city.crisisId);
   if (!crisis.options.some((o) => o.id === body.optionId)) {
     return c.json<ApiError>({ status: 'error', message: 'Unknown option' }, 400);

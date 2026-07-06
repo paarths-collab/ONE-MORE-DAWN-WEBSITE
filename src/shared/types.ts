@@ -266,7 +266,9 @@ export type ActionResponse = {
   unlockedTitle: string | null;
 };
 
-export type VoteRequest = { optionId: string };
+/** crisisId pins the vote to the crisis the client was showing — a client held
+ *  open past UTC midnight would otherwise cast onto a NEW day's crisis. */
+export type VoteRequest = { optionId: string; crisisId: string };
 export type VoteResponse = { type: 'vote'; crisisVotes: VoteTally; yourCrisisVote: string };
 
 export type StrategyRequest = { planId: StrategyPlanId };

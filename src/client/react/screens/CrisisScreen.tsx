@@ -27,7 +27,7 @@ function CrisisVote({ data, handlers }: { data: InitResponse; handlers: Handlers
               key={o.id}
               type="button"
               className={mine ? 'omd-vote omd-vote--mine' : 'omd-vote'}
-              onClick={() => handlers.onVote(o.id)}
+              onClick={() => handlers.onVote(o.id, crisis.id)}
               disabled={voted || resolving}
             >
               <span className="omd-vote-letter">{LETTERS[i] ?? '·'}</span>

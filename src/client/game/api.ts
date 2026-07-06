@@ -248,14 +248,14 @@ export const api = {
         })
       : request<ActionResponse>('/api/action', { action }),
 
-  vote: (optionId: string): Promise<VoteResponse> =>
+  vote: (optionId: string, crisisId: string): Promise<VoteResponse> =>
     MOCK
       ? Promise.resolve({
           type: 'vote',
           crisisVotes: { ...mockInit.crisisVotes, [optionId]: (mockInit.crisisVotes[optionId] ?? 0) + 1 },
           yourCrisisVote: optionId,
         })
-      : request<VoteResponse>('/api/vote', { optionId }),
+      : request<VoteResponse>('/api/vote', { optionId, crisisId }),
 
   strategy: (planId: StrategyPlanId): Promise<StrategyResponse> =>
     MOCK

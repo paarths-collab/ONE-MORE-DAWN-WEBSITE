@@ -120,7 +120,7 @@ export function App() {
   );
 
   const onVote = useCallback(
-    (optionId: string) => {
+    (optionId: string, crisisId: string) => {
       patch((d) => ({
         ...d,
         yourCrisisVote: optionId,
@@ -128,7 +128,7 @@ export function App() {
       }));
       push('🗳️ Vote cast — the city shifts');
       api
-        .vote(optionId)
+        .vote(optionId, crisisId)
         .then((r) =>
           patch((d) => ({ ...d, crisisVotes: r.crisisVotes, yourCrisisVote: r.yourCrisisVote })),
         )

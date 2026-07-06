@@ -65,7 +65,7 @@ export class Vote extends Phaser.Scene {
 
   private voteCrisis(optionId: string) {
     api
-      .vote(optionId)
+      .vote(optionId, this.init_.crisis.id)
       .then((res) => {
         this.init_ = { ...this.init_, crisisVotes: res.crisisVotes, yourCrisisVote: res.yourCrisisVote };
         this.scene.restart({ init: this.init_ });
