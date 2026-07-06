@@ -1,28 +1,36 @@
 import type { InitResponse } from '../../../shared/types';
 import { DRAMA_TINTS, MEDALS, markedGoalWord, markedPct, markedShortName } from '../defs';
-import { Chip, SectionHead } from '../kit/bits';
 
 // FEED — the full Live Drama Feed plus the pledge ledger (public credit:
 // top helpers · recent helpers · my impact). Status is the reward.
+// Pixel command-console skin: returns panels; the parent `.pxl-content` scrolls.
 
 function DramaFeed({ data }: { data: InitResponse }) {
   return (
-    <section className="omd-card">
-      <SectionHead icon="📜" title="LIVE DRAMA FEED" sub="updates through the day" />
-      <div className="omd-drama">
-        {data.drama.map((e, i) => (
-          <div key={i} className="omd-drama-row" style={{ borderLeftColor: DRAMA_TINTS[e.kind] }}>
-            <span className="omd-drama-icon" aria-hidden="true">
-              {e.icon}
-            </span>
-            <span className="omd-drama-text">{e.text}</span>
-          </div>
-        ))}
-        {data.drama.length === 0 && (
-          <div className="omd-note">Nothing on the wire yet. The city is holding its breath.</div>
-        )}
+    <div className="pxl-panel card">
+      <div className="pxl-phead">
+        <span className="lbl">Live Drama Feed</span>
+        <span className="meta">updates through the day</span>
       </div>
-    </section>
+      {data.drama.length === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--mut)' }}>The wire is quiet. Make some news.</div>
+      ) : (
+        <div className="pxl-feed">
+          {data.drama.map((e, i) => (
+            <div
+              key={i}
+              className="fi"
+              style={{ borderLeft: `2px solid ${DRAMA_TINTS[e.kind]}`, paddingLeft: 10 }}
+            >
+              <span className="ic" aria-hidden="true">
+                {e.icon}
+              </span>
+              <span className="tx">{e.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -31,46 +39,58 @@ function PledgeLedger({ data }: { data: InitResponse }) {
   const { ledger } = pledge;
   const pct = markedPct(marked);
   return (
-    <section className="omd-card">
-      <SectionHead icon="🕯️" title="THE PLEDGE LEDGER" sub={`${markedShortName(marked)} · ${pct}% ${markedGoalWord(marked)}`} />
+    <div className="pxl-panel card">
+      <div className="pxl-phead">
+        <span className="lbl">The Pledge Ledger</span>
+        <span className="meta">
+          {markedShortName(marked)} · {pct}% {markedGoalWord(marked)}
+        </span>
+      </div>
 
-      <div className="omd-ledger-mine">
+      <div className="pxl-schip">
+        <span aria-hidden="true">🕯️</span>
         {pledge.usedToday ? (
-          <span>
-            🕯️ <b>You pledged today.</b> Your name is on the ledger.
-          </span>
+          <span>You pledged today — your name is on the ledger.</span>
         ) : (
-          <span>
-            Your pledge is still unspoken today — the Marked is waiting on the <b>Home</b> screen.
-          </span>
+          <span>Your pledge is still unspoken today — the Marked waits on Home.</span>
         )}
-        <Chip icon="⭐" tone="accent">
-          {ledger.mine} pledge{ledger.mine === 1 ? '' : 's'} this cycle
-        </Chip>
       </div>
 
-      <div className="omd-ledger-block">
-        <div className="omd-ledger-head">TOP HELPERS</div>
-        {ledger.topHelpers.length === 0 && <div className="omd-note">No names carved yet — be the first.</div>}
-        {ledger.topHelpers.slice(0, 3).map((name, i) => (
-          <div key={name} className="omd-ledger-row">
-            <span className="omd-ledger-medal" aria-hidden="true">
-              {MEDALS[i] ?? `${i + 1}.`}
-            </span>
-            <span className="omd-ledger-name omd-mono">{name}</span>
-            <span className="omd-ledger-note">held the line</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="omd-ledger-block">
-        <div className="omd-ledger-head">RECENT HELPERS</div>
-        {ledger.recent.length === 0 ? (
-          <div className="omd-note">Quiet so far today.</div>
+      <div style={{ marginBottom: 12 }}>
+        <div className="lbl" style={{ fontSize: 9, color: 'var(--mut)', marginBottom: 8 }}>
+          Top Helpers
+        </div>
+        {ledger.topHelpers.length === 0 ? (
+          <div style={{ fontSize: 11, color: 'var(--mut)' }}>No names carved yet — be the first.</div>
         ) : (
-          <div className="omd-ledger-chips">
+          ledger.topHelpers.slice(0, 3).map((name, i) => (
+            <div key={name} className="pxl-wrow">
+              <span className="rk" aria-hidden="true">
+                {MEDALS[i] ?? `${i + 1}.`}
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span className="wn" style={{ fontFamily: 'var(--mono)' }}>
+                  {name}
+                </span>
+                <span className="ws" style={{ color: 'var(--mut)' }}>
+                  HELD THE LINE
+                </span>
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <div className="lbl" style={{ fontSize: 9, color: 'var(--mut)', marginBottom: 8 }}>
+          Recent Helpers
+        </div>
+        {ledger.recent.length === 0 ? (
+          <div style={{ fontSize: 11, color: 'var(--mut)' }}>Quiet so far today.</div>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
             {ledger.recent.slice(0, 6).map((name) => (
-              <span key={name} className="omd-ledger-chip omd-mono">
+              <span key={name} className="pxl-tag" style={{ fontFamily: 'var(--mono)' }}>
                 {name}
               </span>
             ))}
@@ -78,22 +98,22 @@ function PledgeLedger({ data }: { data: InitResponse }) {
         )}
       </div>
 
-      <div className="omd-note omd-note--center">public credit for real help · never a punishment</div>
-    </section>
+      <div className="pxl-rnote">
+        <span aria-hidden="true">⭐</span>
+        <span>
+          You: {ledger.mine} pledge{ledger.mine === 1 ? '' : 's'} this cycle · public credit for real
+          help, never a punishment.
+        </span>
+      </div>
+    </div>
   );
 }
 
 export function FeedScreen({ data }: { data: InitResponse }) {
   return (
-    <div className="omd-screen">
-      <header className="omd-screen-head">
-        <div className="omd-screen-eyebrow">DAY {data.city.day} · THE WIRE</div>
-        <h1 className="omd-screen-title">City Feed</h1>
-      </header>
-      <div className="omd-stack">
-        <DramaFeed data={data} />
-        <PledgeLedger data={data} />
-      </div>
-    </div>
+    <>
+      <DramaFeed data={data} />
+      <PledgeLedger data={data} />
+    </>
   );
 }
