@@ -60,7 +60,12 @@ export class Store {
    * shape. The ONE place legacy player JSON gets normalized.
    */
   private revivePlayer(parsed: PlayerProfile): PlayerProfile {
-    return { ...parsed, roleRep: parsed.roleRep ?? {}, title: parsed.title ?? null };
+    return {
+      ...parsed,
+      roleRep: parsed.roleRep ?? {},
+      title: parsed.title ?? null,
+      avatar: parsed.avatar ?? null,
+    };
   }
 
   async getPlayer(userId: string): Promise<PlayerProfile | undefined> {

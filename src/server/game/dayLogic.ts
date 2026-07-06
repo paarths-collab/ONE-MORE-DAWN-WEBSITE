@@ -72,6 +72,7 @@ export const freshPlayer = (userId: string, username: string, cityDay: number): 
   factionRep: 0,
   roleRep: {},
   title: null,
+  avatar: null,
   energyUsedToday: 0,
   lastActiveDay: cityDay,
   injuredUntilDay: 0,

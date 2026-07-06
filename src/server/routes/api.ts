@@ -6,6 +6,8 @@ import type {
   ActionRequest,
   ActionResponse,
   ApiError,
+  AvatarRequest,
+  AvatarResponse,
   CityState,
   DawnReport,
   FactionId,
@@ -27,6 +29,7 @@ import type {
   WorldResponse,
 } from '../../shared/types';
 import { hashString } from '../../shared/rng';
+import { clampAvatar, isValidAvatar } from '../../shared/avatar';
 import { validateAction, validateRoleChange } from '../game/actionRules';
 import { buildDrama } from '../game/drama';
 import { pickMarked } from '../game/marked';
@@ -390,6 +393,30 @@ api.post('/role', async (c) => {
   const updated = { ...player, role: body.role, roleChangedDay: city.day };
   await store.savePlayer(updated);
   return c.json<RoleResponse>({ type: 'role', player: updated });
+});
+
+/**
+ * Create or edit the caller's survivor avatar (name / gender / pixel look).
+ * Purely cosmetic — no game numbers change, and there's no cooldown (unlike
+ * roles): identity should always be editable. The payload is validated and
+ * every palette index clamped into range so a malformed client can't store an
+ * out-of-bounds look.
+ */
+api.post('/avatar', async (c) => {
+  const user = requireUser();
+  if (!user) return c.json<ApiError>({ status: 'error', message: 'Not logged in' }, 401);
+  const store = getStore();
+
+  const body = await parseBody<AvatarRequest>(c);
+  if (!body || !isValidAvatar(body.avatar)) {
+    return c.json<ApiError>({ status: 'error', message: 'Pick a name (2+ letters) and a look.' }, 400);
+  }
+  const player = await store.getPlayer(user.userId);
+  if (!player) return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
+
+  const updated = { ...player, avatar: clampAvatar(body.avatar) };
+  await store.savePlayer(updated);
+  return c.json<AvatarResponse>({ type: 'avatar', player: updated });
 });
 
 api.post('/action', async (c) => {

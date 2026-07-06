@@ -1,5 +1,9 @@
 import type { ActionType, PlayerProfile, Villager, VillageZone } from '../../shared/types';
 import { hashString } from '../../shared/rng';
+import { OUTFITS } from '../../shared/avatar';
+
+/** '#rrggbb' → 0xrrggbb (numeric color the client Avatar body expects). */
+const hexToInt = (hex: string): number => parseInt(hex.replace('#', ''), 16);
 
 /**
  * Pure shaping helpers for GET /api/village (see docs/design/DESIGN_SYSTEM.md).
@@ -37,10 +41,16 @@ export const villagerColor = (userId: string): number =>
   VILLAGER_PALETTE[hashString(userId) % VILLAGER_PALETTE.length]!;
 
 export const toVillager = (p: PlayerProfile, cityDay: number): Villager => ({
-  maskedName: maskName(p.username),
+  // Chosen survivor name is a self-picked alias (not the reddit handle), so it's
+  // safe to show unmasked; fall back to the masked handle when none is set.
+  maskedName: p.avatar?.name ? p.avatar.name : maskName(p.username),
   role: p.role,
   faction: p.faction,
-  color: villagerColor(p.userId),
+  color:
+    p.avatar != null && OUTFITS[p.avatar.outfit] != null
+      ? hexToInt(OUTFITS[p.avatar.outfit]!)
+      : villagerColor(p.userId),
+  avatar: p.avatar ?? null,
   online: p.lastActiveDay === cityDay,
   since: `day ${p.lastActiveDay}`,
 });

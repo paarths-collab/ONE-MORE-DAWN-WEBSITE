@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type {
   ActionType,
+  AvatarConfig,
   InitResponse,
   MissionCompleteResponse,
   MissionRoute,
@@ -31,6 +32,7 @@ import { useFetch } from './kit/useFetch';
 import { CrisisScreen } from './screens/CrisisScreen';
 import { FeedScreen } from './screens/FeedScreen';
 import { Avatar, HomeScreen } from './screens/HomeScreen';
+import { AvatarCreator, PixelAvatar } from './screens/avatarKit';
 import { RulesScreen } from './screens/RulesScreen';
 import { WorldScreen } from './screens/WorldScreen';
 import { YouScreen } from './screens/YouScreen';
@@ -52,6 +54,8 @@ export function App() {
   const [dawnSeen, setDawnSeen] = useState(false);
   const [selCit, setSelCit] = useState(0);
   const [showRules, setShowRules] = useState(false);
+  const [editingAvatar, setEditingAvatar] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
   const { toasts, push } = useToasts();
   const village = useFetch<VillageResponse>(() => api.village());
   const subreddit = village.kind === 'ready' ? village.data.subreddit : null;
@@ -229,6 +233,22 @@ export function App() {
     [patch, push],
   );
 
+  const onAvatar = useCallback(
+    (avatar: AvatarConfig) => {
+      setSavingAvatar(true);
+      api
+        .saveAvatar(avatar)
+        .then((r) => {
+          patch((d) => ({ ...d, player: r.player }));
+          setEditingAvatar(false);
+          push(`☀️ Welcome, ${avatar.name}`);
+        })
+        .catch((err: Error) => push(`⚠️ ${err.message}`))
+        .finally(() => setSavingAvatar(false));
+    },
+    [patch, push],
+  );
+
   // Expedition mini-game session (RX5). Energy is spent server-side at START, so
   // we only open the game once /mission/start succeeds — the game IS the
   // feedback, no optimistic patch needed.
@@ -267,7 +287,7 @@ export function App() {
     [patch, push, refresh],
   );
 
-  const handlers: Handlers = { onPledge, onVote, onStrategy, onAction, onRole, onMission };
+  const handlers: Handlers = { onPledge, onVote, onStrategy, onAction, onRole, onMission, onAvatar };
 
   // ---- render ----
 
@@ -305,6 +325,32 @@ export function App() {
   if (data.city.status === 'fallen') {
     return shell(<div className="pxl-app">{<FallenCity data={data} />}</div>);
   }
+  if (data.player.avatar === null) {
+    return shell(
+      <div className="pxl-app">
+        <div className="pxl-mid">
+          <div className="pxl-content" style={{ maxWidth: 500 }}>
+            <div className="pxl-cre-head">
+              <div className="pxl-boot-sun" aria-hidden="true" />
+              <h2>BUILD YOUR SURVIVOR</h2>
+              <p>
+                Before you step through the gate, make yourself known. Choose a name, your pronouns,
+                and a face the city will remember.
+              </p>
+            </div>
+            <div className="pxl-panel card">
+              <AvatarCreator
+                initial={null}
+                seed={data.player.userId}
+                busy={savingAvatar}
+                onSave={handlers.onAvatar}
+              />
+            </div>
+          </div>
+        </div>
+      </div>,
+    );
+  }
   if (data.player.role === null) {
     return shell(<div className="pxl-app">{<RoleGate handlers={handlers} />}</div>);
   }
@@ -331,15 +377,22 @@ export function App() {
         <aside className="pxl-side">
           <div className="pxl-overseer">
             <div className="pxl-avatar-ring">
-              <svg width="40" height="40" viewBox="0 0 20 20" shapeRendering="crispEdges">
-                <rect x="7" y="2" width="6" height="6" rx="1" fill="#e8c34a" />
-                <rect x="5" y="8" width="10" height="8" rx="2" fill="#c85040" />
-                <rect x="4" y="10" width="2" height="5" fill="#c85040" />
-                <rect x="14" y="10" width="2" height="5" fill="#c85040" />
-              </svg>
+              {data.player.avatar ? (
+                <PixelAvatar avatar={data.player.avatar} size={62} />
+              ) : (
+                <svg width="40" height="40" viewBox="0 0 20 20" shapeRendering="crispEdges">
+                  <rect x="7" y="2" width="6" height="6" rx="1" fill="#e8c34a" />
+                  <rect x="5" y="8" width="10" height="8" rx="2" fill="#c85040" />
+                  <rect x="4" y="10" width="2" height="5" fill="#c85040" />
+                  <rect x="14" y="10" width="2" height="5" fill="#c85040" />
+                </svg>
+              )}
             </div>
-            <h3>{data.player.username}</h3>
-            <div className="handle">{data.player.title ?? 'the overseer'}</div>
+            <h3>{data.player.avatar?.name ?? data.player.username}</h3>
+            <div className="handle">{data.player.title ?? `u/${data.player.username}`}</div>
+            <button type="button" className="pxl-edit-av" onClick={() => setEditingAvatar(true)}>
+              ✎ Edit avatar
+            </button>
           </div>
           <div>
             <div className="pxl-side-sec">Your Cities</div>
@@ -413,7 +466,9 @@ export function App() {
             {tab === 'crisis' && <CrisisScreen data={data} handlers={handlers} />}
             {tab === 'feed' && <FeedScreen data={data} />}
             {tab === 'world' && <WorldScreen />}
-            {tab === 'you' && <YouScreen data={data} handlers={handlers} />}
+            {tab === 'you' && (
+              <YouScreen data={data} handlers={handlers} onEditAvatar={() => setEditingAvatar(true)} />
+            )}
           </div>
         </div>
 
@@ -424,7 +479,7 @@ export function App() {
               <>
                 <div className="pxl-fhead">
                   <span className="av">
-                    <Avatar color={cit.color} size={52} />
+                    <Avatar color={cit.color} avatar={cit.avatar} size={52} />
                   </span>
                   <div>
                     <div className="nm">{cit.maskedName}</div>
@@ -484,6 +539,33 @@ export function App() {
         <DawnReportModal report={data.dawnReport} onDismiss={() => setDawnSeen(true)} />
       )}
       {mission && <MissionOverlay start={mission.start} threat={mission.threat} onClose={onMissionClose} />}
+      {editingAvatar && (
+        <div className="pxl-overlay" onClick={() => setEditingAvatar(false)}>
+          <div className="pxl-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="pxl-sheet-head">
+              <span className="pxl-sheet-title">✎ EDIT AVATAR</span>
+              <button
+                type="button"
+                className="pxl-sheet-x"
+                onClick={() => setEditingAvatar(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="pxl-sheet-body">
+              <AvatarCreator
+                initial={data.player.avatar}
+                seed={data.player.userId}
+                busy={savingAvatar}
+                mode="edit"
+                onSave={handlers.onAvatar}
+                onCancel={() => setEditingAvatar(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {showRules && (
         <div className="pxl-overlay" onClick={() => setShowRules(false)}>
           <div className="pxl-sheet" onClick={(e) => e.stopPropagation()}>

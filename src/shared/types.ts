@@ -2,6 +2,25 @@
 
 export type Role = 'scout' | 'engineer' | 'medic' | 'farmer' | 'guard' | 'speaker';
 
+/** Pronoun identity for the chosen survivor. Cosmetic — never affects math. */
+export type Gender = 'woman' | 'man' | 'nonbinary';
+
+/**
+ * The player-chosen survivor identity: a display name (NOT the Reddit handle),
+ * pronouns, and a pixel look. Purely cosmetic — it never touches game numbers.
+ * The numeric fields are indices into the shared palettes in shared/avatar.ts
+ * (kept as indices, not hex, so the server can validate them and the two
+ * palettes can never drift out of sync).
+ */
+export type AvatarConfig = {
+  name: string; // chosen survivor name, e.g. "Ash of the North"
+  gender: Gender;
+  skin: number; // index into SKINS
+  hair: number; // index into HAIRS
+  hairStyle: number; // index into HAIR_STYLES
+  outfit: number; // index into OUTFITS
+};
+
 export type ActionType = 'grow_food' | 'repair_power' | 'treat_sick' | 'guard_wall';
 
 export type StrategyPlanId =
@@ -49,6 +68,7 @@ export type PlayerProfile = {
   factionRep: number; // Plan 2; 0 in slice
   roleRep: Partial<Record<Role, number>>; // lifetime rep per role (reward layer)
   title: string | null; // derived from the CURRENT role's rep tier
+  avatar: AvatarConfig | null; // chosen survivor identity; null until created
   energyUsedToday: number;
   lastActiveDay: number;
   injuredUntilDay: number; // player is injured while city.day <= injuredUntilDay
@@ -257,6 +277,9 @@ export type WorldResponse = {
 export type RoleRequest = { role: Role };
 export type RoleResponse = { type: 'role'; player: PlayerProfile };
 
+export type AvatarRequest = { avatar: AvatarConfig };
+export type AvatarResponse = { type: 'avatar'; player: PlayerProfile };
+
 export type ActionRequest = { action: ActionType };
 export type ActionResponse = {
   type: 'action';
@@ -312,10 +335,11 @@ export type TimelineResponse = { type: 'timeline'; entries: TimelineEntry[] };
 export type VillageZone = { id: ActionType; name: string; count: number };
 
 export type Villager = {
-  maskedName: string; // e.g. "ali•••"
+  maskedName: string; // e.g. "ali•••" (fallback when no chosen name)
   role: Role | null;
   faction: FactionId | null;
-  color: number; // stable per user, for the avatar body
+  color: number; // stable per user, for the fallback avatar body
+  avatar: AvatarConfig | null; // chosen look + survivor name, when set
   online: boolean; // acted today
   since: string; // "day N" (lastActiveDay)
 };

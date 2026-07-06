@@ -12,7 +12,7 @@ import {
 
 const makePlayer = (over: Partial<PlayerProfile>): PlayerProfile => ({
   userId: 't2_abc', username: 'tester', role: 'scout', roleChangedDay: 1,
-  faction: null, factionRep: 0, roleRep: {}, title: null,
+  faction: null, factionRep: 0, roleRep: {}, title: null, avatar: null,
   energyUsedToday: 0, lastActiveDay: 1,
   injuredUntilDay: 0, totalContribution: 0, streak: 1,
   ...over,
@@ -55,6 +55,7 @@ describe('toVillager', () => {
       role: 'medic',
       faction: 'hearth',
       color: villagerColor('t2_abc'),
+      avatar: null,
       online: true,
       since: 'day 7',
     });

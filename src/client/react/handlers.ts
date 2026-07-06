@@ -1,4 +1,11 @@
-import type { ActionType, MissionRoute, PledgeKind, Role, StrategyPlanId } from '../../shared/types';
+import type {
+  ActionType,
+  AvatarConfig,
+  MissionRoute,
+  PledgeKind,
+  Role,
+  StrategyPlanId,
+} from '../../shared/types';
 
 /** Mutation callbacks owned by App (optimistic update + api call + toast). */
 export type Handlers = {
@@ -8,4 +15,5 @@ export type Handlers = {
   onAction: (action: ActionType) => void;
   onRole: (role: Role) => void;
   onMission: (route: MissionRoute) => void;
+  onAvatar: (avatar: AvatarConfig) => void;
 };

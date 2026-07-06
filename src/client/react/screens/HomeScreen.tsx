@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import type { InitResponse, Marked, VillageResponse } from '../../../shared/types';
+import type { AvatarConfig, InitResponse, Marked, VillageResponse } from '../../../shared/types';
 import type { Tab } from '../TabBar';
+import { PixelAvatar } from './avatarKit';
 import {
   ACTION_DEFS,
   MARKED_KIND_ICON,
@@ -25,8 +26,21 @@ const usePrev = <T,>(value: T): T | undefined => {
 
 export const hex = (n: number): string => `#${(n >>> 0).toString(16).padStart(6, '0').slice(-6)}`;
 
-/** Small pixel citizen avatar from a stable color. */
-export function Avatar({ color, size = 32 }: { color: number; size?: number }) {
+/**
+ * Citizen avatar. Renders the player's chosen survivor look when one exists,
+ * else a simple stable-color figure keyed off the villager's palette color
+ * (for citizens who haven't built an avatar yet).
+ */
+export function Avatar({
+  color,
+  avatar = null,
+  size = 32,
+}: {
+  color: number;
+  avatar?: AvatarConfig | null;
+  size?: number;
+}) {
+  if (avatar) return <PixelAvatar avatar={avatar} size={size} />;
   const c = hex(color);
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" shapeRendering="crispEdges" preserveAspectRatio="none">
@@ -346,7 +360,7 @@ function CitizensAndZones({
                   onClick={() => setSelCit(i)}
                 >
                   <span className="av">
-                    <Avatar color={v.color} />
+                    <Avatar color={v.color} avatar={v.avatar} />
                     <span className="sd" style={{ background: v.online ? 'var(--green)' : 'var(--mut)' }} />
                   </span>
                   <span style={{ minWidth: 0 }}>

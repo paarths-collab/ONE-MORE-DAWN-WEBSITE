@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { InitResponse, Role } from '../../../shared/types';
+import { GENDER_META } from '../../../shared/avatar';
 import { ACTION_DEFS, FACTION_DEFS, ROLE_DEFS, ROLE_IDS, ROUTE_DEFS } from '../defs';
 import type { Handlers } from '../handlers';
 import { Avatar } from './HomeScreen';
@@ -55,12 +56,21 @@ export function RoleCards({
 
 // ---------- identity header + role switcher ----------
 
-function Identity({ data, handlers }: { data: InitResponse; handlers: Handlers }) {
+function Identity({
+  data,
+  handlers,
+  onEditAvatar,
+}: {
+  data: InitResponse;
+  handlers: Handlers;
+  onEditAvatar?: (() => void) | undefined;
+}) {
   const [picking, setPicking] = useState(false);
   const { player, city, standing, yourFaction, yourFactionRep } = data;
   const role = player.role;
   const def = role !== null ? ROLE_DEFS[role] : null;
   const injured = player.injuredUntilDay >= city.day;
+  const avatar = player.avatar;
 
   // 3-day role-change cooldown: measured from the last change day vs today.
   const daysSinceChange = city.day - player.roleChangedDay;
@@ -71,15 +81,20 @@ function Identity({ data, handlers }: { data: InitResponse; handlers: Handlers }
     <div className="pxl-panel card">
       <div className="pxl-fhead">
         <span className="av">
-          <Avatar color={avatarColor(player.userId)} size={52} />
+          <Avatar color={avatarColor(player.userId)} avatar={avatar} size={52} />
         </span>
-        <div style={{ minWidth: 0 }}>
-          <div className="nm">u/{player.username}</div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="nm">{avatar?.name ?? `u/${player.username}`}</div>
           <div className="rl">
             {def ? `${def.icon} ${def.name}` : 'Undecided'}
             {yourFaction !== null ? ` · ${FACTION_DEFS[yourFaction].name}` : ' · unaligned'}
           </div>
         </div>
+        {onEditAvatar && (
+          <button type="button" className="pxl-edit-av" style={{ marginTop: 0 }} onClick={onEditAvatar}>
+            ✎ Edit
+          </button>
+        )}
       </div>
 
       <div className="pxl-schip">
@@ -88,6 +103,19 @@ function Identity({ data, handlers }: { data: InitResponse; handlers: Handlers }
       </div>
 
       <div className="pxl-frows">
+        {avatar && (
+          <div className="r">
+            <span className="k">Pronouns</span>
+            <span className="v">
+              {GENDER_META[avatar.gender].label} · {GENDER_META[avatar.gender].subject}/
+              {GENDER_META[avatar.gender].object}
+            </span>
+          </div>
+        )}
+        <div className="r">
+          <span className="k">Reddit</span>
+          <span className="v">u/{player.username}</span>
+        </div>
         <div className="r">
           <span className="k">Role</span>
           <span className="v">{def?.name ?? 'Undecided'}</span>
@@ -275,10 +303,18 @@ function Expedition({ data, handlers }: { data: InitResponse; handlers: Handlers
 
 // ---------- the screen ----------
 
-export function YouScreen({ data, handlers }: { data: InitResponse; handlers: Handlers }) {
+export function YouScreen({
+  data,
+  handlers,
+  onEditAvatar,
+}: {
+  data: InitResponse;
+  handlers: Handlers;
+  onEditAvatar?: (() => void) | undefined;
+}) {
   return (
     <>
-      <Identity data={data} handlers={handlers} />
+      <Identity data={data} handlers={handlers} onEditAvatar={onEditAvatar} />
       <ActionsToday data={data} handlers={handlers} />
       <Expedition data={data} handlers={handlers} />
     </>

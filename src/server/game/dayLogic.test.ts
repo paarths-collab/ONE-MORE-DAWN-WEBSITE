@@ -4,7 +4,7 @@ import type { PlayerProfile } from '../../shared/types';
 
 const player = (over: Partial<PlayerProfile>): PlayerProfile => ({
   userId: 't2_a', username: 'a', role: 'farmer', roleChangedDay: 1,
-  faction: null, factionRep: 0, roleRep: {}, title: null,
+  faction: null, factionRep: 0, roleRep: {}, title: null, avatar: null,
   energyUsedToday: 3, lastActiveDay: 4,
   injuredUntilDay: 0, totalContribution: 50, streak: 2,
   ...over,
@@ -46,7 +46,7 @@ describe('freshPlayer', () => {
     const p = freshPlayer('t2_new', 'newbie', 3);
     expect(p).toEqual({
       userId: 't2_new', username: 'newbie', role: null, roleChangedDay: 0,
-      faction: null, factionRep: 0, roleRep: {}, title: null,
+      faction: null, factionRep: 0, roleRep: {}, title: null, avatar: null,
       energyUsedToday: 0, lastActiveDay: 3,
       injuredUntilDay: 0, totalContribution: 0, streak: 1,
     });

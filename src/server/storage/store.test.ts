@@ -108,7 +108,7 @@ const city: CityState = {
 
 const player: PlayerProfile = {
   userId: 't2_abc', username: 'tester', role: 'scout', roleChangedDay: 1,
-  faction: null, factionRep: 0, roleRep: {}, title: null,
+  faction: null, factionRep: 0, roleRep: {}, title: null, avatar: null,
   energyUsedToday: 0, lastActiveDay: 1,
   injuredUntilDay: 0, totalContribution: 0, streak: 1,
 };
@@ -176,6 +176,24 @@ describe('Store', () => {
     const loaded = await store.getPlayer('t2_abc');
     expect(loaded?.roleRep).toEqual({ scout: 30 });
     expect(loaded?.title).toBe('Runner');
+  });
+
+  it('backfills avatar:null when reading pre-avatar player JSON', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    // Profile stored before the avatar layer shipped (no `avatar` field).
+    const { avatar: _av, ...legacy } = player;
+    await redis.hSet('players', { t2_abc: JSON.stringify(legacy) });
+    const loaded = await store.getPlayer('t2_abc');
+    expect(loaded).toEqual({ ...legacy, avatar: null });
+  });
+
+  it('round-trips a saved avatar', async () => {
+    const store = new Store(makeFakeRedis());
+    const avatar = { name: 'Ash', gender: 'nonbinary', skin: 2, hair: 4, hairStyle: 1, outfit: 2 } as const;
+    await store.savePlayer({ ...player, avatar });
+    const loaded = await store.getPlayer('t2_abc');
+    expect(loaded?.avatar).toEqual(avatar);
   });
 
   it('records actions into aggregate and per-user logs', async () => {

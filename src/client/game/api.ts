@@ -1,9 +1,9 @@
 import type {
-  ActionResponse, ActionType, ApiError, CityTraitId, DramaEvent, InitResponse,
-  LeaderboardResponse, Marked, MissionCompleteRequest, MissionCompleteResponse, MissionRoute,
-  MissionStartResponse, PledgeInfo, PledgeKind, PledgeRequest, PledgeResponse, Role,
-  RoleResponse, Standing, StrategyPlanId, StrategyResponse, TimelineResponse, VillageResponse,
-  VoteResponse, WorldCity, WorldResponse,
+  ActionResponse, ActionType, ApiError, AvatarConfig, AvatarRequest, AvatarResponse, CityTraitId,
+  DramaEvent, InitResponse, LeaderboardResponse, Marked, MissionCompleteRequest,
+  MissionCompleteResponse, MissionRoute, MissionStartResponse, PledgeInfo, PledgeKind,
+  PledgeRequest, PledgeResponse, Role, RoleResponse, Standing, StrategyPlanId, StrategyResponse,
+  TimelineResponse, VillageResponse, VoteResponse, WorldCity, WorldResponse,
 } from '../../shared/types';
 
 /** Flip to true to force mock mode even inside a Devvit playtest. */
@@ -101,6 +101,7 @@ const mockInit: InitResponse = {
     faction: null, factionRep: 0, energyUsedToday: 1, lastActiveDay: 5,
     injuredUntilDay: 0, totalContribution: 120, streak: 3,
     roleRep: { scout: 80 }, title: 'Night Scout',
+    avatar: { name: 'Ash of the Ferry', gender: 'nonbinary', skin: 2, hair: 4, hairStyle: 1, outfit: 2 },
   },
   effectiveEnergy: 3,
   crisis: {
@@ -207,9 +208,25 @@ const mockWorld = (): WorldResponse => {
 
 // ---------- public api ----------
 
+/** `?newuser=1` on the standalone preview forces the first-visit onboarding
+ *  (avatar creator → role gate) so it can be reviewed without a fresh account. */
+const mockFirstVisit = (): boolean =>
+  typeof window !== 'undefined' && /[?&]newuser=1\b/.test(window.location.search);
+
 export const api = {
   init: (): Promise<InitResponse> =>
-    MOCK ? Promise.resolve(mockInit) : request<InitResponse>('/api/init'),
+    MOCK
+      ? Promise.resolve(
+          mockFirstVisit()
+            ? { ...mockInit, player: { ...mockInit.player, avatar: null, role: null } }
+            : mockInit,
+        )
+      : request<InitResponse>('/api/init'),
+
+  saveAvatar: (avatar: AvatarConfig): Promise<AvatarResponse> =>
+    MOCK
+      ? Promise.resolve({ type: 'avatar', player: { ...mockInit.player, avatar } })
+      : request<AvatarResponse>('/api/avatar', { avatar } satisfies AvatarRequest),
 
   pledge: (kind: PledgeKind): Promise<PledgeResponse> =>
     MOCK
@@ -341,10 +358,10 @@ export const api = {
             { id: 'guard_wall', name: 'Watchtower', count: 3 },
           ],
           villagers: [
-            { maskedName: 'ashen•••', role: 'scout', faction: 'seekers', color: 0x6c8be0, online: true, since: 'day 3' },
-            { maskedName: 'salt•••', role: 'engineer', faction: 'builders', color: 0xe8c34a, online: true, since: 'day 1' },
-            { maskedName: 'brack•••', role: 'farmer', faction: null, color: 0x4caf50, online: false, since: 'day 2' },
-            { maskedName: 'ember•••', role: 'speaker', faction: 'hearth', color: 0xa03030, online: true, since: 'day 1' },
+            { maskedName: 'Bram Coldharbor', role: 'scout', faction: 'seekers', color: 0x6c8be0, avatar: { name: 'Bram Coldharbor', gender: 'man', skin: 1, hair: 2, hairStyle: 0, outfit: 2 }, online: true, since: 'day 3' },
+            { maskedName: 'Wren Salt', role: 'engineer', faction: 'builders', color: 0xe8c34a, avatar: { name: 'Wren Salt', gender: 'woman', skin: 3, hair: 5, hairStyle: 2, outfit: 0 }, online: true, since: 'day 1' },
+            { maskedName: 'brack•••', role: 'farmer', faction: null, color: 0x4caf50, avatar: null, online: false, since: 'day 2' },
+            { maskedName: 'Ember', role: 'speaker', faction: 'hearth', color: 0xa03030, avatar: { name: 'Ember', gender: 'nonbinary', skin: 4, hair: 7, hairStyle: 3, outfit: 3 }, online: true, since: 'day 1' },
           ],
           onlineCount: 3,
           totalCount: 4,

@@ -4,7 +4,7 @@ import type { PlayerProfile } from '../../shared/types';
 
 const player = (over: Partial<PlayerProfile>): PlayerProfile => ({
   userId: 't2_a', username: 'a', role: 'farmer', roleChangedDay: 1,
-  faction: null, factionRep: 0, roleRep: {}, title: null,
+  faction: null, factionRep: 0, roleRep: {}, title: null, avatar: null,
   energyUsedToday: 0, lastActiveDay: 5,
   injuredUntilDay: 0, totalContribution: 0, streak: 1,
   ...over,
