@@ -1,5 +1,7 @@
-import type { InitResponse } from '../../../shared/types';
-import { DRAMA_TINTS, MEDALS, markedGoalWord, markedPct, markedShortName } from '../defs';
+import type { InitResponse, TimelineResponse } from '../../../shared/types';
+import { api } from '../../game/api';
+import { DRAMA_TINTS, MEDALS, formatDelta, markedGoalWord, markedPct, markedShortName } from '../defs';
+import { useFetch } from '../kit/useFetch';
 
 // FEED — the full Live Drama Feed plus the pledge ledger (public credit:
 // top helpers · recent helpers · my impact). Status is the reward.
@@ -109,10 +111,55 @@ function PledgeLedger({ data }: { data: InitResponse }) {
   );
 }
 
+// The city's permanent memory — every resolved dawn, its headline and deltas.
+// Lazy-loaded so the Feed tab pays for the timeline only when opened.
+function Chronicle() {
+  const timeline = useFetch<TimelineResponse>(() => api.timeline());
+  return (
+    <div className="pxl-panel card">
+      <div className="pxl-phead">
+        <span className="lbl">City Chronicle</span>
+        <span className="meta">what the city remembers</span>
+      </div>
+      {timeline.kind === 'loading' && (
+        <div style={{ fontSize: 12, color: 'var(--mut)' }}>Recovering the chronicle…</div>
+      )}
+      {timeline.kind === 'error' && (
+        <div style={{ fontSize: 12, color: 'var(--mut)' }}>The chronicle is quiet for now.</div>
+      )}
+      {timeline.kind === 'ready' &&
+        (timeline.data.entries.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--mut)' }}>
+            No dawns recorded yet. Survive the night and history begins.
+          </div>
+        ) : (
+          [...timeline.data.entries]
+            .sort((a, b) => b.cycle - a.cycle || b.day - a.day)
+            .slice(0, 8)
+            .map((e) => {
+              const raid = /raid/i.test(e.headline);
+              return (
+                <div key={`${e.cycle}-${e.day}`} className="pxl-chron">
+                  <div className="d">DAY {e.day}</div>
+                  <div className="b">
+                    <div className="h" style={{ color: raid ? 'var(--red)' : 'var(--ink)' }}>
+                      {e.headline}
+                    </div>
+                    <div className="delta">{formatDelta(e.deltas)}</div>
+                  </div>
+                </div>
+              );
+            })
+        ))}
+    </div>
+  );
+}
+
 export function FeedScreen({ data }: { data: InitResponse }) {
   return (
     <>
       <DramaFeed data={data} />
+      <Chronicle />
       <PledgeLedger data={data} />
     </>
   );

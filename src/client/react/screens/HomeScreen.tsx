@@ -235,6 +235,87 @@ function Vitals({ data }: { data: InitResponse }) {
   );
 }
 
+// ---------- situation: raid / trait / law / tomorrow's forecast ----------
+
+/** "Tomorrow if nobody acts" — surfaces consequences so inaction feels costly,
+ *  plus the city's starting trait and any active law (otherwise never shown). */
+function Situation({ data }: { data: InitResponse }) {
+  const { forecast, city, trait, activeLaw, raidInDays } = data;
+  const rows: [string, string, number, number, boolean][] = [
+    ['Food', '🍞', city.food, forecast.food, false],
+    ['Power', '⚡', city.power, forecast.power, false],
+    ['Medicine', '🩹', city.medicine, forecast.medicine, false],
+    ['Morale', '🙂', city.morale, forecast.morale, false],
+    ['Threat', '☠️', city.threat, forecast.threat, true],
+  ];
+  const raidSoon = raidInDays <= 1 || forecast.raidLikely;
+  return (
+    <div className="pxl-panel card">
+      <div className="pxl-phead">
+        <span className="lbl">Tomorrow at Dawn</span>
+        <span className="meta">if nobody acts</span>
+      </div>
+
+      {raidSoon && (
+        <div className="pxl-warn" style={{ marginBottom: 11 }}>
+          <span aria-hidden="true">🚨</span>
+          <span>
+            <b style={{ color: 'var(--ink)' }}>
+              {raidInDays <= 0 ? 'Raiders hit TONIGHT.' : 'Raiders hit tomorrow.'}
+            </b>{' '}
+            Guard the wall and back <i>Prepare for Raid</i> — every point of defense counts.
+          </span>
+        </div>
+      )}
+
+      <div className="pxl-chips" style={{ marginBottom: 11 }}>
+        <span className="pxl-chip2" title={trait.blurb}>
+          🧬 {trait.label}
+        </span>
+        {activeLaw ? (
+          <span className="pxl-chip2" style={{ borderColor: 'var(--purple)', color: 'var(--purple)' }} title={activeLaw.buff}>
+            📜 {activeLaw.label}
+          </span>
+        ) : (
+          <span className="pxl-chip2" style={{ color: 'var(--mut)' }}>
+            📜 No law in force
+          </span>
+        )}
+      </div>
+
+      <div className="pxl-fc-grid">
+        {rows.map(([k, ic, now, next, danger]) => {
+          const d = next - now;
+          const good = danger ? d < 0 : d > 0;
+          const col = d === 0 ? 'var(--mut)' : good ? 'var(--green)' : 'var(--red)';
+          return (
+            <div key={k} className="pxl-fc">
+              <span className="k">
+                {ic} {k}
+              </span>
+              <span className="v">
+                <span style={{ color: 'var(--mut)' }}>{now}</span>
+                <span style={{ color: 'var(--mut)', margin: '0 4px' }}>→</span>
+                <span style={{ color: col, fontWeight: 800 }}>{next}</span>
+                {d !== 0 && (
+                  <span style={{ color: col, fontSize: 9, marginLeft: 5 }}>
+                    {d > 0 ? '▲' : '▼'}
+                    {Math.abs(d)}
+                  </span>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="pxl-rnote" style={{ marginTop: 11 }}>
+        <span aria-hidden="true">🌅</span>
+        <span>This is the city with zero help today. Your actions bend it — come back at dawn to see how far.</span>
+      </div>
+    </div>
+  );
+}
+
 // ---------- your turn: actions + expedition ----------
 
 function YourTurn({ data, handlers }: { data: InitResponse; handlers: Handlers }) {
@@ -452,6 +533,7 @@ export function HomeScreen({ data, handlers, village, selCit, setSelCit, go }: H
       <MarkedCard data={data} handlers={handlers} />
       <Stats data={data} village={village} />
       <Vitals data={data} />
+      <Situation data={data} />
       <YourTurn data={data} handlers={handlers} />
       <CrisisPeek data={data} go={go} />
       <CitizensAndZones village={village} selCit={selCit} setSelCit={setSelCit} />
