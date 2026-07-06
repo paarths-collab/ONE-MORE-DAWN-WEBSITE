@@ -3,6 +3,7 @@ import type {
   CityStatusTag,
   DramaEvent,
   FactionId,
+  InitResponse,
   Marked,
   MissionRoute,
   PledgeKind,
@@ -172,6 +173,32 @@ export const formatDelta = (delta: ResourceDelta): string => {
 };
 
 export const MEDALS: readonly string[] = ['🥇', '🥈', '🥉'];
+
+// ---------- comment rally (Reddit-native strategy bridge) ----------
+
+/**
+ * Turn the player's live city state into a ready-to-paste comment, so the
+ * strategy layer lives in Reddit's comments (not a custom chat). Grounded in
+ * real numbers so it rallies rather than spams.
+ */
+export const scoutReport = (data: InitResponse): string => {
+  const { city, marked, raidInDays, player, yourCrisisVote, crisis } = data;
+  const pct = markedPct(marked);
+  const raid =
+    raidInDays <= 0 ? 'a raid hits TONIGHT' : `raid in ${raidInDays} day${raidInDays === 1 ? '' : 's'}`;
+  const voteLabel = yourCrisisVote
+    ? crisis.options.find((o) => o.id === yourCrisisVote)?.label
+    : null;
+  const lines = [
+    `🏙️ One More Dawn — day ${city.day} (cycle ${city.cycle})`,
+    `Tonight we ${markedGoalWord(marked) === 'saved' ? 'save' : 'hold'} ${markedShortName(marked)} — ${pct}% there.`,
+    `Threat ${city.threat}/100, ${raid}. Food ${city.food} · power ${city.power} · morale ${city.morale}.`,
+    player.role ? `I'm on ${ROLE_DEFS[player.role].name} duty.` : null,
+    voteLabel ? `My crisis call: "${voteLabel}".` : `Still deciding on the crisis.`,
+    `What's the play — hold the wall or gather supplies? 👇`,
+  ];
+  return lines.filter((l): l is string => Boolean(l)).join('\n');
+};
 
 // ---------- World of Cities (WORLD tab) ----------
 

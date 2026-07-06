@@ -25,6 +25,7 @@ import {
   markedGoalWord,
   markedPct,
   markedShortName,
+  scoutReport,
 } from './defs';
 import type { Handlers } from './handlers';
 import { MuteButton } from './kit/MuteButton';
@@ -342,7 +343,36 @@ export function App() {
     [patch, push, refresh],
   );
 
-  const handlers: Handlers = { onPledge, onVote, onStrategy, onAction, onRole, onMission, onAvatar };
+  const onRally = useCallback(() => {
+    const d = dataRef.current;
+    if (!d) return;
+    const text = scoutReport(d);
+    const ok = () => {
+      sfx.play('back');
+      push('📋 Scout report copied — paste it in the comments to rally your city');
+    };
+    try {
+      const clip = navigator.clipboard;
+      if (clip?.writeText) {
+        clip.writeText(text).then(ok).catch(() => push('⚠️ Could not copy — long-press the feed to select'));
+      } else {
+        push('⚠️ Clipboard unavailable here — screenshot your city to share');
+      }
+    } catch {
+      push('⚠️ Could not copy — screenshot your city to share');
+    }
+  }, [push]);
+
+  const handlers: Handlers = {
+    onPledge,
+    onVote,
+    onStrategy,
+    onAction,
+    onRole,
+    onMission,
+    onAvatar,
+    onRally,
+  };
 
   // ---- render ----
 

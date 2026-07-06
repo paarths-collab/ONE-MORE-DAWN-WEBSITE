@@ -16,4 +16,6 @@ export type Handlers = {
   onRole: (role: Role) => void;
   onMission: (route: MissionRoute) => void;
   onAvatar: (avatar: AvatarConfig) => void;
+  /** Copy a live "scout report" to the clipboard to rally the comments. */
+  onRally: () => void;
 };

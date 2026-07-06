@@ -138,11 +138,38 @@ function CouncilVote({ data, handlers }: { data: InitResponse; handlers: Handler
   );
 }
 
+// The strategy layer lives in Reddit's comments — this bridges the game to it.
+function RallyCard({ handlers }: { handlers: Handlers }) {
+  return (
+    <div className="pxl-panel card">
+      <div className="pxl-phead">
+        <span className="lbl">Rally the City</span>
+        <span className="meta">🗨️ in the comments</span>
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--mut)', margin: '0 0 12px', lineHeight: 1.5 }}>
+        The debate is the game. Make your case below the post — hold the wall, or gather supplies
+        before the raid?
+      </p>
+      <button type="button" className="pxl-btn ghost" style={{ marginTop: 0 }} onClick={handlers.onRally}>
+        📋 Copy scout report
+      </button>
+      <div className="pxl-rnote" style={{ marginTop: 11 }}>
+        <span aria-hidden="true">🗨️</span>
+        <span>
+          Grabs your live city status. Paste it as a comment to rally the city — presence only, no
+          DMs, no real location.
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function CrisisScreen({ data, handlers }: { data: InitResponse; handlers: Handlers }) {
   return (
     <>
       <CrisisVote data={data} handlers={handlers} />
       <CouncilVote data={data} handlers={handlers} />
+      <RallyCard handlers={handlers} />
     </>
   );
 }
