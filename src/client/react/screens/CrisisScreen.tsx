@@ -86,7 +86,9 @@ function CouncilVote({ data, handlers }: { data: InitResponse; handlers: Handler
               type="button"
               className={mine ? 'omd-plan omd-plan--mine' : 'omd-plan'}
               onClick={() => handlers.onStrategy(id)}
-              disabled={resolving}
+              // One plan per day: once backed, the council is locked (the server
+              // rejects a re-vote), so disable every plan button — not just yours.
+              disabled={resolving || yourStrategyVote !== null}
             >
               <span className="omd-plan-row">
                 <span className="omd-plan-icon" aria-hidden="true">

@@ -142,14 +142,17 @@ export function App() {
 
   const onStrategy = useCallback(
     (planId: StrategyPlanId) => {
+      // One plan per day, no switching — the server 409s a re-vote, so never
+      // optimistically move the vote. Ignore taps once a plan is already backed.
+      let accepted = false;
       patch((d) => {
+        if (d.yourStrategyVote !== null) return d;
+        accepted = true;
         const votes = { ...d.strategyVotes };
-        const prev = d.yourStrategyVote;
-        if (prev === planId) return d;
-        if (prev !== null) votes[prev] = Math.max(0, (votes[prev] ?? 1) - 1);
         votes[planId] = (votes[planId] ?? 0) + 1;
         return { ...d, strategyVotes: votes, yourStrategyVote: planId };
       });
+      if (!accepted) return;
       push('🏛️ You backed the plan');
       api
         .strategy(planId)
