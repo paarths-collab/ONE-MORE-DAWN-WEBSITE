@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import type { InitResponse, Marked } from '../../../shared/types';
-import { CitySky } from '../CitySky';
+import type { InitResponse, Marked, VillageResponse } from '../../../shared/types';
 import type { Tab } from '../TabBar';
-import { DRAMA_TINTS, MARKED_KIND_ICON, markedGoalWord, markedPct, markedShortName } from '../defs';
+import {
+  ACTION_DEFS,
+  MARKED_KIND_ICON,
+  markedGoalWord,
+  markedPct,
+  markedShortName,
+  PLAN_DEFS,
+  ROUTE_DEFS,
+} from '../defs';
 import type { Handlers } from '../handlers';
-import { Chip, SectionHead } from '../kit/bits';
 
-// HOME — the priority-ordered main screen (locked spec order):
-// 1 standing bar (over the city sky) · 2 THE MARKED · 3 one-tap pledges ·
-// 4 city status · 5 crisis preview · 6 drama feed preview.
+// HOME — the pixel command console. Marked + pledges, city stats, vitals,
+// your-turn actions + expedition, then citizens + zones from /api/village.
 
 const usePrev = <T,>(value: T): T | undefined => {
   const ref = useRef<T | undefined>(undefined);
@@ -18,49 +23,28 @@ const usePrev = <T,>(value: T): T | undefined => {
   return ref.current;
 };
 
-// ---------- 1 · standing bar ----------
+export const hex = (n: number): string => `#${(n >>> 0).toString(16).padStart(6, '0').slice(-6)}`;
 
-function Standing({ data, subreddit, onRefresh }: { data: InitResponse; subreddit: string | null; onRefresh: () => void }) {
-  const { city, standing } = data;
+/** Small pixel citizen avatar from a stable color. */
+export function Avatar({ color, size = 32 }: { color: number; size?: number }) {
+  const c = hex(color);
   return (
-    <div className="omd-standing">
-      <div className="omd-standing-top">
-        <span className="omd-standing-sub">
-          {subreddit !== null ? `r/${subreddit.replace(/^r\//, '')}` : 'the last city'} · cycle {city.cycle}
-        </span>
-        <button type="button" className="omd-iconbtn" onClick={onRefresh} aria-label="Refresh the city" title="Refresh">
-          ↻
-        </button>
-      </div>
-      <div className="omd-standing-main">
-        <div>
-          <h1 className="omd-standing-name">The Last City</h1>
-          <div className="omd-standing-tag">one more dawn</div>
-        </div>
-        <div className="omd-standing-day">
-          <span className="omd-standing-day-num">DAY {city.day}</span>
-          <span className="omd-standing-day-sub">{city.population} souls</span>
-        </div>
-      </div>
-      <div className="omd-standing-chips">
-        <Chip icon="🔥">{standing.rankLabel}</Chip>
-        {standing.contributionRank !== null && (
-          <Chip icon="🎖️" tone="accent">
-            #{standing.contributionRank} citizen
-          </Chip>
-        )}
-      </div>
-    </div>
+    <svg width={size} height={size} viewBox="0 0 20 20" shapeRendering="crispEdges" preserveAspectRatio="none">
+      <rect width="20" height="20" fill="#231d1d" />
+      <rect x="7" y="1" width="6" height="3" fill={c} />
+      <rect x="6" y="3" width="8" height="6" fill="#d9a878" />
+      <rect x="5" y="9" width="10" height="9" rx="1" fill={c} />
+    </svg>
   );
 }
 
-// ---------- 2+3 · THE MARKED + one-tap pledge ----------
+// ---------- THE MARKED + one-tap pledge ----------
 
 function SavedYesterday({ marked }: { marked: Marked }) {
   const y = marked.savedYesterday;
   if (y === null) return null;
   return (
-    <div className={y.saved ? 'omd-yesterday omd-yesterday--saved' : 'omd-yesterday omd-yesterday--lost'}>
+    <div className={y.saved ? 'pxl-yesterday saved' : 'pxl-yesterday lost'}>
       {y.saved ? `Yesterday: ${y.name} was saved 🕯️` : `Yesterday: ${y.name} was lost. Remember it.`}
     </div>
   );
@@ -71,194 +55,354 @@ function MarkedCard({ data, handlers }: { data: InitResponse; handlers: Handlers
   const pct = markedPct(marked);
   const short = markedShortName(marked);
   const goalWord = markedGoalWord(marked);
-
-  // Surge: whenever the shared bar moves up (my pledge or a refetch), flare.
   const prevPledged = usePrev(marked.pledged);
-  const [surge, setSurge] = useState<number | null>(null);
+  const [surge, setSurge] = useState(false);
   useEffect(() => {
     if (prevPledged !== undefined && marked.pledged > prevPledged) {
-      setSurge(marked.pledged - prevPledged);
-      const t = window.setTimeout(() => setSurge(null), 1500);
+      setSurge(true);
+      const t = window.setTimeout(() => setSurge(false), 1400);
       return () => window.clearTimeout(t);
     }
     return undefined;
-    // deps intentionally track only marked.pledged (prevPledged is a ref echo)
   }, [marked.pledged]);
 
   return (
-    <section className={surge !== null ? 'omd-marked omd-marked--surge' : 'omd-marked'}>
+    <section className="pxl-marked card">
       <SavedYesterday marked={marked} />
-      <div className="omd-marked-eyebrow">
-        <span>✦ THE MARKED</span>
-        <span className="omd-marked-dawn">resolves at dawn</span>
-      </div>
-      <div className="omd-marked-name">
-        <span className="omd-marked-kind" aria-hidden="true">
-          {MARKED_KIND_ICON[marked.kind]}
-        </span>
+      <div className="dawn">resolves at dawn</div>
+      <div className="eye">✦ TONIGHT WE {goalWord === 'saved' ? 'SAVE' : 'HOLD'}</div>
+      <div className="nm">
+        <span aria-hidden="true">{MARKED_KIND_ICON[marked.kind]} </span>
         {marked.name}
       </div>
-      <p className="omd-marked-blurb">{marked.blurb}</p>
-      <div className="omd-marked-bar">
-        <div className="omd-marked-track">
-          <div className="omd-marked-fill" style={{ width: `${pct}%` }} />
-          <div className="omd-marked-shimmer" />
-        </div>
-        {surge !== null && <span className="omd-marked-float">+{surge} {marked.unit}</span>}
+      <div className="stakes">{marked.blurb}</div>
+      <div className="bar">
+        <i style={{ width: `${pct}%`, boxShadow: surge ? '0 0 16px rgba(232,175,85,.9)' : undefined }} />
       </div>
-      <div className="omd-marked-nums">
-        <span className="omd-mono">
+      <div className="prow">
+        <span style={{ color: 'var(--mut)' }}>
           {marked.pledged} / {marked.goal} {marked.unit}
         </span>
-        <span className="omd-marked-pct">
+        <span style={{ color: 'var(--gold)' }}>
           {pct}% {goalWord}
         </span>
       </div>
-
-      <div className="omd-pledge">
-        {pledge.usedToday ? (
-          <div className="omd-pledge-done">
-            <span className="omd-pledge-done-icon" aria-hidden="true">
-              🕯️
-            </span>
-            <span>
-              <b>You&rsquo;ve helped today.</b> {short} is {pct}% {goalWord} — the city remembers.
-              Come back at dawn.
-            </span>
-          </div>
-        ) : (
-          <>
-            <div className="omd-pledge-head">MAKE YOUR PLEDGE · one tap · once a day</div>
-            <div className="omd-pledge-grid">
-              {pledge.options.map((o) => (
-                <button key={o.id} type="button" className="omd-pledge-btn" onClick={() => handlers.onPledge(o.id)}>
-                  <span className="omd-pledge-btn-icon" aria-hidden="true">
-                    {o.icon}
-                  </span>
-                  <span className="omd-pledge-btn-label">{o.label}</span>
-                  <span className="omd-pledge-btn-effect">{o.effect}</span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+      {pledge.usedToday ? (
+        <div className="pxl-pledge-done">
+          <span aria-hidden="true">🕯️</span>
+          <span>
+            You&rsquo;ve helped today — {short} is {pct}% {goalWord}. Come back at dawn.
+          </span>
+        </div>
+      ) : (
+        <div className="pxl-pledges">
+          {pledge.options.map((o) => (
+            <button key={o.id} type="button" className="pxl-pledge" onClick={() => handlers.onPledge(o.id)}>
+              <span className="pi" aria-hidden="true">
+                {o.icon}
+              </span>
+              <span className="pl">{o.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
-// ---------- 4 · city status ----------
+// ---------- stat cards ----------
 
-type VitalTone = 'good' | 'warn' | 'danger';
-
-const toneFor = (pct: number): VitalTone => (pct < 25 ? 'danger' : pct < 50 ? 'warn' : 'good');
-
-type VitalProps = {
-  icon: string;
-  label: string;
-  value: number;
-  max: number;
-  tone: VitalTone;
-  delta?: number;
-  deltaBad?: boolean;
-};
-
-function Vital({ icon, label, value, max, tone, delta, deltaBad }: VitalProps) {
-  const width = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
+function Stats({ data, village }: { data: InitResponse; village: VillageResponse | null }) {
+  const { city } = data;
+  const online = village?.onlineCount ?? '—';
+  const total = village?.totalCount ?? city.population;
   return (
-    <div className="omd-vital">
-      <div className="omd-vital-top">
-        <span className="omd-vital-label">
-          {icon} {label}
-        </span>
-        <span className={`omd-vital-num tone-${tone}`}>
-          {value}
-          {delta !== undefined && delta !== 0 && (
-            <small className={deltaBad === true ? 'tone-danger' : 'tone-muted'}>
-              {' '}
-              {delta > 0 ? '+' : '−'}
-              {Math.abs(delta)}
-            </small>
-          )}
-        </span>
+    <div className="pxl-stat-grid">
+      <div className="pxl-stat card">
+        <div className="top">
+          👥<span className="lbl">Citizens</span>
+        </div>
+        <div className="big">{total}</div>
+        <div className="sub" style={{ color: 'var(--green)' }}>
+          {city.population} souls
+        </div>
       </div>
-      <div className="omd-vital-track">
-        <div className={`omd-vital-fill omd-vital-fill--${tone}`} style={{ width: `${width}%` }} />
+      <div className="pxl-stat card">
+        <div className="top">
+          ⚡<span className="lbl">Online</span>
+        </div>
+        <div className="big">{online}</div>
+        <div className="sub" style={{ color: 'var(--mut)' }}>
+          acting today
+        </div>
+      </div>
+      <div className="pxl-stat card">
+        <div className="top">
+          ☠️<span className="lbl">Threat</span>
+        </div>
+        <div className="big">{city.threat}</div>
+        <div className="sub" style={{ color: data.raidInDays <= 1 ? 'var(--danger)' : 'var(--mut)' }}>
+          {data.raidInDays <= 0 ? 'raid tonight' : `raid in ${data.raidInDays}d`}
+        </div>
+      </div>
+      <div className="pxl-stat card">
+        <div className="top">
+          🌅<span className="lbl">Survival</span>
+        </div>
+        <div className="big">{data.standing.survivalDays}</div>
+        <div className="sub" style={{ color: 'var(--mut)' }}>
+          dawns · cycle {city.cycle}
+        </div>
       </div>
     </div>
   );
 }
 
-function CityStatus({ data }: { data: InitResponse }) {
-  const { city, forecast, raidInDays } = data;
-  const raidSoon = raidInDays <= 1;
+// ---------- city vitals ----------
+
+const VIT_COLOR = (pct: number, danger = false): string =>
+  danger ? (pct >= 70 ? '#c85040' : pct >= 40 ? '#e8c34a' : '#57c06a') : pct < 25 ? '#c85040' : pct < 50 ? '#e8c34a' : '#57c06a';
+
+function Vitals({ data }: { data: InitResponse }) {
+  const { city } = data;
+  const rows: [string, string, number, number, boolean][] = [
+    ['FOOD', '🍞', city.food, 300, false],
+    ['POWER', '⚡', city.power, 100, false],
+    ['MEDICINE', '🩹', city.medicine, 120, false],
+    ['MORALE', '🙂', city.morale, 100, false],
+    ['THREAT', '☠️', city.threat, 100, true],
+    ['DEFENSE', '🛡️', city.defense, 100, false],
+  ];
   return (
-    <section className="omd-card">
-      <SectionHead
-        icon="🏙️"
-        title="CITY STATUS"
-        sub={raidInDays <= 0 ? '⚠ raid tonight' : `🛡 ${city.defense} defense · raid in ${raidInDays}d`}
-      />
-      <div className={raidSoon ? 'omd-vitals omd-vitals--alert' : 'omd-vitals'}>
-        <Vital icon="🍞" label="FOOD" value={city.food} max={300} tone={toneFor((city.food / 300) * 100)} delta={forecast.food - city.food} deltaBad={forecast.food < city.food} />
-        <Vital icon="⚡" label="POWER" value={city.power} max={100} tone={toneFor(city.power)} delta={forecast.power - city.power} deltaBad={forecast.power < city.power} />
-        <Vital icon="🩹" label="MEDS" value={city.medicine} max={120} tone={toneFor((city.medicine / 120) * 100)} delta={forecast.medicine - city.medicine} deltaBad={forecast.medicine < city.medicine} />
-        <Vital icon="🙂" label="MORALE" value={city.morale} max={100} tone={toneFor(city.morale)} delta={forecast.morale - city.morale} deltaBad={forecast.morale < city.morale} />
-        <Vital icon="☠️" label="THREAT" value={city.threat} max={100} tone={city.threat >= 70 ? 'danger' : city.threat >= 40 ? 'warn' : 'good'} delta={forecast.threat - city.threat} deltaBad={forecast.threat > city.threat} />
-        <Vital icon="👥" label="SOULS" value={city.population} max={250} tone="good" />
+    <div className="pxl-panel card">
+      <div className="pxl-phead">
+        <span className="lbl">City Vitals</span>
+        <span className="meta">
+          {city.population} souls · def {city.defense}
+        </span>
       </div>
-      {forecast.raidLikely && <div className="omd-status-note tone-danger">☠️ Raid likely at dawn — the wall decides.</div>}
-    </section>
+      <div className="pxl-vit-grid">
+        {rows.map(([k, ic, v, max, danger]) => {
+          const p = (v / max) * 100;
+          const col = VIT_COLOR(p, danger);
+          return (
+            <div key={k} className="pxl-vit">
+              <div className="t">
+                <span className="k">
+                  {ic} {k}
+                </span>
+                <span className="v" style={{ color: col }}>
+                  {v}
+                  <span style={{ color: 'var(--mut)', fontSize: 9 }}>/{max}</span>
+                </span>
+              </div>
+              <div className="pxl-track">
+                <i style={{ width: `${Math.min(100, p)}%`, background: col }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
-// ---------- 5 · crisis preview ----------
+// ---------- your turn: actions + expedition ----------
 
-function CrisisPreview({ data, go }: { data: InitResponse; go: (tab: Tab) => void }) {
-  const { crisis, crisisVotes, yourCrisisVote } = data;
-  const total = crisis.options.reduce((sum, o) => sum + (crisisVotes[o.id] ?? 0), 0);
-  const mine = crisis.options.find((o) => o.id === yourCrisisVote);
+function YourTurn({ data, handlers }: { data: InitResponse; handlers: Handlers }) {
+  const { player, effectiveEnergy, yourActionsToday, missionUsedToday, city } = data;
+  const energyLeft = effectiveEnergy - player.energyUsedToday;
+  const injured = player.injuredUntilDay >= city.day;
+  const [routes, setRoutes] = useState(false);
+
+  // council pick = the leading strategy plan's action
+  let leadPlan: keyof typeof PLAN_DEFS | null = null;
+  let best = 0;
+  for (const [k, n] of Object.entries(data.strategyVotes)) {
+    if (n > best) {
+      best = n;
+      leadPlan = k as keyof typeof PLAN_DEFS;
+    }
+  }
+  const pickAction = leadPlan ? PLAN_DEFS[leadPlan].action : null;
+
   return (
-    <button type="button" className="omd-card omd-preview omd-preview--crisis" onClick={() => go('crisis')}>
-      <div className="omd-preview-eyebrow">
-        <span>⚔️ TODAY&rsquo;S CRISIS</span>
-        <span className="omd-preview-go">{mine !== undefined ? 'See the vote →' : 'Vote →'}</span>
+    <div className="pxl-panel card">
+      <div className="pxl-phead">
+        <span className="lbl">Your Turn</span>
+        <span className="meta">spend energy</span>
       </div>
-      <div className="omd-preview-title">{crisis.title}</div>
-      <div className="omd-preview-sub">
-        {total} have voted · {mine !== undefined ? `you: ${mine.label}` : 'your voice is missing'}
+      <div className="pxl-energy">
+        <span className="lbl" style={{ fontSize: 8, color: 'var(--mut)' }}>
+          Energy
+        </span>
+        <div className="dots">
+          {Array.from({ length: effectiveEnergy }).map((_, i) => (
+            <span key={i} className="d" style={{ background: i < energyLeft ? 'var(--gold)' : 'transparent' }} />
+          ))}
+        </div>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 800, color: 'var(--gold)' }}>
+          {energyLeft}/{effectiveEnergy}
+          {injured ? ' · injured' : ''}
+        </span>
       </div>
-    </button>
+      <div className="pxl-act-grid">
+        {ACTION_DEFS.map((a) => {
+          const count = yourActionsToday[a.id] ?? 0;
+          const isPick = pickAction === a.id;
+          return (
+            <button
+              key={a.id}
+              type="button"
+              className="pxl-act"
+              disabled={energyLeft <= 0}
+              onClick={() => handlers.onAction(a.id)}
+            >
+              {isPick && <span className="pick">👑 COUNCIL</span>}
+              <span className="ai">{a.icon}</span>
+              <span style={{ minWidth: 0 }}>
+                <span className="an">{a.title}</span>
+                <span className="ae">
+                  {a.effect}
+                  {count > 0 ? ` · ${count}×` : ''}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {missionUsedToday ? (
+        <button type="button" className="pxl-btn ghost" disabled>
+          🎒 Expedition sent — returns at dawn
+        </button>
+      ) : routes ? (
+        <div className="pxl-act-grid" style={{ marginTop: 11, gridTemplateColumns: '1fr 1fr 1fr' }}>
+          {ROUTE_DEFS.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className="pxl-act"
+              style={{ flexDirection: 'column', alignItems: 'flex-start' }}
+              disabled={energyLeft <= 0}
+              onClick={() => handlers.onMission(r.id)}
+            >
+              <span className="ai">{r.icon}</span>
+              <span style={{ minWidth: 0 }}>
+                <span className="an">{r.title}</span>
+                <span className="ae" style={{ color: 'var(--mut)' }}>
+                  {r.blurb}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <button type="button" className="pxl-btn ghost" disabled={energyLeft <= 0} onClick={() => setRoutes(true)}>
+          🎒 Launch Expedition
+        </button>
+      )}
+    </div>
   );
 }
 
-// ---------- 6 · drama feed preview ----------
+// ---------- citizens + zones ----------
 
-function DramaPreview({ data, go }: { data: InitResponse; go: (tab: Tab) => void }) {
-  const latest = data.drama.slice(0, 4);
+const ZONE_ICON: Record<string, string> = {
+  grow_food: '🌱',
+  repair_power: '⚙️',
+  treat_sick: '✚',
+  guard_wall: '🛡️',
+};
+
+function CitizensAndZones({
+  village,
+  selCit,
+  setSelCit,
+}: {
+  village: VillageResponse | null;
+  selCit: number;
+  setSelCit: (i: number) => void;
+}) {
+  const villagers = village?.villagers ?? [];
+  const zones = village?.zones ?? [];
+  const maxZone = Math.max(1, ...zones.map((z) => z.count));
   return (
-    <section className="omd-card">
-      <SectionHead
-        icon="📜"
-        title="LIVE FROM THE CITY"
-        action={
-          <button type="button" className="omd-link" onClick={() => go('feed')}>
-            See all →
-          </button>
-        }
-      />
-      <div className="omd-drama omd-drama--preview">
-        {latest.map((e, i) => (
-          <div key={i} className="omd-drama-row" style={{ borderLeftColor: DRAMA_TINTS[e.kind] }}>
-            <span className="omd-drama-icon" aria-hidden="true">
-              {e.icon}
-            </span>
-            <span className="omd-drama-text">{e.text}</span>
+    <div className="pxl-cols">
+      <div className="a">
+        <div className="pxl-panel card">
+          <div className="pxl-phead">
+            <span className="lbl">Citizens</span>
+            <span className="meta">{villagers.length} · masked</span>
           </div>
-        ))}
-        {latest.length === 0 && <div className="omd-note">The wire is quiet. Make some news.</div>}
+          {villagers.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--mut)' }}>No citizens have acted yet today.</div>
+          ) : (
+            <div className="pxl-cit-grid">
+              {villagers.map((v, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={i === selCit ? 'pxl-cit on' : 'pxl-cit'}
+                  onClick={() => setSelCit(i)}
+                >
+                  <span className="av">
+                    <Avatar color={v.color} />
+                    <span className="sd" style={{ background: v.online ? 'var(--green)' : 'var(--mut)' }} />
+                  </span>
+                  <span style={{ minWidth: 0 }}>
+                    <span className="nm">{v.maskedName}</span>
+                    <span className="rz">
+                      {v.role ?? 'undecided'}
+                      {v.faction ? ` · ${v.faction}` : ''}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </section>
+      <div className="b">
+        <div className="pxl-panel card">
+          <div className="pxl-phead">
+            <span className="lbl">Zone Activity</span>
+            <span className="meta">today</span>
+          </div>
+          {zones.map((z) => (
+            <div key={z.id} className="pxl-occ">
+              <div className="t">
+                {ZONE_ICON[z.id] ?? '▪'} {z.name}
+                <span className="ct">{z.count}</span>
+              </div>
+              <div className="pxl-track">
+                <i style={{ width: `${(z.count / maxZone) * 100}%`, background: 'var(--gold)' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- crisis peek ----------
+
+function CrisisPeek({ data, go }: { data: InitResponse; go: (tab: Tab) => void }) {
+  const { crisis, crisisVotes, yourCrisisVote } = data;
+  const total = crisis.options.reduce((s, o) => s + (crisisVotes[o.id] ?? 0), 0);
+  return (
+    <button type="button" className="pxl-opt" style={{ marginBottom: 0 }} onClick={() => go('crisis')}>
+      <span className="oi">⚔️</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span className="on">{crisis.title}</span>
+        <span className="oe">
+          {total} voted · {yourCrisisVote ? 'your voice is counted' : 'your voice is missing'}
+        </span>
+      </span>
+      <span className="lbl" style={{ fontSize: 9, color: 'var(--gold)' }}>
+        VOTE →
+      </span>
+    </button>
   );
 }
 
@@ -267,24 +411,21 @@ function DramaPreview({ data, go }: { data: InitResponse; go: (tab: Tab) => void
 export type HomeScreenProps = {
   data: InitResponse;
   handlers: Handlers;
-  subreddit: string | null;
-  onRefresh: () => void;
+  village: VillageResponse | null;
+  selCit: number;
+  setSelCit: (i: number) => void;
   go: (tab: Tab) => void;
 };
 
-export function HomeScreen({ data, handlers, subreddit, onRefresh, go }: HomeScreenProps) {
+export function HomeScreen({ data, handlers, village, selCit, setSelCit, go }: HomeScreenProps) {
   return (
-    <div className="omd-screen omd-screen--home">
-      <CitySky data={data}>
-        <Standing data={data} subreddit={subreddit} onRefresh={onRefresh} />
-      </CitySky>
-      <div className="omd-home-body">
-        <MarkedCard data={data} handlers={handlers} />
-        <CityStatus data={data} />
-        <CrisisPreview data={data} go={go} />
-        <DramaPreview data={data} go={go} />
-        <footer className="omd-foot">every citizen is a real redditor · names masked · HL preview</footer>
-      </div>
-    </div>
+    <>
+      <MarkedCard data={data} handlers={handlers} />
+      <Stats data={data} village={village} />
+      <Vitals data={data} />
+      <YourTurn data={data} handlers={handlers} />
+      <CrisisPeek data={data} go={go} />
+      <CitizensAndZones village={village} selCit={selCit} setSelCit={setSelCit} />
+    </>
   );
 }
