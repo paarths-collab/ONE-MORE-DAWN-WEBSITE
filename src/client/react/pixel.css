@@ -241,6 +241,29 @@
 .pxl-edit-av { font-family: var(--pixel); font-size: 8px; letter-spacing: .5px; color: var(--gold); background: #241a10; border: 1px solid var(--goldline); border-radius: 8px; padding: 6px 9px; cursor: pointer; flex: none; }
 .pxl-edit-av:active { transform: scale(.94); }
 
+/* ---- city sky (living skyline banner) ---- */
+.pxl-sky { position: relative; flex: none; height: 116px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line2); }
+.pxl-sky svg { display: block; width: 100%; height: 100%; }
+.pxl-sky-cap { position: absolute; left: 10px; bottom: 9px; font-family: var(--pixel); font-size: 8.5px; letter-spacing: .5px; text-transform: uppercase; background: rgba(8,6,5,.62); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 5px 9px; }
+.pxl-sky-orb { animation: pxlOrb 5s ease-in-out infinite; transform-origin: 256px 26px; }
+.pxl-sky-glow { animation: pxlPulse 1.3s ease-in-out infinite; }
+.pxl-sky-smoke { animation: pxlDrift 6s ease-in-out infinite; }
+.pxl-sky--raid { animation: pxlRaidFlash 2.6s steps(1) infinite; }
+@keyframes pxlOrb { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes pxlDrift { 0%,100% { transform: translateX(0); opacity: .8; } 50% { transform: translateX(6px); opacity: 1; } }
+@keyframes pxlRaidFlash { 0%,92%,100% { filter: none; } 96% { filter: brightness(1.28) saturate(1.2); } }
+
+/* ---- mood ambient (danger vignette) ---- */
+.pxl-app::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0; transition: opacity .6s ease; }
+.pxl-app[data-mood="strained"]::after { opacity: 1; background: radial-gradient(ellipse at 50% 118%, transparent 58%, rgba(226,154,74,.12)); }
+.pxl-app[data-mood="raid"]::after { opacity: 1; background: radial-gradient(ellipse at 50% 118%, transparent 50%, rgba(200,64,48,.2)); animation: pxlVignette 2.4s ease-in-out infinite; }
+.pxl-app[data-mood="fallen"]::after { opacity: 1; background: radial-gradient(ellipse at 50% 50%, transparent 62%, rgba(0,0,0,.4)); }
+@keyframes pxlVignette { 0%,100% { opacity: .75; } 50% { opacity: 1; } }
+
+/* vitals value flash on change */
+.pxl-vit-flash { display: inline-block; transform-origin: right center; animation: pxlVitFlash .8s ease; }
+@keyframes pxlVitFlash { 0% { transform: scale(1); filter: brightness(1); } 30% { transform: scale(1.22); filter: brightness(1.6); } 100% { transform: scale(1); filter: brightness(1); } }
+
 /* ---- hook splash (first-run pitch) ---- */
 .pxl-hook { max-width: 440px; }
 .pxl-hook-pitch { font-size: 13px !important; color: var(--ink) !important; margin: 0 0 18px; }

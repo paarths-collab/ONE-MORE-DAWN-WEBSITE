@@ -12,6 +12,7 @@ import {
   ROUTE_DEFS,
 } from '../defs';
 import type { Handlers } from '../handlers';
+import { CitySky, cityMood } from './CitySky';
 
 // HOME — the pixel command console. Marked + pledges, city stats, vitals,
 // your-turn actions + expedition, then citizens + zones from /api/village.
@@ -179,14 +180,16 @@ const VIT_COLOR = (pct: number, danger = false): string =>
 
 function Vitals({ data }: { data: InitResponse }) {
   const { city } = data;
-  const rows: [string, string, number, number, boolean][] = [
-    ['FOOD', '🍞', city.food, 300, false],
-    ['POWER', '⚡', city.power, 100, false],
-    ['MEDICINE', '🩹', city.medicine, 120, false],
-    ['MORALE', '🙂', city.morale, 100, false],
-    ['THREAT', '☠️', city.threat, 100, true],
-    ['DEFENSE', '🛡️', city.defense, 100, false],
+  const rows: [keyof typeof city, string, string, number, number, boolean][] = [
+    ['food', 'FOOD', '🍞', city.food, 300, false],
+    ['power', 'POWER', '⚡', city.power, 100, false],
+    ['medicine', 'MEDICINE', '🩹', city.medicine, 120, false],
+    ['morale', 'MORALE', '🙂', city.morale, 100, false],
+    ['threat', 'THREAT', '☠️', city.threat, 100, true],
+    ['defense', 'DEFENSE', '🛡️', city.defense, 100, false],
   ];
+  // Flash a value when it changes at dawn (prev render's city compared).
+  const prevCity = usePrev(city);
   return (
     <div className="pxl-panel card">
       <div className="pxl-phead">
@@ -196,16 +199,21 @@ function Vitals({ data }: { data: InitResponse }) {
         </span>
       </div>
       <div className="pxl-vit-grid">
-        {rows.map(([k, ic, v, max, danger]) => {
+        {rows.map(([field, k, ic, v, max, danger]) => {
           const p = (v / max) * 100;
           const col = VIT_COLOR(p, danger);
+          const changed = prevCity !== undefined && prevCity[field] !== v;
           return (
             <div key={k} className="pxl-vit">
               <div className="t">
                 <span className="k">
                   {ic} {k}
                 </span>
-                <span className="v" style={{ color: col }}>
+                <span
+                  key={changed ? `${v}` : undefined}
+                  className={changed ? 'v pxl-vit-flash' : 'v'}
+                  style={{ color: col }}
+                >
                   {v}
                   <span style={{ color: 'var(--mut)', fontSize: 9 }}>/{max}</span>
                 </span>
@@ -434,6 +442,7 @@ export type HomeScreenProps = {
 export function HomeScreen({ data, handlers, village, selCit, setSelCit, go }: HomeScreenProps) {
   return (
     <>
+      <CitySky mood={cityMood(data)} />
       <MarkedCard data={data} handlers={handlers} />
       <Stats data={data} village={village} />
       <Vitals data={data} />

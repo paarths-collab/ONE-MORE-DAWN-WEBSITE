@@ -33,6 +33,7 @@ import { CrisisScreen } from './screens/CrisisScreen';
 import { FeedScreen } from './screens/FeedScreen';
 import { Avatar, HomeScreen } from './screens/HomeScreen';
 import { AvatarCreator, PixelAvatar } from './screens/avatarKit';
+import { cityMood } from './screens/CitySky';
 import { Coachmarks, HookSplash, TOUR_STEPS } from './screens/onboarding';
 import { RulesScreen } from './screens/RulesScreen';
 import { WorldScreen } from './screens/WorldScreen';
@@ -403,7 +404,7 @@ export function App() {
 
   return shell(
     <>
-      <div className="pxl-app">
+      <div className="pxl-app" data-mood={cityMood(data)}>
         <aside className="pxl-side">
           <div className="pxl-overseer">
             <div className="pxl-avatar-ring">
