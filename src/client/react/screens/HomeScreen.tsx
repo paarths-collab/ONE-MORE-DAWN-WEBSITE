@@ -13,6 +13,7 @@ import {
 } from '../defs';
 import type { Handlers } from '../handlers';
 import { CitySky, cityMood } from './CitySky';
+import { MarkedPortrait } from './markedArt';
 
 // HOME — the pixel command console. Marked + pledges, city stats, vitals,
 // your-turn actions + expedition, then citizens + zones from /api/village.
@@ -85,12 +86,17 @@ function MarkedCard({ data, handlers }: { data: InitResponse; handlers: Handlers
     <section className="pxl-marked card">
       <SavedYesterday marked={marked} />
       <div className="dawn">resolves at dawn</div>
-      <div className="eye">✦ TONIGHT WE {goalWord === 'saved' ? 'SAVE' : 'HOLD'}</div>
-      <div className="nm">
-        <span aria-hidden="true">{MARKED_KIND_ICON[marked.kind]} </span>
-        {marked.name}
+      <div className="pxl-marked-head">
+        <MarkedPortrait marked={marked} pct={pct} />
+        <div className="mk-meta">
+          <div className="eye">✦ TONIGHT WE {goalWord === 'saved' ? 'SAVE' : 'HOLD'}</div>
+          <div className="nm">
+            <span aria-hidden="true">{MARKED_KIND_ICON[marked.kind]} </span>
+            {marked.name}
+          </div>
+          <div className="stakes">{marked.blurb}</div>
+        </div>
       </div>
-      <div className="stakes">{marked.blurb}</div>
       <div className="bar">
         <i style={{ width: `${pct}%`, boxShadow: surge ? '0 0 16px rgba(232,175,85,.9)' : undefined }} />
       </div>
