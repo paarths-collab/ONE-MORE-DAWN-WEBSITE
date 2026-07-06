@@ -25,3 +25,8 @@ body {
    scrolls per-screen inside the phone frame (#app stays overflow:hidden). */
 #game-container:has(.omd-root){background:#07080f;}
 #game-container > .omd-root{height:100vh;height:100dvh;overflow:hidden;}
+
+/* Pixel command-console root (pixel.css): fills the webview, positioned so the
+   dawn/mission overlays and toasts anchor to it. */
+#game-container:has(.pxl){background:#0c0a0a;}
+#game-container > .pxl{height:100vh;height:100dvh;overflow:hidden;position:relative;}

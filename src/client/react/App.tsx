@@ -15,7 +15,6 @@ import { api } from '../game/api';
 import './omd.css';
 import './pixel.css';
 import { MissionOverlay } from './mission/MissionOverlay';
-import { TabBar } from './TabBar';
 import type { Tab } from './TabBar';
 import {
   ACTION_DEFS,
@@ -31,7 +30,7 @@ import { ToastLayer, useToasts } from './kit/Toast';
 import { useFetch } from './kit/useFetch';
 import { CrisisScreen } from './screens/CrisisScreen';
 import { FeedScreen } from './screens/FeedScreen';
-import { HomeScreen } from './screens/HomeScreen';
+import { Avatar, HomeScreen } from './screens/HomeScreen';
 import { WorldScreen } from './screens/WorldScreen';
 import { YouScreen } from './screens/YouScreen';
 import { DawnReportModal, FallenCity, RoleGate } from './screens/moments';
@@ -50,6 +49,7 @@ export function App() {
   const [net, setNet] = useState<Net>({ kind: 'loading' });
   const [tab, setTab] = useState<Tab>('home');
   const [dawnSeen, setDawnSeen] = useState(false);
+  const [selCit, setSelCit] = useState(0);
   const { toasts, push } = useToasts();
   const village = useFetch<VillageResponse>(() => api.village());
   const subreddit = village.kind === 'ready' ? village.data.subreddit : null;
@@ -269,65 +269,200 @@ export function App() {
 
   // ---- render ----
 
-  const frame = (inner: ReactNode) => (
-    <div className="omd-root">
-      <div className="omd-phone">
-        {inner}
-        <ToastLayer toasts={toasts} />
-      </div>
+  const shell = (inner: ReactNode) => (
+    <div className="pxl">
+      {inner}
+      <ToastLayer toasts={toasts} />
     </div>
   );
 
-  if (net.kind === 'loading') {
-    return frame(
-      <div className="omd-boot">
-        <div className="omd-boot-sun" aria-hidden="true" />
-        <div className="omd-boot-title">One More Dawn</div>
-        <div className="omd-boot-sub">waking the city…</div>
+  const boot = (icon: ReactNode, title: string, sub: string) =>
+    shell(
+      <div className="pxl-app">
+        <div className="pxl-mid">
+          <div className="pxl-full">
+            <div className="inner">
+              {icon}
+              <h2>{title}</h2>
+              <p>{sub}</p>
+            </div>
+          </div>
+        </div>
       </div>,
     );
-  }
 
+  if (net.kind === 'loading') {
+    return boot(<div className="pxl-boot-sun" aria-hidden="true" />, 'ONE MORE DAWN', 'waking the city…');
+  }
   if (net.kind === 'error') {
-    return frame(
-      <div className="omd-boot omd-boot--err">
-        <div style={{ fontSize: 36 }}>🕯️</div>
-        <div className="omd-boot-title">Signal Lost</div>
-        <div className="omd-boot-sub">Could not reach the city. {net.message}</div>
-      </div>,
-    );
+    return boot(<div style={{ fontSize: 40 }}>🕯️</div>, 'SIGNAL LOST', `Could not reach the city. ${net.message}`);
   }
 
   const { data } = net;
 
   if (data.city.status === 'fallen') {
-    return frame(<FallenCity data={data} />);
+    return shell(<div className="pxl-app">{<FallenCity data={data} />}</div>);
   }
-
   if (data.player.role === null) {
-    return frame(<RoleGate handlers={handlers} />);
+    return shell(<div className="pxl-app">{<RoleGate handlers={handlers} />}</div>);
   }
 
   const showDawn = data.firstVisitToday && data.dawnReport !== null && !dawnSeen;
+  const vil = village.kind === 'ready' ? village.data : null;
+  const subName = subreddit !== null ? `r/${subreddit.replace(/^r\//, '')}` : 'the last city';
+  const crisisPending = data.yourCrisisVote === null;
+  const cit =
+    vil !== null && vil.villagers.length > 0
+      ? vil.villagers[Math.min(selCit, vil.villagers.length - 1)] ?? null
+      : null;
+  const NAVS: [Tab, string, string][] = [
+    ['home', '🏠', 'Home'],
+    ['crisis', '⚔️', 'Crisis'],
+    ['feed', '📣', 'Feed'],
+    ['world', '🌐', 'World'],
+    ['you', '🎖️', 'You'],
+  ];
 
-  return frame(
+  return shell(
     <>
-      <div className="omd-view">
+      <div className="pxl-app">
+        <aside className="pxl-side">
+          <div className="pxl-overseer">
+            <div className="pxl-avatar-ring">
+              <svg width="40" height="40" viewBox="0 0 20 20" shapeRendering="crispEdges">
+                <rect x="7" y="2" width="6" height="6" rx="1" fill="#e8c34a" />
+                <rect x="5" y="8" width="10" height="8" rx="2" fill="#c85040" />
+                <rect x="4" y="10" width="2" height="5" fill="#c85040" />
+                <rect x="14" y="10" width="2" height="5" fill="#c85040" />
+              </svg>
+            </div>
+            <h3>{data.player.username}</h3>
+            <div className="handle">{data.player.title ?? 'the overseer'}</div>
+          </div>
+          <div>
+            <div className="pxl-side-sec">Your City</div>
+            <div className="pxl-vrow on">
+              <span className="sq" style={{ background: 'var(--green)' }} />
+              <span className="nm">{subName}</span>
+              <span className="on-ct">{vil?.onlineCount ?? 0}•</span>
+            </div>
+          </div>
+          <div>
+            <div className="pxl-side-sec">Navigate</div>
+            {NAVS.map(([t, ic, l]) => (
+              <button
+                key={t}
+                type="button"
+                className={tab === t ? 'pxl-navrow on' : 'pxl-navrow'}
+                onClick={() => setTab(t)}
+              >
+                <span className="ic">{ic}</span>
+                {l}
+                {t === 'crisis' && crisisPending && <span className="badge">!</span>}
+              </button>
+            ))}
+          </div>
+          <div className="pxl-sandbox">🔒 EVERY CITIZEN IS A REAL REDDITOR · NAMES MASKED</div>
+        </aside>
+
+        <div className="pxl-mid">
+          <header className="pxl-topbar">
+            <div className="pxl-home-ic">🏠</div>
+            <div className="pxl-title">
+              <h2>THE LAST CITY</h2>
+              <div className="sub">
+                {subName} · cycle {data.city.cycle} · day {data.city.day}
+              </div>
+            </div>
+            <div className="pxl-pill">
+              ⚡ {vil?.onlineCount ?? '—'}/{vil?.totalCount ?? data.city.population}
+            </div>
+          </header>
+          <div className="pxl-content">
+            {tab === 'home' && (
+              <HomeScreen
+                data={data}
+                handlers={handlers}
+                village={vil}
+                selCit={selCit}
+                setSelCit={setSelCit}
+                go={setTab}
+              />
+            )}
+            {tab === 'crisis' && <CrisisScreen data={data} handlers={handlers} />}
+            {tab === 'feed' && <FeedScreen data={data} />}
+            {tab === 'world' && <WorldScreen />}
+            {tab === 'you' && <YouScreen data={data} handlers={handlers} />}
+          </div>
+        </div>
+
         {tab === 'home' && (
-          <HomeScreen data={data} handlers={handlers} subreddit={subreddit} onRefresh={refresh} go={setTab} />
+          <aside className="pxl-rail">
+            <span className="lbl">Citizen File</span>
+            {cit !== null ? (
+              <>
+                <div className="pxl-fhead">
+                  <span className="av">
+                    <Avatar color={cit.color} size={52} />
+                  </span>
+                  <div>
+                    <div className="nm">{cit.maskedName}</div>
+                    <div className="rl">
+                      {cit.role ?? 'undecided'}
+                      {cit.faction ? ` · ${cit.faction}` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="pxl-schip">
+                  <span className="dot" style={{ background: cit.online ? 'var(--green)' : 'var(--mut)' }} />
+                  {cit.online ? 'ACTIVE TODAY' : 'AWAY'}
+                </div>
+                <div className="pxl-frows">
+                  <div className="r">
+                    <span className="k">City</span>
+                    <span className="v">{subName}</span>
+                  </div>
+                  <div className="r">
+                    <span className="k">Role</span>
+                    <span className="v">{cit.role ?? '—'}</span>
+                  </div>
+                  <div className="r">
+                    <span className="k">Faction</span>
+                    <span className="v">{cit.faction ?? '—'}</span>
+                  </div>
+                  <div className="r">
+                    <span className="k">Since</span>
+                    <span className="v">{cit.since}</span>
+                  </div>
+                </div>
+                <button type="button" className="pxl-wave" onClick={() => push(`📣 You waved to ${cit.maskedName}`)}>
+                  📣 SEND A WAVE
+                </button>
+                <div className="pxl-rnote">
+                  🔒 A wave greets them in the comments — presence only, no DMs, no real location.
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--mut)' }}>No citizens have acted yet today.</div>
+            )}
+          </aside>
         )}
-        {tab === 'crisis' && <CrisisScreen data={data} handlers={handlers} />}
-        {tab === 'feed' && <FeedScreen data={data} />}
-        {tab === 'world' && <WorldScreen />}
-        {tab === 'you' && <YouScreen data={data} handlers={handlers} />}
+
+        <nav className="pxl-mnav">
+          {NAVS.map(([t, ic, l]) => (
+            <button key={t} type="button" className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
+              <span className="ic">{ic}</span>
+              {l.toUpperCase()}
+              {t === 'crisis' && crisisPending && <span className="ndot" />}
+            </button>
+          ))}
+        </nav>
       </div>
-      <TabBar tab={tab} onTab={setTab} crisisPending={data.yourCrisisVote === null} />
+
       {showDawn && data.dawnReport !== null && (
         <DawnReportModal report={data.dawnReport} onDismiss={() => setDawnSeen(true)} />
       )}
-      {mission && (
-        <MissionOverlay start={mission.start} threat={mission.threat} onClose={onMissionClose} />
-      )}
+      {mission && <MissionOverlay start={mission.start} threat={mission.threat} onClose={onMissionClose} />}
     </>,
   );
 }
