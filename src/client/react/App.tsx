@@ -34,7 +34,8 @@ import { ToastLayer, useToasts } from './kit/Toast';
 import { useFetch } from './kit/useFetch';
 import { CrisisScreen } from './screens/CrisisScreen';
 import { FeedScreen } from './screens/FeedScreen';
-import { Avatar, HomeScreen } from './screens/HomeScreen';
+import { CitizenFile } from './screens/CitizenFile';
+import { HomeScreen } from './screens/HomeScreen';
 import { AvatarCreator, PixelAvatar } from './screens/avatarKit';
 import { cityMood } from './screens/CitySky';
 import { Coachmarks, HookSplash, TOUR_STEPS } from './screens/onboarding';
@@ -58,6 +59,7 @@ export function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [dawnSeen, setDawnSeen] = useState(false);
   const [selCit, setSelCit] = useState(0);
+  const [citSheet, setCitSheet] = useState(false); // phone-only citizen sheet
   const [showRules, setShowRules] = useState(false);
   const [editingAvatar, setEditingAvatar] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
@@ -557,7 +559,13 @@ export function App() {
                 handlers={handlers}
                 village={vil}
                 selCit={selCit}
-                setSelCit={setSelCit}
+                setSelCit={(i) => {
+                  setSelCit(i);
+                  // On phone the rail is hidden — open the citizen as a sheet.
+                  if (typeof window !== 'undefined' && window.matchMedia('(max-width:760px)').matches) {
+                    setCitSheet(true);
+                  }
+                }}
                 go={setTab}
               />
             )}
@@ -574,48 +582,11 @@ export function App() {
           <aside className="pxl-rail">
             <span className="lbl">Citizen File</span>
             {cit !== null ? (
-              <>
-                <div className="pxl-fhead">
-                  <span className="av">
-                    <Avatar color={cit.color} avatar={cit.avatar} size={52} />
-                  </span>
-                  <div>
-                    <div className="nm">{cit.maskedName}</div>
-                    <div className="rl">
-                      {cit.role ?? 'undecided'}
-                      {cit.faction ? ` · ${cit.faction}` : ''}
-                    </div>
-                  </div>
-                </div>
-                <div className="pxl-schip">
-                  <span className="dot" style={{ background: cit.online ? 'var(--green)' : 'var(--mut)' }} />
-                  {cit.online ? 'ACTIVE TODAY' : 'AWAY'}
-                </div>
-                <div className="pxl-frows">
-                  <div className="r">
-                    <span className="k">City</span>
-                    <span className="v">{subName}</span>
-                  </div>
-                  <div className="r">
-                    <span className="k">Role</span>
-                    <span className="v">{cit.role ?? '—'}</span>
-                  </div>
-                  <div className="r">
-                    <span className="k">Faction</span>
-                    <span className="v">{cit.faction ?? '—'}</span>
-                  </div>
-                  <div className="r">
-                    <span className="k">Since</span>
-                    <span className="v">{cit.since}</span>
-                  </div>
-                </div>
-                <button type="button" className="pxl-wave" onClick={() => push(`📣 You waved to ${cit.maskedName}`)}>
-                  📣 SEND A WAVE
-                </button>
-                <div className="pxl-rnote">
-                  🔒 A wave greets them in the comments — presence only, no DMs, no real location.
-                </div>
-              </>
+              <CitizenFile
+                cit={cit}
+                subName={subName}
+                onWave={() => push(`📣 You waved to ${cit.maskedName}`)}
+              />
             ) : (
               <div style={{ fontSize: 12, color: 'var(--mut)' }}>No citizens have acted yet today.</div>
             )}
@@ -637,6 +608,33 @@ export function App() {
         <DawnReportModal report={data.dawnReport} onDismiss={() => setDawnSeen(true)} />
       )}
       {mission && <MissionOverlay start={mission.start} threat={mission.threat} onClose={onMissionClose} />}
+      {citSheet && cit && (
+        <div className="pxl-overlay" onClick={() => setCitSheet(false)}>
+          <div className="pxl-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="pxl-sheet-head">
+              <span className="pxl-sheet-title">👤 CITIZEN FILE</span>
+              <button
+                type="button"
+                className="pxl-sheet-x"
+                onClick={() => setCitSheet(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="pxl-sheet-body">
+              <CitizenFile
+                cit={cit}
+                subName={subName}
+                onWave={() => {
+                  push(`📣 You waved to ${cit.maskedName}`);
+                  setCitSheet(false);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {editingAvatar && (
         <div className="pxl-overlay" onClick={() => setEditingAvatar(false)}>
           <div className="pxl-sheet" onClick={(e) => e.stopPropagation()}>
