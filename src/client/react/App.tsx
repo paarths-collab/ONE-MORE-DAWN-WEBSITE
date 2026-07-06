@@ -3,7 +3,9 @@ import type { ReactNode } from 'react';
 import type {
   ActionType,
   InitResponse,
+  MissionCompleteResponse,
   MissionRoute,
+  MissionStartResponse,
   PledgeKind,
   Role,
   StrategyPlanId,
@@ -11,6 +13,7 @@ import type {
 } from '../../shared/types';
 import { api } from '../game/api';
 import './omd.css';
+import { MissionOverlay } from './mission/MissionOverlay';
 import { TabBar } from './TabBar';
 import type { Tab } from './TabBar';
 import {
@@ -223,17 +226,42 @@ export function App() {
     [patch, push],
   );
 
+  // Expedition mini-game session (RX5). Energy is spent server-side at START, so
+  // we only open the game once /mission/start succeeds — the game IS the
+  // feedback, no optimistic patch needed.
+  const [mission, setMission] = useState<{ start: MissionStartResponse; threat: number } | null>(
+    null,
+  );
+
   const onMission = useCallback(
     (route: MissionRoute) => {
-      const snapshot = dataRef.current;
-      patch((d) => ({ ...d, missionUsedToday: true }));
-      push('🎒 Expedition launched — the team returns at dawn');
+      const threat = dataRef.current?.city.threat ?? 0;
       api
         .missionStart(route)
-        .then((r) => patch((d) => ({ ...d, player: r.player, effectiveEnergy: r.effectiveEnergy })))
-        .catch((err: Error) => rollback(snapshot, err));
+        .then((r) => {
+          patch((d) => ({
+            ...d,
+            player: r.player,
+            effectiveEnergy: r.effectiveEnergy,
+            missionUsedToday: true,
+          }));
+          setMission({ start: r, threat });
+        })
+        .catch((err: Error) => push(`⚠️ ${err.message}`));
     },
-    [patch, push, rollback],
+    [patch, push],
+  );
+
+  const onMissionClose = useCallback(
+    (completed: MissionCompleteResponse | null) => {
+      setMission(null);
+      if (completed) {
+        patch((d) => ({ ...d, player: completed.player }));
+        if (completed.unlockedTitle !== null) push(`🎖️ Title unlocked — ${completed.unlockedTitle}`);
+        refresh(); // banked loot lands in the city aggregate — resync
+      }
+    },
+    [patch, push, refresh],
   );
 
   const handlers: Handlers = { onPledge, onVote, onStrategy, onAction, onRole, onMission };
@@ -295,6 +323,9 @@ export function App() {
       <TabBar tab={tab} onTab={setTab} crisisPending={data.yourCrisisVote === null} />
       {showDawn && data.dawnReport !== null && (
         <DawnReportModal report={data.dawnReport} onDismiss={() => setDawnSeen(true)} />
+      )}
+      {mission && (
+        <MissionOverlay start={mission.start} threat={mission.threat} onClose={onMissionClose} />
       )}
     </>,
   );

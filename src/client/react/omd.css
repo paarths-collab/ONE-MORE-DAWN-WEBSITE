@@ -2151,3 +2151,106 @@
     transition: none !important;
   }
 }
+
+/* ==========================================================================
+   MISSION — the Phaser expedition mini-game embedded in the app (RX5).
+   The overlay covers the whole phone; the canvas scales to fit (Scale.FIT);
+   the result screen stays in the app's design language.
+   ========================================================================== */
+
+.omd-mission-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(90% 55% at 50% 0%, rgba(255, 140, 70, 0.1), transparent 60%),
+    #0a0b11;
+  animation: omdRise 0.3s ease;
+}
+
+.omd-mission-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.omd-mission-host {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.omd-mission-host canvas {
+  display: block;
+  margin: auto;
+}
+
+/* result / busy / error panel */
+.omd-mission-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  padding: 28px 22px calc(28px + env(safe-area-inset-bottom, 0px));
+}
+.omd-mission-panel-icon {
+  font-size: 46px;
+  line-height: 1;
+  animation: omdBreathe 2.4s ease-in-out infinite;
+}
+.omd-mission-panel-title {
+  font: 600 clamp(22px, 6.4vw, 27px) var(--font-display);
+  letter-spacing: 0.3px;
+  color: var(--ink);
+}
+
+.omd-mission-loot {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 6px 0 2px;
+}
+.omd-mission-loot-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 74px;
+  padding: 12px 14px;
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+}
+.omd-mission-loot-icon { font-size: 24px; line-height: 1; }
+.omd-mission-loot-n { font: 700 17px var(--font-mono); color: var(--good); }
+.omd-mission-loot-label {
+  font: 600 9px var(--font-mono);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.omd-mission-injury {
+  font: 600 12px var(--font-ui);
+  color: var(--danger);
+  background: rgba(255, 107, 94, 0.1);
+  border: 1px solid rgba(255, 107, 94, 0.22);
+  border-radius: 12px;
+  padding: 8px 14px;
+}
+.omd-mission-contrib {
+  font: 700 12.5px var(--font-mono);
+  color: var(--accent);
+  letter-spacing: 0.3px;
+}
+.omd-mission-title-unlock {
+  font: 700 12px var(--font-ui);
+  color: var(--accent);
+}
+.omd-mission-panel .omd-btn { margin-top: 10px; min-width: 220px; }
