@@ -30,6 +30,10 @@ export type VillageHandle = {
   setCompanion: (kind: CompanionKind, on: boolean) => void;
   /** Fly the camera to a labeled district and select it. */
   focusOn: (name: string) => void;
+  /** Toggle raid-watch ambience: red glow beyond the south gate + tinted sky. */
+  setRaidWatch: (on: boolean) => void;
+  /** One-shot vigil light-pillar pulse at the RELIGION district (retriggerable). */
+  pulseMarked: () => void;
   dispose: () => void;
   pause: () => void;
   resume: () => void;
@@ -221,6 +225,11 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   let target: EnvPreset = PRESETS.dawn;
   const tCol = new THREE.Color();
   const tVec = new THREE.Vector3();
+  // raid-watch ambience: raidTint eases 0→1 inside lerpEnv and biases the sky
+  // (and drives the gate light + window flicker in tick). No per-frame allocs.
+  let raidOn = false;
+  let raidTint = 0;
+  const raidSkyCol = new THREE.Color(0x662a20);
   function lerpEnv(dt: number) {
     const k = 1 - Math.exp(-dt * 1.6);
     env.bg.lerp(tCol.setHex(target.bg), k);
@@ -237,13 +246,16 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     env.stars += (target.stars - env.stars) * k;
     env.discScale += (target.discScale - env.discScale) * k;
     env.campfire += (target.campfire - env.campfire) * k;
+    raidTint += ((raidOn ? 1 : 0) - raidTint) * k;
 
-    (scene.background as THREE.Color).copy(env.bg);
+    // raid tint biases the *outputs* (env stays the clean preset blend, so
+    // toggling raid off lerps back with zero residue)
+    (scene.background as THREE.Color).copy(env.bg).lerp(raidSkyCol, raidTint * 0.35);
     const fog = scene.fog as THREE.Fog;
-    fog.color.copy(env.bg);
+    fog.color.copy(scene.background as THREE.Color);
     fog.near = env.fogNear;
     fog.far = env.fogFar;
-    hemi.color.copy(env.hemiSky);
+    hemi.color.copy(env.hemiSky).lerp(raidSkyCol, raidTint * 0.35);
     hemi.groundColor.copy(env.hemiGround);
     hemi.intensity = env.hemiInt;
     sun.color.copy(env.sunColor);
@@ -251,7 +263,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     sun.position.copy(env.sunPos);
     glowMat.color.copy(env.windowCol);
     discMat.color.copy(env.discCol);
-    (discHalo.material as THREE.MeshBasicMaterial).color.copy(env.discCol);
+    (discHalo.material as THREE.MeshBasicMaterial).color.copy(env.discCol).lerp(raidSkyCol, raidTint * 0.5);
     starMat.opacity = env.stars;
     tVec.copy(env.sunPos).normalize().multiplyScalar(380);
     tVec.y = Math.max(tVec.y, 14);
@@ -521,8 +533,11 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   }
 
   // ---------- rustic house kit (the town filler) ----------
+  // chimney-smoke anchors: the first ~10 houses that win a coin flip volunteer
+  const smokeSpots: [number, number][] = [];
   const ROOFS = [MAT.roofSlate, MAT.roofSlateDark, MAT.roofBrown];
   function house(x: number, z: number, facing: number, big = false) {
+    if (smokeSpots.length < 10 && rng() > 0.5) smokeSpots.push([x, z]);
     const g = new THREE.Group();
     const w = (big ? 2.2 : 1.6) + rng() * 0.5;
     const d = (big ? 1.8 : 1.4) + rng() * 0.4;
@@ -865,6 +880,51 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     scene.add(trunks, canopies);
   }
 
+  // ---------- ambient / game-event visuals (raid light, vigil pillar, smoke, idle cam) ----------
+  // raid watch: something red gathers beyond the wall, outside the south gate
+  const raidLight = new THREE.PointLight(0xff3a26, 0, 60);
+  {
+    const ga = GATE_ANGLES[0]!;
+    const rr = plateauR(ga) + 8;
+    raidLight.position.set(Math.cos(ga) * rr, 3, Math.sin(ga) * rr);
+  }
+  raidLight.visible = false;
+  scene.add(raidLight);
+
+  // vigil pillar at RELIGION — one-shot warm-gold column, opacity 0.85→0 over ~2.5s
+  const markedPulseMat = new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, depthWrite: false });
+  const markedPulse = new THREE.Mesh(new THREE.BoxGeometry(0.6, 14, 0.6), markedPulseMat);
+  {
+    const rel = poiMap.get('RELIGION');
+    if (rel) markedPulse.position.set(rel.position.x, 7, rel.position.z);
+  }
+  markedPulse.visible = false;
+  scene.add(markedPulse);
+  let markedPulseT = -1; // <0 = idle; otherwise seconds elapsed (runs 0..2.5)
+
+  // chimney smoke: one Points cloud, 8 motes per anchored house, rising + wrapping
+  const smokePos = new Float32Array(smokeSpots.length * 8 * 3);
+  smokeSpots.forEach(([sx, sz], i) => {
+    for (let j = 0; j < 8; j++) {
+      const o = (i * 8 + j) * 3;
+      smokePos[o] = sx + (rng() - 0.5) * 0.7;
+      smokePos[o + 1] = 2.2 + rng() * 2.3;
+      smokePos[o + 2] = sz + (rng() - 0.5) * 0.7;
+    }
+  });
+  const smokeGeo = new THREE.BufferGeometry();
+  const smokeAttr = new THREE.BufferAttribute(smokePos, 3);
+  smokeGeo.setAttribute('position', smokeAttr);
+  const smoke = new THREE.Points(
+    smokeGeo,
+    new THREE.PointsMaterial({ color: 0x9a9a92, size: 0.5, transparent: true, opacity: 0.4, depthWrite: false }),
+  );
+  scene.add(smoke);
+
+  // idle cinematic: after 18s without input the camera drifts around the target
+  let lastInteract = Date.now();
+  const idleOffset = new THREE.Vector3();
+
   // ---------- characters ----------
   type Actor = { obj: THREE.Object3D; mixer: THREE.AnimationMixer; walker?: (dt: number) => void };
   const actors = new Set<Actor>();
@@ -1085,6 +1145,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   let downAt: [number, number] | null = null;
   const onDown = (e: PointerEvent) => {
     fly = null; // grabbing the camera cancels any dashboard fly-to
+    lastInteract = Date.now();
     downAt = [e.clientX, e.clientY];
   };
   const onUp = (e: PointerEvent) => {
@@ -1104,6 +1165,10 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   renderer.domElement.addEventListener('pointermove', onMove);
   renderer.domElement.addEventListener('pointerdown', onDown);
   renderer.domElement.addEventListener('pointerup', onUp);
+  const onWheel = () => {
+    lastInteract = Date.now();
+  };
+  renderer.domElement.addEventListener('wheel', onWheel, { passive: true });
 
   // ---------- main loop ----------
   const clock = new THREE.Clock();
@@ -1116,6 +1181,18 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       controls.target.lerp(fly.tgt, k);
       camera.position.lerp(fly.pos, k);
       if (camera.position.distanceTo(fly.pos) < 0.4) fly = null;
+    }
+    // idle cinematic: slow orbit around the target after 18s of no input
+    if (!fly && Date.now() - lastInteract > 18000) {
+      idleOffset.copy(camera.position).sub(controls.target);
+      const ia = dt * 0.03;
+      const ic = Math.cos(ia);
+      const isn = Math.sin(ia);
+      const ox = idleOffset.x;
+      const oz = idleOffset.z;
+      idleOffset.x = ox * ic - oz * isn;
+      idleOffset.z = ox * isn + oz * ic;
+      camera.position.copy(controls.target).add(idleOffset);
     }
     controls.update();
     lerpEnv(dt);
@@ -1131,6 +1208,35 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     if (flagged) (flagged.userData.flag as THREE.Mesh).rotation.y = Math.sin(t * 2.4) * 0.35;
     if (rotor) rotor.rotation.z = t * 1.6;
     fireLight.intensity = Math.max(0, env.campfire + Math.sin(t * 9.3) * env.campfire * 0.25 + Math.sin(t * 23.7) * env.campfire * 0.12);
+    // raid ambience: slow ominous pulse beyond the gate + window-glow flicker
+    // (glowMat.color was freshly copied from env.windowCol in lerpEnv above,
+    // so the multiply never accumulates frame-over-frame)
+    raidLight.visible = raidTint > 0.002;
+    if (raidLight.visible) {
+      raidLight.intensity = raidTint * (50 + Math.sin(t * 1.7) * 12 + Math.sin(t * 4.3) * 5);
+      glowMat.color.multiplyScalar(1 + 0.15 * Math.sin(t * 7) * raidTint);
+    } else {
+      raidLight.intensity = 0;
+    }
+    // vigil pillar: one-shot fade + gentle vertical stretch
+    if (markedPulseT >= 0) {
+      markedPulseT += dt;
+      const p = markedPulseT / 2.5;
+      if (p >= 1) {
+        markedPulseT = -1;
+        markedPulse.visible = false;
+      } else {
+        markedPulse.visible = true;
+        markedPulseMat.opacity = 0.85 * (1 - p);
+        markedPulse.scale.set(1, 1 + p * 0.35, 1);
+      }
+    }
+    // chimney smoke: motes rise and wrap 2.2..5.2
+    for (let i = 1; i < smokePos.length; i += 3) {
+      const y = smokePos[i]! + dt * 0.5;
+      smokePos[i] = y > 5.2 ? y - 3.0 : y;
+    }
+    smokeAttr.needsUpdate = true;
     renderer.render(scene, camera);
     labelRenderer.render(scene, camera);
   };
@@ -1148,6 +1254,12 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       void setCompanionImpl(kind, on);
     },
     focusOn,
+    setRaidWatch: (on) => {
+      raidOn = on;
+    },
+    pulseMarked: () => {
+      markedPulseT = 0; // restart the vigil pulse (retriggerable)
+    },
     pause: () => renderer.setAnimationLoop(null),
     resume: () => renderer.setAnimationLoop(tick),
     frame: () => tick(),
@@ -1159,6 +1271,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       renderer.domElement.removeEventListener('pointermove', onMove);
       renderer.domElement.removeEventListener('pointerdown', onDown);
       renderer.domElement.removeEventListener('pointerup', onUp);
+      renderer.domElement.removeEventListener('wheel', onWheel);
       controls.dispose();
       scene.traverse((o) => {
         const mesh = o as THREE.Mesh;

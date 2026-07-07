@@ -27,6 +27,48 @@ const COMPANIONS: { id: CompanionKind; icon: string; label: string }[] = [
   { id: 'stork', icon: '🕊️', label: 'STORK' },
 ];
 
+// ---------- LIVE tab demo data (copied from the game's mock fixtures in
+// src/client/game/api.ts + src/client/react/defs.ts — this prototype is not
+// wired to the server, so the numbers drift on timers instead).
+
+type CrisisOptId = 'a' | 'b' | 'c';
+type PlanId = 'prepare_raid' | 'stockpile_food' | 'repair_power';
+type LiveEvent = { icon: string; text: string; key: number };
+
+const MARKED_GOAL = 40;
+
+const PLEDGES: { id: string; icon: string; label: string }[] = [
+  { id: 'stand_vigil', icon: '🕯️', label: 'Stand Vigil' },
+  { id: 'share_rations', icon: '🍞', label: 'Share Rations' },
+  { id: 'run_messages', icon: '🕊️', label: 'Run Messages' },
+  { id: 'back_council', icon: '🏛️', label: 'Back the Council' },
+];
+
+const CRISIS_IDS: CrisisOptId[] = ['a', 'b', 'c'];
+const CRISIS_OPTS: { id: CrisisOptId; nm: string; fx: string }[] = [
+  { id: 'a', nm: 'Let them in', fx: '+30 👥 · −20 🍞 · +4 🙂' },
+  { id: 'b', nm: 'Turn them away', fx: '−10 🙂 · +3 🛡️' },
+  { id: 'c', nm: 'Inspect first', fx: '+15 👥 · −8 🍞 · +3 ☠️' },
+];
+
+const PLAN_IDS: PlanId[] = ['prepare_raid', 'stockpile_food', 'repair_power'];
+const PLANS: { id: PlanId; nm: string }[] = [
+  { id: 'prepare_raid', nm: '🛡️ Prepare for Raid' },
+  { id: 'stockpile_food', nm: '🍞 Stockpile Food' },
+  { id: 'repair_power', nm: '⚡ Repair Power' },
+];
+
+const DRAMA: { icon: string; text: string }[] = [
+  { icon: '🕯️', text: 'ashen_fox stood vigil for Mira — the medics take heart.' },
+  { icon: '⚔️', text: 'Raiders probed the North Wall at dusk. The watch held.' },
+  { icon: '🎒', text: 'quiet_marrow crawled back from the deep ruins with 7 food.' },
+  { icon: '🗳️', text: '25 citizens have voted on the Convoy at the Gate.' },
+  { icon: '📜', text: 'The Council leans toward Prepare for Raid — 9 backers.' },
+  { icon: '🩹', text: 'saltcedar treated the sick through the night shift.' },
+  { icon: '🏚️', text: 'A rival city went dark last night. Theirs, not ours.' },
+  { icon: '🌅', text: 'Dawn broke over the city — day 5, still standing.' },
+];
+
 // Demo vitals in the game dashboard's style (static — this prototype is not
 // wired to the server).
 const VITALS: { k: string; icon: string; v: number; max: number; danger?: boolean }[] = [
@@ -90,7 +132,7 @@ function TopBar() {
   );
 }
 
-function DayPill({ time, auto }: { time: TimeOfDay; auto: boolean }) {
+function DayPill({ time, auto, raidSoon }: { time: TimeOfDay; auto: boolean; raidSoon: boolean }) {
   const def = TIMES.find((t) => t.id === time)!;
   return (
     <div className={time === 'dawn' ? 'hud day card-bit glow' : 'hud day card-bit'}>
@@ -99,6 +141,7 @@ function DayPill({ time, auto }: { time: TimeOfDay; auto: boolean }) {
         {auto && <span className="auto-tag">AUTO</span>}
       </div>
       <div className="dt">{def.tagline}</div>
+      {raidSoon && <div className="dp-warn">⚠ raiders sighted beyond the wall</div>}
     </div>
   );
 }
@@ -193,18 +236,137 @@ function ScenePanel({
   );
 }
 
+type LiveState = {
+  pledged: number;
+  pledgedToday: boolean;
+  onPledge: () => void;
+  crisisVotes: Record<CrisisOptId, number>;
+  myCrisisVote: CrisisOptId | null;
+  onCrisisVote: (id: CrisisOptId) => void;
+  councilVotes: Record<PlanId, number>;
+  raidDays: number;
+  events: LiveEvent[];
+};
+
+function LiveTab({
+  pledged,
+  pledgedToday,
+  onPledge,
+  crisisVotes,
+  myCrisisVote,
+  onCrisisVote,
+  councilVotes,
+  raidDays,
+  events,
+}: LiveState) {
+  const mkPct = Math.round((pledged / MARKED_GOAL) * 100);
+  const crisisTotal = Math.max(1, crisisVotes.a + crisisVotes.b + crisisVotes.c);
+  const councilMax = Math.max(1, ...PLAN_IDS.map((id) => councilVotes[id]));
+  const raidSoon = raidDays <= 1;
+  return (
+    <>
+      <div className="p-sec">THE MARKED</div>
+      <div className="marked">
+        <div className="mk-head">
+          <span className="mi">🧒</span>
+          <span className="mn">Mira, the greenhouse child</span>
+        </div>
+        <div className="mk-bar">
+          <i style={{ width: `${mkPct}%` }} />
+        </div>
+        <div className="mk-meta">
+          <span>
+            {pledged} / {MARKED_GOAL} resolve
+          </span>
+          <span>{pledgedToday ? "You've helped today" : `${mkPct}% saved`}</span>
+        </div>
+        <div className="mk-pledges">
+          {PLEDGES.map((p) => (
+            <button key={p.id} type="button" className="mk-pledge" disabled={pledgedToday} onClick={onPledge}>
+              {p.icon} {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-sec">TODAY'S CRISIS</div>
+      <div className="crisis">
+        <div className="cr-title">⚔️ The Convoy at the Gate</div>
+        {CRISIS_OPTS.map((o) => {
+          const pct = Math.round((crisisVotes[o.id] / crisisTotal) * 100);
+          return (
+            <button
+              key={o.id}
+              type="button"
+              className={myCrisisVote === o.id ? 'cr-opt mine' : 'cr-opt'}
+              disabled={myCrisisVote !== null}
+              onClick={() => onCrisisVote(o.id)}
+            >
+              <span className="cr-nm">{o.nm}</span>
+              <span className="cr-fx">{o.fx}</span>
+              <span className="cr-pct">{pct}%</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="p-sec">THE COUNCIL</div>
+      <div className="council">
+        {PLANS.map((p) => {
+          const v = councilVotes[p.id];
+          const lead = v === councilMax;
+          return (
+            <div key={p.id} className={lead ? 'co-plan lead' : 'co-plan'}>
+              <span className="co-nm">{p.nm}</span>
+              <div className="co-bar">
+                <i style={{ width: `${Math.round((v / councilMax) * 100)}%` }} />
+              </div>
+              <span className="co-v">{v}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="p-sec">RAID WATCH</div>
+      <div className={raidSoon ? 'raid soon' : 'raid'}>
+        <span className="raid-ic">☠️</span>
+        <div className="raid-body">
+          <div className="raid-count">{raidSoon ? 'RAID AT NEXT DAWN' : `RAID IN ${raidDays} DAWNS`}</div>
+          <div className="raid-note">guard the wall — every point of defense counts</div>
+        </div>
+      </div>
+
+      <div className="p-sec">LIVE EVENTS</div>
+      <div className="events">
+        {events.map((e, i) => (
+          <div key={e.key} className={i === 0 ? 'ev new' : 'ev'}>
+            <span className="ei">{e.icon}</span>
+            <span className="et">{e.text}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function CityDashboard({
   open,
   setOpen,
+  tab,
+  setTab,
   pois,
   selectedName,
   onVisit,
+  live,
 }: {
   open: boolean;
   setOpen: (b: boolean) => void;
+  tab: 'city' | 'live';
+  setTab: (t: 'city' | 'live') => void;
   pois: PoiInfo[];
   selectedName: string | null;
   onVisit: (name: string) => void;
+  live: LiveState;
 }) {
   return (
     <>
@@ -219,49 +381,64 @@ function CityDashboard({
           </button>
         </div>
 
-        <div className="p-sec">CITY VITALS</div>
-        <div className="vits">
-          {VITALS.map((r) => {
-            const pct = Math.min(100, (r.v / r.max) * 100);
-            const col = vitColor(pct, r.danger);
-            return (
-              <div key={r.k} className="vit">
-                <div className="t">
-                  <span className="k">
-                    {r.icon} {r.k}
-                  </span>
-                  <span className="v" style={{ color: col }}>
-                    {r.v}
-                    <em>/{r.max}</em>
-                  </span>
-                </div>
-                <div className="track">
-                  <i style={{ width: `${pct}%`, background: col }} />
-                </div>
-              </div>
-            );
-          })}
+        <div className="dash-tabs">
+          <button type="button" className={tab === 'city' ? 'dash-tab on' : 'dash-tab'} onClick={() => setTab('city')} aria-pressed={tab === 'city'}>
+            CITY
+          </button>
+          <button type="button" className={tab === 'live' ? 'dash-tab on' : 'dash-tab'} onClick={() => setTab('live')} aria-pressed={tab === 'live'}>
+            LIVE
+          </button>
         </div>
 
-        <div className="p-sec">DISTRICTS — TAP TO VISIT</div>
-        <div className="districts">
-          {pois.map((p) => (
-            <button
-              key={p.name}
-              type="button"
-              className={selectedName === p.name ? 'district on' : 'district'}
-              onClick={() => onVisit(p.name)}
-              title={p.blurb}
-            >
-              <span className="di">{p.icon}</span>
-              <span className="dn2">
-                {p.name}
-                <i>LVL {p.level}</i>
-              </span>
-              <span className="go">→</span>
-            </button>
-          ))}
-        </div>
+        {tab === 'live' && <LiveTab {...live} />}
+
+        {tab === 'city' && (
+          <>
+            <div className="p-sec">CITY VITALS</div>
+            <div className="vits">
+              {VITALS.map((r) => {
+                const pct = Math.min(100, (r.v / r.max) * 100);
+                const col = vitColor(pct, r.danger);
+                return (
+                  <div key={r.k} className="vit">
+                    <div className="t">
+                      <span className="k">
+                        {r.icon} {r.k}
+                      </span>
+                      <span className="v" style={{ color: col }}>
+                        {r.v}
+                        <em>/{r.max}</em>
+                      </span>
+                    </div>
+                    <div className="track">
+                      <i style={{ width: `${pct}%`, background: col }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="p-sec">DISTRICTS — TAP TO VISIT</div>
+            <div className="districts">
+              {pois.map((p) => (
+                <button
+                  key={p.name}
+                  type="button"
+                  className={selectedName === p.name ? 'district on' : 'district'}
+                  onClick={() => onVisit(p.name)}
+                  title={p.blurb}
+                >
+                  <span className="di">{p.icon}</span>
+                  <span className="dn2">
+                    {p.name}
+                    <i>LVL {p.level}</i>
+                  </span>
+                  <span className="go">→</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </>
   );
@@ -331,8 +508,8 @@ export function App() {
   const [selected, setSelected] = useState<BuildingMeta | null>(null);
   const [pois, setPois] = useState<PoiInfo[]>([]);
   const [time, setTimeState] = useState<TimeOfDay>('dawn');
-  const [auto, setAuto] = useState(false);
-  const [villagers, setVillagersState] = useState(4);
+  const [auto, setAuto] = useState(true);
+  const [villagers, setVillagersState] = useState(3);
   const [companions, setCompanions] = useState<Record<CompanionKind, boolean>>({
     horse: true,
     flamingo: true,
@@ -341,7 +518,25 @@ export function App() {
   });
   const [panelOpen, setPanelOpen] = useState(true);
   const [dashOpen, setDashOpen] = useState(true);
+  const [dashTab, setDashTab] = useState<'city' | 'live'>('live');
+  // LIVE tab state — all demo numbers, drifting on timers.
+  const [pledged, setPledged] = useState(23);
+  const [pledgedToday, setPledgedToday] = useState(false);
+  const [crisisVotes, setCrisisVotes] = useState<Record<CrisisOptId, number>>({ a: 12, b: 5, c: 8 });
+  const [myCrisisVote, setMyCrisisVote] = useState<CrisisOptId | null>(null);
+  const [councilVotes, setCouncilVotes] = useState<Record<PlanId, number>>({
+    prepare_raid: 9,
+    stockpile_food: 6,
+    repair_power: 4,
+  });
+  const [raidDays, setRaidDays] = useState(5);
+  // seed newest-first: DRAMA[2] is the freshest, rotation continues at index 3
+  const [events, setEvents] = useState<LiveEvent[]>(() => [2, 1, 0].map((i) => ({ ...DRAMA[i]!, key: i })));
   const handleRef = useRef<VillageHandle | null>(null);
+  const manualPauseRef = useRef(0); // Date.now() until which the auto-ramp holds off
+  const pledgedRef = useRef(false); // click guard (double-tap before re-render)
+  const votedRef = useRef(false);
+  const nextEvRef = useRef(3);
 
   const onReady = useCallback((h: VillageHandle) => {
     handleRef.current = h;
@@ -357,7 +552,9 @@ export function App() {
   }, []);
   // Functional updates + effect-driven sync: rapid +/- taps land between React
   // renders, so reading `villagers` in a click handler would use stale state.
+  // A manual tap also pauses the auto-ramp for 30s so it doesn't fight the user.
   const bumpVillagers = useCallback((delta: number) => {
+    manualPauseRef.current = Date.now() + 30_000;
     setVillagersState((v) => Math.max(0, Math.min(MAX_VILLAGERS, v + delta)));
   }, []);
   useEffect(() => {
@@ -390,11 +587,70 @@ export function App() {
     return () => window.clearInterval(id);
   }, [auto]);
 
+  // AUTO: villager count random-walks ±1 within [3, MAX_VILLAGERS] every ~6s.
+  // Holds off while manualPauseRef says a human just used the stepper.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (Date.now() < manualPauseRef.current) return;
+      const delta = Math.random() < 0.5 ? -1 : 1;
+      setVillagersState((v) => Math.max(3, Math.min(MAX_VILLAGERS, v + delta)));
+    }, 6000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // LIVE tab handlers — one pledge / one crisis vote per "day" (session).
+  const onPledge = useCallback(() => {
+    if (pledgedRef.current) return;
+    pledgedRef.current = true;
+    setPledged((p) => Math.min(MARKED_GOAL, p + 3));
+    setPledgedToday(true);
+    // optional scene API (added by another agent) — never crash if absent
+    (handleRef.current as any)?.pulseMarked?.();
+  }, []);
+  const onCrisisVote = useCallback((id: CrisisOptId) => {
+    if (votedRef.current) return;
+    votedRef.current = true;
+    setMyCrisisVote(id);
+    setCrisisVotes((v) => ({ ...v, [id]: v[id] + 1 }));
+  }, []);
+
+  // LIVE tab simulation — every number drifts on its own clock:
+  //   pledges +1 / ~7s · crisis votes +1 / ~9s · council votes +1 / ~11s ·
+  //   raid countdown −1 / 48s (wraps 0 → 5) · event feed rotates / ~8s.
+  useEffect(() => {
+    const ids: number[] = [
+      window.setInterval(() => setPledged((p) => Math.min(MARKED_GOAL, p + 1)), 7000),
+      window.setInterval(() => {
+        const id = CRISIS_IDS[Math.floor(Math.random() * CRISIS_IDS.length)]!;
+        setCrisisVotes((v) => ({ ...v, [id]: v[id] + 1 }));
+      }, 9000),
+      window.setInterval(() => {
+        const id = PLAN_IDS[Math.floor(Math.random() * PLAN_IDS.length)]!;
+        setCouncilVotes((v) => ({ ...v, [id]: v[id] + 1 }));
+      }, 11000),
+      window.setInterval(() => setRaidDays((d) => (d <= 0 ? 5 : d - 1)), 48000),
+      window.setInterval(() => {
+        const idx = nextEvRef.current;
+        nextEvRef.current = idx + 1;
+        const src = DRAMA[idx % DRAMA.length]!;
+        setEvents((prev) => [{ icon: src.icon, text: src.text, key: idx }, ...prev].slice(0, 6));
+      }, 8000),
+    ];
+    return () => ids.forEach((id) => window.clearInterval(id));
+  }, []);
+
+  // Raid watch → optional scene API (defensive: the handle may not have it).
+  useEffect(() => {
+    const h = handleRef.current as any;
+    if (raidDays <= 1) h?.setRaidWatch?.(true);
+    else if (raidDays >= 5) h?.setRaidWatch?.(false);
+  }, [raidDays, loaded]);
+
   return (
     <>
       <VillageCanvas onReady={onReady} onProgress={onProgress} onLoad={onLoad} onSelect={onSelect} onPois={onPois} />
       <TopBar />
-      <DayPill time={time} auto={auto} />
+      <DayPill time={time} auto={auto} raidSoon={raidDays <= 1} />
       <ScenePanel
         open={panelOpen}
         setOpen={setPanelOpen}
@@ -410,9 +666,22 @@ export function App() {
       <CityDashboard
         open={dashOpen}
         setOpen={setDashOpen}
+        tab={dashTab}
+        setTab={setDashTab}
         pois={pois}
         selectedName={selected?.name ?? null}
         onVisit={visitDistrict}
+        live={{
+          pledged,
+          pledgedToday,
+          onPledge,
+          crisisVotes,
+          myCrisisVote,
+          onCrisisVote,
+          councilVotes,
+          raidDays,
+          events,
+        }}
       />
       <BuildingChip meta={selected} />
       <BuildDock />
