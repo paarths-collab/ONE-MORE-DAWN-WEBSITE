@@ -1,17 +1,15 @@
-// ONE MORE DAWN — 3D village scene (React edition, v2 "dawn is coming").
-// Framework-agnostic: createVillageScene(container, hooks) builds the diorama
-// and exposes a live API the React HUD drives:
-//   setTimeOfDay('night'|'dawn'|'day'|'dusk')  — smoothly lerped environment
-//   setVillagers(n)                            — 0..6 walking villagers
-//   setCompanion('horse'|'flamingo'|'parrot'|'stork', on)
-// Bigger 32×32 island: walled town, pier over the water, orchard, training
-// yard, campfire plaza, memorial. Deterministic seeded layout; characters are
-// the official three.js example models in /assets.
+// ONE MORE DAWN — 3D town scene v3 ("the guild map").
+// A ~110-tile organic plateau ringed by mountains: seeded winding dirt roads,
+// ~80 rustic houses placed along them, 12 labeled districts (floating banner
+// labels via CSS2DRenderer), a palisade wall with gates, dense pine forest.
+// Same live API as v2: setTimeOfDay / setVillagers / setCompanion; the whole
+// environment lerps between night/dawn/day/dusk presets.
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 
 export type BuildingMeta = { name: string; level: number; blurb: string };
 export type TimeOfDay = 'night' | 'dawn' | 'day' | 'dusk';
@@ -33,7 +31,7 @@ export type VillageHandle = {
   frame: () => void;
 };
 
-export const MAX_VILLAGERS = 6;
+export const MAX_VILLAGERS = 8;
 
 // ---------- seeded rng ----------
 const makeRng = (seed: number) => {
@@ -47,55 +45,51 @@ const makeRng = (seed: number) => {
   };
 };
 
-// ---------- palette ----------
+// ---------- palette (muted, painterly — the reference is far less candy than CoC) ----------
 const C = {
-  grassA: 0x7ab648, grassB: 0x6da53f,
-  path: 0xd9c79b, pathB: 0xcdb98c,
-  cliff: 0x8a5a33, cliffDark: 0x6e4527,
-  water: 0x2e6b8a,
-  timber: 0x9a6b3f, timberDark: 0x7d5430,
-  stone: 0x9a938a, stoneDark: 0x7c756c,
-  roofGold: 0xe8c34a, roofRed: 0xc85040, roofBlue: 0x6c8be0, roofGreen: 0x57c06a, roofSlate: 0x6f6357,
-  cropGreen: 0x8fd05c, cropDark: 0x5b8c3a,
-  leaf: 0x4c8f3a, leafDark: 0x3e7830, trunk: 0x6e4527,
-  rock: 0x8f8578,
+  grassA: 0x5f8a3c, grassB: 0x557d36,
+  dirt: 0x9c7a4e, dirtB: 0x8f6f46,
+  cliff: 0x6b5a48, rockA: 0x6b6258, rockB: 0x57504a, abyss: 0x171310,
+  timber: 0x8a5f3a, timberDark: 0x6e4b2e, plaster: 0xc9b592,
+  stone: 0x8f887e, stoneDark: 0x6f6a61,
+  roofSlate: 0x5a6b8c, roofSlateDark: 0x4a5876, roofBrown: 0x7a5636, roofGold: 0xe8c34a, roofRed: 0x9c4a38,
+  leaf: 0x3f6e2e, leafDark: 0x2f5423, trunk: 0x5c4327,
+  crop: 0x8fb04f, cropDark: 0x4f7030,
 };
 
-// ---------- time-of-day presets ----------
+// ---------- time-of-day presets (distances tuned for the ~110-unit world) ----------
 type EnvPreset = {
   bg: number; fogNear: number; fogFar: number;
   hemiSky: number; hemiGround: number; hemiInt: number;
   sunColor: number; sunInt: number; sunPos: [number, number, number];
-  stars: number;              // starfield opacity 0..1
-  windowCol: number;          // unlit-vs-glowing windows/torch flames
-  discCol: number; discScale: number; // the visible sun/moon disc
-  campfire: number;           // point-light intensity at the fire pit
+  stars: number; windowCol: number;
+  discCol: number; discScale: number;
+  campfire: number;
 };
-
 const PRESETS: Record<TimeOfDay, EnvPreset> = {
   night: {
-    bg: 0x141b2d, fogNear: 40, fogFar: 150,
+    bg: 0x141b2d, fogNear: 110, fogFar: 420,
     hemiSky: 0x2a3654, hemiGround: 0x0c1018, hemiInt: 0.55,
-    sunColor: 0x8fa5d8, sunInt: 0.4, sunPos: [-14, 30, -10],
-    stars: 1, windowCol: 0xffc46a, discCol: 0xdfe8ff, discScale: 1.6, campfire: 22,
+    sunColor: 0x8fa5d8, sunInt: 0.4, sunPos: [-40, 85, -30],
+    stars: 1, windowCol: 0xffc46a, discCol: 0xdfe8ff, discScale: 3.4, campfire: 30,
   },
   dawn: {
-    bg: 0xe89a66, fogNear: 34, fogFar: 140,
+    bg: 0xe89a66, fogNear: 95, fogFar: 380,
     hemiSky: 0xffc9a0, hemiGround: 0x3a4034, hemiInt: 0.75,
-    sunColor: 0xffb37a, sunInt: 1.7, sunPos: [34, 7, 14],
-    stars: 0.3, windowCol: 0xffcf78, discCol: 0xffd9a8, discScale: 3.4, campfire: 10,
+    sunColor: 0xffb37a, sunInt: 1.7, sunPos: [95, 20, 40],
+    stars: 0.3, windowCol: 0xffcf78, discCol: 0xffd9a8, discScale: 7, campfire: 14,
   },
   day: {
-    bg: 0x9ac8e8, fogNear: 50, fogFar: 170,
+    bg: 0x9ac8e8, fogNear: 140, fogFar: 480,
     hemiSky: 0xfff2d8, hemiGround: 0x4a6b35, hemiInt: 0.95,
-    sunColor: 0xfff0c2, sunInt: 2.4, sunPos: [22, 32, 15],
-    stars: 0, windowCol: 0x5a4a34, discCol: 0xfff6d8, discScale: 1.4, campfire: 0,
+    sunColor: 0xfff0c2, sunInt: 2.4, sunPos: [60, 95, 40],
+    stars: 0, windowCol: 0x5a4a34, discCol: 0xfff6d8, discScale: 3, campfire: 0,
   },
   dusk: {
-    bg: 0xc2694a, fogNear: 38, fogFar: 150,
+    bg: 0xc2694a, fogNear: 100, fogFar: 400,
     hemiSky: 0xe8a06a, hemiGround: 0x2c2118, hemiInt: 0.65,
-    sunColor: 0xff9a5a, sunInt: 1.2, sunPos: [-30, 8, 16],
-    stars: 0.2, windowCol: 0xffc46a, discCol: 0xffb37a, discScale: 3.0, campfire: 16,
+    sunColor: 0xff9a5a, sunInt: 1.2, sunPos: [-85, 22, 45],
+    stars: 0.2, windowCol: 0xffc46a, discCol: 0xffb37a, discScale: 6.4, campfire: 22,
   },
 };
 
@@ -103,7 +97,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   const rng = makeRng(20260707);
   let disposed = false;
 
-  // ---------- renderer / scene / camera ----------
+  // ---------- renderer / scene / camera / label layer ----------
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
@@ -111,17 +105,28 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   renderer.domElement.style.display = 'block';
   container.appendChild(renderer.domElement);
 
+  const labelRenderer = new CSS2DRenderer();
+  labelRenderer.domElement.className = 'poi-layer';
+  labelRenderer.domElement.style.position = 'absolute';
+  labelRenderer.domElement.style.inset = '0';
+  labelRenderer.domElement.style.pointerEvents = 'none';
+  labelRenderer.domElement.style.overflow = 'hidden';
+  // NOTE: .canvas-mount is position:fixed (full viewport) — that already anchors
+  // this absolute layer; never override its position inline.
+  container.appendChild(labelRenderer.domElement);
+
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(PRESETS.dawn.bg);
   scene.fog = new THREE.Fog(PRESETS.dawn.bg, PRESETS.dawn.fogNear, PRESETS.dawn.fogFar);
 
-  const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 320);
-  camera.position.set(19, 19, 25);
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 900);
+  camera.position.set(4, 66, 88);
 
   const size = () => {
     const w = Math.max(1, container.clientWidth);
     const h = Math.max(1, container.clientHeight);
     renderer.setSize(w, h);
+    labelRenderer.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   };
@@ -131,38 +136,37 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   window.addEventListener('resize', size);
 
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0, 0, 1);
+  controls.target.set(0, 0, 2);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
-  controls.minDistance = 12;
-  controls.maxDistance = 55;
-  controls.minPolarAngle = 0.5;
-  controls.maxPolarAngle = 1.15;
+  controls.minDistance = 20;
+  controls.maxDistance = 130;
+  controls.minPolarAngle = 0.35;
+  controls.maxPolarAngle = 1.12;
   controls.screenSpacePanning = false;
   controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
   controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
   controls.addEventListener('change', () => {
-    controls.target.x = THREE.MathUtils.clamp(controls.target.x, -12, 12);
-    controls.target.z = THREE.MathUtils.clamp(controls.target.z, -12, 14);
+    controls.target.x = THREE.MathUtils.clamp(controls.target.x, -42, 42);
+    controls.target.z = THREE.MathUtils.clamp(controls.target.z, -42, 42);
     controls.target.y = 0;
   });
 
-  // ---------- lights + sky machinery (lerped every frame toward the preset) ----------
+  // ---------- lights + sky machinery ----------
   const hemi = new THREE.HemisphereLight(PRESETS.dawn.hemiSky, PRESETS.dawn.hemiGround, PRESETS.dawn.hemiInt);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(PRESETS.dawn.sunColor, PRESETS.dawn.sunInt);
   sun.position.set(...PRESETS.dawn.sunPos);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -28;
-  sun.shadow.camera.right = 28;
-  sun.shadow.camera.top = 28;
-  sun.shadow.camera.bottom = -28;
-  sun.shadow.camera.far = 120;
-  sun.shadow.bias = -0.0004;
+  sun.shadow.mapSize.set(4096, 4096);
+  sun.shadow.camera.left = -70;
+  sun.shadow.camera.right = 70;
+  sun.shadow.camera.top = 70;
+  sun.shadow.camera.bottom = -70;
+  sun.shadow.camera.far = 320;
+  sun.shadow.bias = -0.0005;
   scene.add(sun);
 
-  // the visible sun / moon disc, sitting far out along the light direction
   const discMat = new THREE.MeshBasicMaterial({ color: PRESETS.dawn.discCol, fog: false });
   const disc = new THREE.Mesh(new THREE.SphereGeometry(2.2, 16, 12), discMat);
   const discHalo = new THREE.Mesh(
@@ -171,18 +175,17 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   );
   scene.add(disc, discHalo);
 
-  // stars (visible at night, fading through dawn/dusk)
-  const starMat = new THREE.PointsMaterial({ color: 0xf4ead8, size: 0.5, transparent: true, opacity: PRESETS.dawn.stars, depthWrite: false, fog: false });
+  const starMat = new THREE.PointsMaterial({ color: 0xf4ead8, size: 1.1, transparent: true, opacity: PRESETS.dawn.stars, depthWrite: false, fog: false });
   {
-    const n = 420;
+    const n = 460;
     const pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       const u = rng() * 2 - 1;
       const t = rng() * Math.PI * 2;
       const s = Math.sqrt(1 - u * u);
-      const r = 120 + rng() * 80;
+      const r = 320 + rng() * 160;
       pos[i * 3] = s * Math.cos(t) * r;
-      pos[i * 3 + 1] = Math.abs(u) * r * 0.9 + 8;
+      pos[i * 3 + 1] = Math.abs(u) * r * 0.9 + 24;
       pos[i * 3 + 2] = s * Math.sin(t) * r;
     }
     const g = new THREE.BufferGeometry();
@@ -190,15 +193,10 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     scene.add(new THREE.Points(g, starMat));
   }
 
-  // shared glow material for windows / torch flames / tower lamps (lerped)
   const glowMat = new THREE.MeshBasicMaterial({ color: PRESETS.dawn.windowCol });
+  const fireLight = new THREE.PointLight(0xff9a4a, PRESETS.dawn.campfire, 34);
+  scene.add(fireLight); // positioned at the FEASTS pit below
 
-  // campfire light (plaza) — flickers, dies at midday
-  const fireLight = new THREE.PointLight(0xff9a4a, PRESETS.dawn.campfire, 16);
-  fireLight.position.set(8.6, 1.0, -8.4);
-  scene.add(fireLight);
-
-  // env lerp state
   const env = {
     bg: new THREE.Color(PRESETS.dawn.bg),
     hemiSky: new THREE.Color(PRESETS.dawn.hemiSky),
@@ -216,17 +214,16 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     campfire: PRESETS.dawn.campfire,
   };
   let target: EnvPreset = PRESETS.dawn;
-
-  const tBg = new THREE.Color();
+  const tCol = new THREE.Color();
   const tVec = new THREE.Vector3();
   function lerpEnv(dt: number) {
     const k = 1 - Math.exp(-dt * 1.6);
-    env.bg.lerp(tBg.setHex(target.bg), k);
-    env.hemiSky.lerp(tBg.setHex(target.hemiSky), k);
-    env.hemiGround.lerp(tBg.setHex(target.hemiGround), k);
-    env.sunColor.lerp(tBg.setHex(target.sunColor), k);
-    env.windowCol.lerp(tBg.setHex(target.windowCol), k);
-    env.discCol.lerp(tBg.setHex(target.discCol), k);
+    env.bg.lerp(tCol.setHex(target.bg), k);
+    env.hemiSky.lerp(tCol.setHex(target.hemiSky), k);
+    env.hemiGround.lerp(tCol.setHex(target.hemiGround), k);
+    env.sunColor.lerp(tCol.setHex(target.sunColor), k);
+    env.windowCol.lerp(tCol.setHex(target.windowCol), k);
+    env.discCol.lerp(tCol.setHex(target.discCol), k);
     env.sunPos.lerp(tVec.set(...target.sunPos), k);
     env.hemiInt += (target.hemiInt - env.hemiInt) * k;
     env.sunInt += (target.sunInt - env.sunInt) * k;
@@ -251,9 +248,8 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     discMat.color.copy(env.discCol);
     (discHalo.material as THREE.MeshBasicMaterial).color.copy(env.discCol);
     starMat.opacity = env.stars;
-    // the disc rides the light direction, far out and never below the horizon
-    tVec.copy(env.sunPos).normalize().multiplyScalar(150);
-    tVec.y = Math.max(tVec.y, 5);
+    tVec.copy(env.sunPos).normalize().multiplyScalar(380);
+    tVec.y = Math.max(tVec.y, 14);
     disc.position.copy(tVec);
     discHalo.position.copy(tVec);
     disc.scale.setScalar(env.discScale);
@@ -263,13 +259,12 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   // ---------- materials / kit ----------
   const lam = (color: number, opts: Record<string, unknown> = {}) => new THREE.MeshLambertMaterial({ color, ...opts });
   const MAT = {
-    timber: lam(C.timber), timberDark: lam(C.timberDark),
+    timber: lam(C.timber), timberDark: lam(C.timberDark), plaster: lam(C.plaster),
     stone: lam(C.stone), stoneDark: lam(C.stoneDark),
-    trunk: lam(C.trunk), rock: lam(C.rock),
-    crop: lam(C.cropGreen), cropDark: lam(C.cropDark),
-    plank: lam(0xb08a55),
+    trunk: lam(C.trunk),
+    crop: lam(C.crop), cropDark: lam(C.cropDark),
+    roofSlate: lam(C.roofSlate), roofSlateDark: lam(C.roofSlateDark), roofBrown: lam(C.roofBrown),
   };
-
   const box = (w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0, z = 0) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     m.position.set(x, y, z);
@@ -298,424 +293,555 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     return m;
   };
 
-  // ---------- terrain: 32×32 island ----------
-  const TILES = 32;
-  const HALF = TILES / 2;
-  const WALL_R = 13;
-  {
-    const tileGeo = new THREE.BoxGeometry(1, 0.14, 1);
-    const grass = new THREE.InstancedMesh(tileGeo, lam(0xffffff), TILES * TILES);
-    grass.receiveShadow = true;
-    const m4 = new THREE.Matrix4();
-    const col = new THREE.Color();
-    let i = 0;
-    const onPath = (x: number, z: number) =>
-      (Math.abs(x) <= 1 && z >= 0) || // south road: hall → gate → pier
-      (Math.abs(z) <= 0.6 && x >= -7 && x <= 0) || // west spur to the farm
-      (Math.abs(z + 8.4) <= 0.6 && x >= 2 && x <= 8.6); // spur to the fire plaza
-    for (let gx = 0; gx < TILES; gx++) {
-      for (let gz = 0; gz < TILES; gz++) {
-        const x = gx - HALF + 0.5;
-        const z = gz - HALF + 0.5;
-        m4.setPosition(x, -0.07, z);
-        grass.setMatrixAt(i, m4);
-        if (onPath(x, z)) col.setHex((gx + gz) % 2 ? C.path : C.pathB);
-        else col.setHex((gx + gz) % 2 ? C.grassA : C.grassB);
-        grass.setColorAt(i, col);
-        i++;
+  // ---------- plateau shape (organic radius, ~108 tiles across) ----------
+  const PHI1 = rng() * Math.PI * 2;
+  const PHI2 = rng() * Math.PI * 2;
+  const plateauR = (theta: number) =>
+    46 + 6.5 * Math.sin(3 * theta + PHI1) + 4 * Math.sin(7 * theta + PHI2);
+  const insidePlateau = (x: number, z: number, margin = 0) =>
+    Math.hypot(x, z) < plateauR(Math.atan2(z, x)) - margin;
+
+  // ---------- road network (polylines → rasterized dirt tiles) ----------
+  const GATE_ANGLES = [Math.PI / 2, -Math.PI / 6, Math.PI + 0.5]; // S, NE, W
+  const gates: [number, number][] = GATE_ANGLES.map((a) => {
+    const r = plateauR(a) - 5.5;
+    return [Math.cos(a) * r, Math.sin(a) * r];
+  });
+
+  /** Wiggly polyline between two points (midpoint jitter, 2 passes). */
+  function windingPath(ax: number, az: number, bx: number, bz: number): [number, number][] {
+    let pts: [number, number][] = [[ax, az], [bx, bz]];
+    for (let pass = 0; pass < 2; pass++) {
+      const next: [number, number][] = [];
+      for (let i = 0; i < pts.length - 1; i++) {
+        const [x1, z1] = pts[i]!;
+        const [x2, z2] = pts[i + 1]!;
+        next.push([x1, z1]);
+        const mx = (x1 + x2) / 2;
+        const mz = (z1 + z2) / 2;
+        const len = Math.hypot(x2 - x1, z2 - z1);
+        const nx = -(z2 - z1) / Math.max(0.001, len);
+        const nz = (x2 - x1) / Math.max(0.001, len);
+        const off = (rng() - 0.5) * len * 0.4;
+        next.push([mx + nx * off, mz + nz * off]);
       }
+      next.push(pts[pts.length - 1]!);
+      pts = next;
     }
-    scene.add(grass);
-
-    const cliff = new THREE.Mesh(new THREE.BoxGeometry(TILES, 2.2, TILES), lam(C.cliff));
-    cliff.position.y = -1.24;
-    scene.add(cliff);
-    const cliffFoot = new THREE.Mesh(new THREE.BoxGeometry(TILES + 1.6, 0.9, TILES + 1.6), lam(C.cliffDark));
-    cliffFoot.position.y = -2.4;
-    scene.add(cliffFoot);
-
-    const water = new THREE.Mesh(new THREE.CircleGeometry(400, 48), lam(C.water));
-    water.rotation.x = -Math.PI / 2;
-    water.position.y = -2.6;
-    scene.add(water);
+    return pts;
   }
 
-  // ---------- interactables ----------
+  const roads: [number, number][][] = [];
+  for (const [gx, gz] of gates) roads.push(windingPath(0, 0, gx, gz)); // plaza → gates
+  {
+    // ring road at ~r24, one wiggly loop
+    const ring: [number, number][] = [];
+    const N = 26;
+    for (let i = 0; i <= N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      const r = 24 + Math.sin(a * 3 + PHI1) * 3 + (rng() - 0.5) * 2;
+      ring.push([Math.cos(a) * r, Math.sin(a) * r]);
+    }
+    roads.push(ring);
+    // spokes: ring → plaza at 4 angles
+    for (const a of [0.3, 2.1, 3.6, 5.2]) {
+      const r = 24 + Math.sin(a * 3 + PHI1) * 3;
+      roads.push(windingPath(Math.cos(a) * r, Math.sin(a) * r, Math.cos(a) * 7, Math.sin(a) * 7));
+    }
+  }
+
+  const roadTiles = new Set<string>();
+  const key = (ix: number, iz: number) => `${ix},${iz}`;
+  function rasterizeRoad(pts: [number, number][], width: number) {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x1, z1] = pts[i]!;
+      const [x2, z2] = pts[i + 1]!;
+      const len = Math.hypot(x2 - x1, z2 - z1);
+      const steps = Math.ceil(len / 0.5);
+      for (let s = 0; s <= steps; s++) {
+        const x = x1 + ((x2 - x1) * s) / steps;
+        const z = z1 + ((z2 - z1) * s) / steps;
+        for (let dx = -width; dx <= width; dx++) {
+          for (let dz = -width; dz <= width; dz++) {
+            if (Math.hypot(dx, dz) <= width + 0.3) roadTiles.add(key(Math.round(x + dx), Math.round(z + dz)));
+          }
+        }
+      }
+    }
+  }
+  for (const r of roads) rasterizeRoad(r, 1);
+  // plaza
+  for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) if (Math.hypot(dx, dz) <= 4.4) roadTiles.add(key(dx, dz));
+
+  // ---------- terrain tiles ----------
+  const SIZE = 112; // bounding grid — plateau carves an organic ~92..105-tile shape out of it
+  {
+    const positions: [number, number, boolean][] = [];
+    for (let ix = -SIZE / 2; ix <= SIZE / 2; ix++) {
+      for (let iz = -SIZE / 2; iz <= SIZE / 2; iz++) {
+        if (!insidePlateau(ix, iz)) continue;
+        positions.push([ix, iz, roadTiles.has(key(ix, iz))]);
+      }
+    }
+    const tileGeo = new THREE.BoxGeometry(1, 0.16, 1);
+    const ground = new THREE.InstancedMesh(tileGeo, lam(0xffffff), positions.length);
+    ground.receiveShadow = true;
+    const m4 = new THREE.Matrix4();
+    const col = new THREE.Color();
+    positions.forEach(([x, z, road], i) => {
+      m4.setPosition(x, -0.08, z);
+      ground.setMatrixAt(i, m4);
+      const check = (Math.abs(x) + Math.abs(z)) % 2;
+      col.setHex(road ? (check ? C.dirt : C.dirtB) : check ? C.grassA : C.grassB);
+      ground.setColorAt(i, col);
+    });
+    scene.add(ground);
+
+    // dark abyss floor + cliff skirt under the plateau edge
+    const abyss = new THREE.Mesh(new THREE.CircleGeometry(600, 48), lam(C.abyss));
+    abyss.rotation.x = -Math.PI / 2;
+    abyss.position.y = -7;
+    scene.add(abyss);
+    const skirtGeo = new THREE.BoxGeometry(1, 7, 1);
+    const skirtPos: [number, number][] = [];
+    for (let ix = -SIZE / 2; ix <= SIZE / 2; ix++) {
+      for (let iz = -SIZE / 2; iz <= SIZE / 2; iz++) {
+        if (!insidePlateau(ix, iz)) continue;
+        if (!insidePlateau(ix + 1, iz) || !insidePlateau(ix - 1, iz) || !insidePlateau(ix, iz + 1) || !insidePlateau(ix, iz - 1)) {
+          skirtPos.push([ix, iz]);
+        }
+      }
+    }
+    const skirt = new THREE.InstancedMesh(skirtGeo, lam(C.cliff), skirtPos.length);
+    skirtPos.forEach(([x, z], i) => {
+      m4.setPosition(x, -3.55, z);
+      skirt.setMatrixAt(i, m4);
+    });
+    scene.add(skirt);
+  }
+
+  // ---------- mountain ring ----------
+  {
+    const rockGeo = new THREE.DodecahedronGeometry(1, 0);
+    const rocks: { x: number; z: number; s: number; h: number; c: number }[] = [];
+    for (let i = 0; i < 150; i++) {
+      const a = (i / 150) * Math.PI * 2 + rng() * 0.06;
+      const base = plateauR(a);
+      const r = base + 2.5 + rng() * 10;
+      const s = 4 + rng() * 7;
+      rocks.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, s, h: s * (0.8 + rng() * 0.9), c: rng() > 0.5 ? C.rockA : C.rockB });
+    }
+    const inst = new THREE.InstancedMesh(rockGeo, lam(0xffffff, { flatShading: true }), rocks.length);
+    inst.castShadow = true;
+    const m4 = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const e = new THREE.Euler();
+    const col = new THREE.Color();
+    rocks.forEach((rk, i) => {
+      e.set(rng() * 0.4, rng() * Math.PI, rng() * 0.4);
+      q.setFromEuler(e);
+      m4.compose(new THREE.Vector3(rk.x, rk.h * 0.25 - 2, rk.z), q, new THREE.Vector3(rk.s, rk.h, rk.s));
+      inst.setMatrixAt(i, m4);
+      col.setHex(rk.c);
+      inst.setColorAt(i, col);
+    });
+    scene.add(inst);
+  }
+
+  // ---------- occupancy for buildings ----------
+  const occupied = new Set<string>();
+  const occupy = (x: number, z: number, r: number) => {
+    for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) occupied.add(key(Math.round(x + dx), Math.round(z + dz)));
+  };
+  const isFree = (x: number, z: number, r: number) => {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        const k = key(Math.round(x + dx), Math.round(z + dz));
+        if (occupied.has(k) || roadTiles.has(k)) return false;
+      }
+    }
+    return true;
+  };
+
+  // ---------- interactables + labels ----------
   const interactables: THREE.Group[] = [];
-  function register(group: THREE.Group, x: number, z: number, meta: BuildingMeta, ringR: number) {
+  function register(group: THREE.Group, x: number, z: number, meta: BuildingMeta, ringR: number, label?: { icon: string; y: number }) {
     group.position.set(x, 0, z);
     group.userData = { ...meta };
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(ringR, ringR + 0.16, 28),
+      new THREE.RingGeometry(ringR, ringR + 0.2, 28),
       new THREE.MeshBasicMaterial({ color: C.roofGold, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
     );
     ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.02;
+    ring.position.y = 0.06;
     ring.visible = false;
     group.add(ring);
     group.userData.ring = ring;
+    if (label) {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'poi-label';
+      el.innerHTML = `<span class="ic">${label.icon}</span>${meta.name}`;
+      el.addEventListener('click', () => {
+        setSelected(group);
+        hooks.onSelect({ name: meta.name, level: meta.level, blurb: meta.blurb });
+      });
+      const obj = new CSS2DObject(el);
+      obj.position.set(0, label.y, 0);
+      group.add(obj);
+    }
     scene.add(group);
     interactables.push(group);
+    occupy(x, z, Math.ceil(ringR));
     return group;
   }
 
-  // town hall
-  let flag: THREE.Mesh | null = null;
+  // ---------- rustic house kit (the town filler) ----------
+  const ROOFS = [MAT.roofSlate, MAT.roofSlateDark, MAT.roofBrown];
+  function house(x: number, z: number, facing: number, big = false) {
+    const g = new THREE.Group();
+    const w = (big ? 2.2 : 1.6) + rng() * 0.5;
+    const d = (big ? 1.8 : 1.4) + rng() * 0.4;
+    const h = (big ? 1.4 : 1.0) + rng() * 0.3;
+    const roof = ROOFS[Math.floor(rng() * ROOFS.length)]!;
+    g.add(box(w, h, d, rng() > 0.35 ? MAT.timber : MAT.plaster, 0, h / 2, 0));
+    g.add(pyramid(w * 1.15, 0.8 + rng() * 0.4, d * 1.15, roof, 0, h + 0.4, 0));
+    g.add(box(0.4, 0.55, 0.08, MAT.timberDark, 0, 0.3, d / 2 + 0.02));
+    g.add(glowCube(0.22, w * 0.28, h * 0.6, d / 2 + 0.03));
+    g.position.set(x, 0, z);
+    g.rotation.y = facing;
+    scene.add(g);
+    occupy(x, z, 2);
+  }
+
+  // ---------- POI districts (the labeled buildings from the reference) ----------
+  const ringSpot = (a: number, r: number): [number, number] => [Math.cos(a) * r, Math.sin(a) * r];
+
+  // ASSEMBLY — grand hall on the plaza
   {
     const g = new THREE.Group();
-    g.add(box(3.6, 0.5, 3.6, MAT.stoneDark, 0, 0.25, 0));
-    g.add(box(3.0, 1.7, 3.0, MAT.timber, 0, 1.35, 0));
-    g.add(box(3.2, 0.24, 3.2, MAT.timberDark, 0, 2.32, 0));
-    g.add(pyramid(3.4, 1.7, 3.4, lam(C.roofGold), 0, 3.3, 0));
-    g.add(box(0.9, 1.1, 0.12, MAT.timberDark, 0, 0.95, 1.51));
-    g.add(glowCube(0.55, -1.0, 1.6, 1.51));
-    g.add(glowCube(0.55, 1.0, 1.6, 1.51));
-    g.add(cyl(0.05, 1.6, MAT.timberDark, 0, 4.9, 0, 6));
-    flag = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), lam(C.roofGold, { side: THREE.DoubleSide }));
-    flag.position.set(0.48, 5.35, 0);
+    g.add(box(5.4, 0.7, 5.4, MAT.stoneDark, 0, 0.35, 0));
+    g.add(box(4.4, 2.6, 4.4, MAT.timber, 0, 2.0, 0));
+    g.add(box(4.7, 0.35, 4.7, MAT.timberDark, 0, 3.45, 0));
+    g.add(pyramid(5.0, 2.6, 5.0, lam(C.roofGold), 0, 4.9, 0));
+    g.add(box(1.2, 1.6, 0.15, MAT.timberDark, 0, 1.4, 2.28));
+    g.add(glowCube(0.8, -1.5, 2.3, 2.26));
+    g.add(glowCube(0.8, 1.5, 2.3, 2.26));
+    g.add(cyl(0.07, 2.4, MAT.timberDark, 0, 7.3, 0, 6));
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.7), lam(C.roofGold, { side: THREE.DoubleSide }));
+    flag.position.set(0.7, 7.9, 0);
     g.add(flag);
-    register(g, 0, -1, { name: 'TOWN HALL', level: 4, blurb: 'The heart of the village. Every decision at dawn happens here.' }, 2.6);
+    g.userData.flag = flag;
+    register(g, 0, -0.5, { name: 'ASSEMBLY', level: 5, blurb: 'The council votes here at dawn. Every voice, one city.' }, 3.6, { icon: '🏛️', y: 8.6 });
   }
-
-  // huts — 8 of them now
-  const HUTS: [number, number, number, string][] = [
-    [-3.6, 2.6, C.roofRed, 'A survivor family sleeps here.'],
-    [3.4, 1.8, C.roofBlue, 'Woodsmoke and quiet talk after dark.'],
-    [4.6, -2.6, C.roofGreen, 'They keep a candle in the window.'],
-    [-4.4, -2.2, C.roofSlate, 'The door is always open to neighbors.'],
-    [2.2, 5.4, C.roofRed, 'Close to the gate — first to hear news.'],
-    [7.8, 7.4, C.roofBlue, 'New timber — raised after the last raid.'],
-    [-5.4, -8.8, C.roofRed, 'The baker lives here. Everyone knows.'],
-    [8.6, -3.4, C.roofGreen, 'They watch the windmill turn all evening.'],
-  ];
-  for (const [hx, hz, roof, blurb] of HUTS) {
-    const g = new THREE.Group();
-    g.add(box(1.5, 1.0, 1.5, MAT.timber, 0, 0.5, 0));
-    g.add(pyramid(1.8, 1.0, 1.8, lam(roof), 0, 1.5, 0));
-    g.add(box(0.5, 0.65, 0.1, MAT.timberDark, 0, 0.42, 0.78));
-    g.add(glowCube(0.3, 0.45, 0.62, 0.77));
-    g.rotation.y = rng() * Math.PI * 2;
-    register(g, hx, hz, { name: 'HUT', level: 1 + Math.floor(rng() * 3), blurb }, 1.4);
-  }
-
-  // farm
+  // TRADE — market square east
   {
+    const [x, z] = ringSpot(0.3, 24);
     const g = new THREE.Group();
-    const W = 4.4, D = 3.2;
-    g.add(box(W, 0.1, D, MAT.cropDark, 0, 0.06, 0));
-    for (let r = 0; r < 4; r++) g.add(box(W - 0.7, 0.22, 0.34, MAT.crop, 0, 0.2, -D / 2 + 0.65 + r * 0.72));
-    const post = (x: number, z: number) => g.add(box(0.12, 0.55, 0.12, MAT.timberDark, x, 0.28, z));
-    for (let x = -W / 2; x <= W / 2 + 0.01; x += 1.1) { post(x, -D / 2); post(x, D / 2); }
-    for (let z = -D / 2; z <= D / 2 + 0.01; z += 1.06) { post(-W / 2, z); post(W / 2, z); }
-    g.add(box(W, 0.07, 0.07, MAT.timber, 0, 0.45, -D / 2));
-    g.add(box(W, 0.07, 0.07, MAT.timber, 0, 0.45, D / 2));
-    g.add(box(0.07, 0.07, D, MAT.timber, -W / 2, 0.45, 0));
-    g.add(box(0.07, 0.07, D, MAT.timber, W / 2, 0.45, 0));
-    register(g, -7, 1.4, { name: 'FARM', level: 3, blurb: 'Grow Food happens here. The greenhouse rows feed the city.' }, 2.9);
+    for (const [sx, sz, ry] of [[-2, 0, 0.3], [0.4, -1.6, -0.4], [2.2, 0.6, 0.9]] as const) {
+      const stall = new THREE.Group();
+      for (const [px, pz] of [[-0.7, -0.5], [0.7, -0.5], [-0.7, 0.5], [0.7, 0.5]] as const) stall.add(cyl(0.06, 1.1, MAT.timberDark, px, 0.55, pz, 6));
+      for (let i = 0; i < 3; i++) {
+        const strip = box(0.5, 0.05, 1.4, lam(i % 2 ? 0xe7dcc4 : C.roofRed), -0.5 + i * 0.5, 1.16, 0);
+        strip.rotation.z = 0.12;
+        stall.add(strip);
+      }
+      stall.add(box(1.4, 0.45, 0.9, MAT.timber, 0, 0.5, 0));
+      stall.position.set(sx, 0, sz);
+      stall.rotation.y = ry;
+      g.add(stall);
+    }
+    g.add(box(0.6, 0.5, 0.6, MAT.timberDark, 3.2, 0.25, -1.4));
+    g.add(box(0.5, 0.4, 0.5, MAT.timber, 3.6, 0.2, -0.6));
+    register(g, x, z, { name: 'TRADE', level: 3, blurb: 'Share Rations happens here. The ledger remembers generosity.' }, 4.0, { icon: '⚖️', y: 3.4 });
   }
-
-  // windmill
+  // RELIGION — chapel north
+  {
+    const [x, z] = ringSpot(-1.85, 25);
+    const g = new THREE.Group();
+    g.add(box(2.6, 1.8, 4.0, MAT.plaster, 0, 0.9, 0));
+    g.add(pyramid(3.0, 1.4, 4.4, MAT.roofSlateDark, 0, 2.5, 0));
+    g.add(box(1.4, 3.2, 1.4, MAT.plaster, 0, 1.6, 2.4));
+    g.add(pyramid(1.7, 1.6, 1.7, MAT.roofSlateDark, 0, 4.0, 2.4));
+    g.add(glowCube(0.5, 0, 2.6, 3.12));
+    g.add(box(0.1, 0.9, 0.1, lam(C.roofGold), 0, 5.2, 2.4));
+    g.add(box(0.5, 0.1, 0.1, lam(C.roofGold), 0, 5.0, 2.4));
+    register(g, x, z, { name: 'RELIGION', level: 2, blurb: 'Vigils for the Marked are held here. The candles never gutter.' }, 3.4, { icon: '🕯️', y: 6.2 });
+  }
+  // TROOPS — barracks + yard NE
+  {
+    const [x, z] = ringSpot(-0.75, 26);
+    const g = new THREE.Group();
+    g.add(box(4.0, 1.8, 2.4, MAT.timber, 0, 0.9, 0));
+    g.add(pyramid(4.4, 1.3, 2.8, MAT.roofSlateDark, 0, 2.4, 0));
+    g.add(cyl(0.06, 2.0, MAT.timberDark, -1.7, 3.2, 0.9, 6));
+    const banner = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 1.0), lam(C.roofRed, { side: THREE.DoubleSide }));
+    banner.position.set(-1.4, 3.3, 0.9);
+    g.add(banner);
+    for (const [dx, dz] of [[2.8, 0.6], [3.4, -0.5], [2.6, -1.3]] as const) {
+      g.add(cyl(0.07, 0.8, MAT.trunk, dx, 0.4, dz, 6));
+      g.add(box(0.32, 0.32, 0.32, MAT.timber, dx, 0.95, dz));
+    }
+    register(g, x, z, { name: 'TROOPS', level: 3, blurb: 'Guard Wall duty musters here before every raid.' }, 4.0, { icon: '⚔️', y: 4.2 });
+  }
+  // STORAGE — warehouses SE
+  {
+    const [x, z] = ringSpot(1.05, 25);
+    const g = new THREE.Group();
+    g.add(box(4.4, 1.6, 2.0, MAT.timber, -0.5, 0.8, -0.9));
+    g.add(pyramid(4.8, 1.1, 2.4, MAT.roofBrown, -0.5, 2.1, -0.9));
+    g.add(box(3.4, 1.4, 1.8, MAT.timber, 0.7, 0.7, 1.6));
+    g.add(pyramid(3.8, 1.0, 2.2, MAT.roofBrown, 0.7, 1.85, 1.6));
+    for (const [bx, bz] of [[2.4, -0.4], [2.9, 0.3], [2.2, 0.8]] as const) g.add(cyl(0.3, 0.6, MAT.timberDark, bx, 0.3, bz, 8));
+    register(g, x, z, { name: 'STORAGE', level: 3, blurb: 'Every loaf the expeditions bank sleeps behind these doors.' }, 4.0, { icon: '📦', y: 3.6 });
+  }
+  // PRODUCTION — mill + fields west
   let rotor: THREE.Group | null = null;
   {
+    const [x, z] = ringSpot(3.3, 26);
     const g = new THREE.Group();
-    g.add(box(1.7, 0.4, 1.7, MAT.stoneDark, 0, 0.2, 0));
-    g.add(box(1.4, 2.4, 1.4, lam(0xb7ab9c), 0, 1.6, 0));
-    g.add(pyramid(1.7, 1.0, 1.7, lam(C.roofSlate), 0, 3.3, 0));
-    g.add(box(0.5, 0.6, 0.1, MAT.timberDark, 0, 1.0, 0.71));
-    g.add(cyl(0.09, 0.7, MAT.timberDark, 0, 2.6, 0.9, 6));
+    g.add(box(2.0, 0.5, 2.0, MAT.stoneDark, 0, 0.25, 0));
+    g.add(box(1.7, 3.0, 1.7, MAT.plaster, 0, 2.0, 0));
+    g.add(pyramid(2.1, 1.3, 2.1, MAT.roofSlateDark, 0, 4.1, 0));
+    g.add(cyl(0.1, 0.9, MAT.timberDark, 0, 3.2, 1.1, 6));
     rotor = new THREE.Group();
     for (let i = 0; i < 4; i++) {
       const arm = new THREE.Group();
       arm.rotation.z = (i / 4) * Math.PI * 2 + Math.PI / 4;
-      arm.add(box(0.34, 1.6, 0.06, lam(0xe7dcc4), 0, 1.0, 0));
+      arm.add(box(0.4, 2.0, 0.07, lam(0xe7dcc4), 0, 1.25, 0));
       rotor.add(arm);
     }
-    rotor.position.set(0, 2.6, 1.26);
+    rotor.position.set(0, 3.2, 1.55);
     g.add(rotor);
-    register(g, 6.6, -5.6, { name: 'GENERATOR', level: 2, blurb: 'Repair Power keeps these blades — and the night lights — turning.' }, 1.9);
-  }
-
-  // clinic
-  {
-    const g = new THREE.Group();
-    g.add(box(2.2, 1.2, 1.8, lam(0xd9d2c5), 0, 0.6, 0));
-    g.add(pyramid(2.5, 0.9, 2.1, lam(C.roofRed), 0, 1.65, 0));
-    g.add(box(0.55, 0.16, 0.16, lam(C.roofRed), 0, 1.0, 0.92));
-    g.add(box(0.16, 0.55, 0.16, lam(C.roofRed), 0, 1.0, 0.92));
-    register(g, -6.2, -4.6, { name: 'CLINIC', level: 2, blurb: 'Treat Sick — the medics hold the line against the fever.' }, 1.8);
-  }
-
-  // storehouse
-  {
-    const g = new THREE.Group();
-    g.add(cyl(0.95, 1.7, MAT.timber, 0, 0.85, 0, 12));
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(1.15, 0.9, 12), lam(C.roofSlate));
-    roof.position.y = 2.15;
-    roof.castShadow = true;
-    g.add(roof);
-    register(g, 6.4, 1.6, { name: 'STOREHOUSE', level: 3, blurb: 'Every loaf the expeditions bank ends up behind these walls.' }, 1.5);
-  }
-
-  // watchtowers + gate + walls (pushed out to WALL_R)
-  const TOWERS: [number, number][] = [[-WALL_R, -WALL_R], [WALL_R, -WALL_R], [-WALL_R, WALL_R], [WALL_R, WALL_R]];
-  for (const [tx, tz] of TOWERS) {
-    const g = new THREE.Group();
-    g.add(box(1.1, 2.6, 1.1, MAT.stone, 0, 1.3, 0));
-    g.add(box(1.5, 0.35, 1.5, MAT.stoneDark, 0, 2.8, 0));
-    g.add(pyramid(1.5, 0.9, 1.5, lam(C.roofSlate), 0, 3.4, 0));
-    g.add(glowCube(0.26, 0, 2.6, 0.62));
-    register(g, tx, tz, { name: 'WATCHTOWER', level: 2, blurb: 'Guard Wall duty. The watch sees the raiders first.' }, 1.3);
-  }
-  {
-    const g = new THREE.Group();
-    g.add(box(0.8, 1.9, 0.8, MAT.stone, -1.6, 0.95, 0));
-    g.add(box(0.8, 1.9, 0.8, MAT.stone, 1.6, 0.95, 0));
-    g.add(box(4.0, 0.5, 0.7, MAT.stoneDark, 0, 2.1, 0));
-    g.add(glowCube(0.22, -1.6, 2.0, 0.42));
-    g.add(glowCube(0.22, 1.6, 2.0, 0.42));
-    register(g, 0, WALL_R, { name: 'SOUTH GATE', level: 1, blurb: 'The only way in. Refugee convoys knock here at dusk.' }, 2.2);
-  }
-  {
-    const segGeo = new THREE.BoxGeometry(1.36, 1.0, 0.45);
-    const capGeo = new THREE.BoxGeometry(1.36, 1.22, 0.6);
-    let n = 0;
-    const wallSeg = (x: number, z: number, rotY: number) => {
-      const cap = n % 4 === 3;
-      const m = new THREE.Mesh(cap ? capGeo : segGeo, cap ? MAT.stoneDark : MAT.stone);
-      m.position.set(x, cap ? 0.61 : 0.5, z);
-      m.rotation.y = rotY;
-      m.castShadow = true;
-      m.receiveShadow = true;
-      scene.add(m);
-      n++;
-    };
-    for (let i = 0; i < 17; i++) {
-      const c = -11.2 + i * 1.4;
-      wallSeg(c, -WALL_R, 0);
-      if (Math.abs(c) >= 1.9) wallSeg(c, WALL_R, 0);
-      wallSeg(-WALL_R, c, Math.PI / 2);
-      wallSeg(WALL_R, c, Math.PI / 2);
+    // fields beside the mill
+    for (const [fx, fz] of [[-3.6, -1.2], [-3.6, 2.2]] as const) {
+      g.add(box(3.4, 0.12, 2.6, MAT.cropDark, fx, 0.06, fz));
+      for (let r = 0; r < 3; r++) g.add(box(2.8, 0.2, 0.4, MAT.crop, fx, 0.18, fz - 0.8 + r * 0.8));
     }
+    register(g, x, z, { name: 'PRODUCTION', level: 4, blurb: 'Grow Food and Repair Power both start here, before first light.' }, 4.6, { icon: '🌾', y: 5.4 });
   }
-
-  // barracks
+  // FEASTS — long tables + fire pit NW
   {
+    const [x, z] = ringSpot(-2.6, 23);
     const g = new THREE.Group();
-    g.add(box(3.0, 0.3, 2.2, MAT.stoneDark, 0, 0.15, 0));
-    g.add(box(2.6, 1.3, 1.8, MAT.timber, 0, 0.95, 0));
-    g.add(pyramid(3.0, 1.0, 2.2, lam(C.roofSlate), 0, 2.1, 0));
-    g.add(box(0.6, 0.8, 0.1, MAT.timberDark, 0, 0.7, 0.92));
-    g.add(cyl(0.05, 1.2, MAT.timberDark, -1.1, 2.5, 0.6, 6));
-    const banner = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.7), lam(C.roofRed, { side: THREE.DoubleSide }));
-    banner.position.set(-0.85, 2.6, 0.6);
-    g.add(banner);
-    register(g, -3.2, 7.0, { name: 'BARRACKS', level: 2, blurb: 'Where guards drill for the raid. Prepare for Raid starts here.' }, 2.0);
+    for (const [tx, tz, ry] of [[-1.6, 0, 0.2], [1.6, 0.4, -0.15]] as const) {
+      const tbl = new THREE.Group();
+      tbl.add(box(2.6, 0.12, 0.8, MAT.timber, 0, 0.55, 0));
+      tbl.add(box(0.12, 0.55, 0.7, MAT.timberDark, -1.1, 0.28, 0));
+      tbl.add(box(0.12, 0.55, 0.7, MAT.timberDark, 1.1, 0.28, 0));
+      tbl.add(box(2.4, 0.08, 0.3, MAT.timberDark, 0, 0.32, 0.65));
+      tbl.add(box(2.4, 0.08, 0.3, MAT.timberDark, 0, 0.32, -0.65));
+      tbl.position.set(tx, 0, tz);
+      tbl.rotation.y = ry;
+      g.add(tbl);
+    }
+    g.add(cyl(0.6, 0.14, MAT.stoneDark, 0, 0.07, -1.8, 10));
+    g.add(glowCube(0.34, 0, 0.4, -1.8));
+    g.add(glowCube(0.22, 0.16, 0.62, -1.7));
+    fireLight.position.set(x, 1.1, z - 1.8);
+    register(g, x, z, { name: 'FEASTS', level: 2, blurb: 'When the Marked is saved, the whole city eats together.' }, 3.6, { icon: '🍖', y: 3.0 });
   }
-
-  // training yard (dummies + archery target) — NE of the barracks
+  // COMMAND STAFF — small stone keep, inner north
   {
+    const [x, z] = ringSpot(-1.2, 13);
     const g = new THREE.Group();
-    for (const [dx, dz] of [[-0.9, 0.3], [0, -0.5], [0.9, 0.4]] as const) {
-      g.add(cyl(0.08, 0.7, MAT.trunk, dx, 0.35, dz, 6));
-      g.add(box(0.3, 0.3, 0.3, MAT.timber, dx, 0.85, dz));
-    }
-    const tgt = new THREE.Group();
-    const ring1 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16), lam(0xe7dcc4));
-    const ring2 = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.12, 16), lam(C.roofRed));
-    const ring3 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.14, 12), lam(0x2a2118));
-    for (const r of [ring1, ring2, ring3]) { r.rotation.x = Math.PI / 2; r.castShadow = true; tgt.add(r); }
-    tgt.position.set(2.1, 0.8, 0);
-    g.add(tgt);
-    g.add(cyl(0.07, 0.8, MAT.timberDark, 2.1, 0.4, 0, 6));
-    register(g, -7.6, 8.6, { name: 'TRAINING YARD', level: 1, blurb: 'Straw dummies and a battered target. Guards drill at first light.' }, 2.2);
+    g.add(box(2.6, 2.4, 2.6, MAT.stone, 0, 1.2, 0));
+    g.add(box(3.0, 0.4, 3.0, MAT.stoneDark, 0, 2.6, 0));
+    g.add(box(2.0, 1.6, 2.0, MAT.stone, 0, 3.6, 0));
+    g.add(pyramid(2.4, 1.2, 2.4, MAT.roofSlateDark, 0, 5.0, 0));
+    g.add(glowCube(0.4, 0, 1.7, 1.32));
+    register(g, x, z, { name: 'COMMAND STAFF', level: 3, blurb: 'The overseers read the forecast here. Tomorrow, if nobody acts…' }, 2.8, { icon: '🎖️', y: 6.0 });
   }
-
-  // market stall
+  // DIPLOMACY — fine house, inner SE
   {
+    const [x, z] = ringSpot(0.9, 13);
     const g = new THREE.Group();
-    for (const [px, pz] of [[-0.8, -0.6], [0.8, -0.6], [-0.8, 0.6], [0.8, 0.6]] as const) g.add(cyl(0.07, 1.2, MAT.timberDark, px, 0.6, pz, 6));
-    for (let i = 0; i < 4; i++) {
-      const strip = box(0.5, 0.06, 1.6, lam(i % 2 ? 0xe7dcc4 : C.roofRed), -0.75 + i * 0.5, 1.28, 0);
-      strip.rotation.z = 0.14;
-      g.add(strip);
-    }
-    g.add(box(1.7, 0.5, 1.0, MAT.timber, 0, 0.55, 0));
-    g.add(box(0.28, 0.28, 0.28, lam(C.roofGold), -0.3, 0.94, 0.1));
-    g.add(box(0.24, 0.24, 0.24, lam(C.roofGreen), 0.25, 0.92, -0.15));
-    register(g, 2.0, -5.0, { name: 'MARKET', level: 1, blurb: 'Share Rations happens here — the ledger remembers generosity.' }, 1.6);
+    g.add(box(2.8, 1.6, 2.2, MAT.plaster, 0, 0.8, 0));
+    g.add(box(3.0, 0.25, 2.4, MAT.timberDark, 0, 1.72, 0));
+    g.add(pyramid(3.2, 1.2, 2.6, MAT.roofSlate, 0, 2.4, 0));
+    g.add(box(1.6, 0.1, 0.8, MAT.timber, 0, 0.05, 1.5));
+    g.add(cyl(0.06, 0.9, MAT.timberDark, -0.6, 0.45, 1.8, 6));
+    g.add(cyl(0.06, 0.9, MAT.timberDark, 0.6, 0.45, 1.8, 6));
+    g.add(box(1.6, 0.1, 0.9, MAT.roofSlate, 0, 0.95, 1.55));
+    g.add(glowCube(0.4, -0.8, 1.0, 1.12));
+    register(g, x, z, { name: 'DIPLOMACY', level: 2, blurb: 'Envoys from other subreddit-cities are received here.' }, 2.8, { icon: '🕊️', y: 3.4 });
   }
-
-  // well
+  // NEWS — notice board, inner west
   {
+    const [x, z] = ringSpot(2.6, 12);
     const g = new THREE.Group();
-    g.add(cyl(0.55, 0.5, MAT.stone, 0, 0.25, 0, 12));
-    const waterDisc = new THREE.Mesh(new THREE.CircleGeometry(0.42, 12), lam(C.water));
-    waterDisc.rotation.x = -Math.PI / 2;
-    waterDisc.position.y = 0.51;
-    g.add(waterDisc);
-    g.add(cyl(0.06, 1.0, MAT.timberDark, -0.45, 0.75, 0, 6));
-    g.add(cyl(0.06, 1.0, MAT.timberDark, 0.45, 0.75, 0, 6));
-    const bar = cyl(0.05, 1.0, MAT.timber, 0, 1.2, 0, 6);
-    bar.rotation.z = Math.PI / 2;
-    g.add(bar);
-    g.add(pyramid(1.3, 0.5, 1.0, lam(C.roofSlate), 0, 1.55, 0));
-    register(g, 1.9, 2.9, { name: 'WELL', level: 1, blurb: 'Clean water — the quiet reason the city is still alive.' }, 1.2);
+    g.add(cyl(0.09, 1.8, MAT.timberDark, -0.9, 0.9, 0, 6));
+    g.add(cyl(0.09, 1.8, MAT.timberDark, 0.9, 0.9, 0, 6));
+    g.add(box(2.2, 1.1, 0.12, MAT.timber, 0, 1.25, 0));
+    g.add(box(0.5, 0.4, 0.02, lam(0xe7dcc4), -0.5, 1.3, 0.08));
+    g.add(box(0.5, 0.55, 0.02, lam(0xe7dcc4), 0.35, 1.2, 0.08));
+    g.add(pyramid(2.6, 0.5, 0.6, MAT.roofBrown, 0, 1.95, 0));
+    register(g, x, z, { name: 'NEWS', level: 1, blurb: 'The drama feed, nailed to a board. Fresh headlines at dawn.' }, 2.0, { icon: '📜', y: 2.8 });
   }
-
-  // memorial — a candle for the Marked
+  // LAWS — columned court, inner east
   {
+    const [x, z] = ringSpot(-0.2, 14);
     const g = new THREE.Group();
-    g.add(box(0.9, 0.3, 0.9, MAT.stoneDark, 0, 0.15, 0));
-    g.add(box(0.6, 0.5, 0.6, MAT.stone, 0, 0.55, 0));
-    g.add(cyl(0.1, 0.5, lam(0xe7dcc4), 0, 1.05, 0, 8));
-    g.add(glowCube(0.16, 0, 1.4, 0));
-    register(g, -2.4, 1.5, { name: 'MEMORIAL', level: 1, blurb: 'A candle for every Marked the city saved. It never goes out.' }, 1.0);
+    g.add(box(3.2, 0.4, 2.4, MAT.stoneDark, 0, 0.2, 0));
+    g.add(box(2.8, 1.6, 2.0, MAT.stone, 0, 1.2, 0));
+    for (const px of [-1.2, -0.4, 0.4, 1.2]) g.add(cyl(0.12, 1.6, MAT.plaster, px, 1.2, 1.15, 8));
+    g.add(pyramid(3.6, 1.0, 2.8, MAT.roofSlateDark, 0, 2.5, 0));
+    register(g, x, z, { name: 'LAWS', level: 2, blurb: 'The leading faction writes tomorrow’s law on this floor.' }, 2.8, { icon: '📖', y: 3.6 });
   }
-
-  // campfire plaza (SE) — log ring + fire (the point light lives here)
+  // TRIBUTE — tollhouse at the south gate
   {
+    const [gx, gz] = gates[0]!;
     const g = new THREE.Group();
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2;
-      const log = cyl(0.14, 0.9, MAT.trunk, Math.cos(a) * 1.3, 0.14, Math.sin(a) * 1.3, 6);
-      log.rotation.z = Math.PI / 2;
-      log.rotation.y = a;
-      g.add(log);
-    }
-    g.add(cyl(0.5, 0.12, MAT.stoneDark, 0, 0.06, 0, 10));
-    g.add(glowCube(0.3, 0, 0.35, 0));
-    g.add(glowCube(0.2, 0.15, 0.55, 0.1));
-    register(g, 8.6, -8.4, { name: 'FIRE PIT', level: 1, blurb: 'Stories after dark. The drama feed, but out loud.' }, 1.7);
+    g.add(box(1.8, 1.4, 1.8, MAT.stone, 0, 0.7, 0));
+    g.add(pyramid(2.2, 1.0, 2.2, MAT.roofBrown, 0, 1.9, 0));
+    g.add(box(0.7, 0.5, 0.5, MAT.timberDark, 1.3, 0.25, 0.4));
+    g.add(box(0.5, 0.14, 0.4, lam(C.roofGold), 1.3, 0.57, 0.4));
+    register(g, gx - 2.6, gz - 1.5, { name: 'TRIBUTE', level: 1, blurb: 'Every cart through the gate leaves a little for the city.' }, 2.2, { icon: '💰', y: 2.8 });
   }
-
-  // pier + boat — south, over the water
+  // STATISTICS — survey tower, inner NE
   {
+    const [x, z] = ringSpot(-0.5, 19);
     const g = new THREE.Group();
-    for (let i = 0; i < 5; i++) g.add(box(1.6, 0.12, 0.9, MAT.plank, 0, -0.1, i * 0.95));
-    for (const [px, pz] of [[-0.7, 0.4], [0.7, 0.4], [-0.7, 2.3], [0.7, 2.3], [-0.7, 4.2], [0.7, 4.2]] as const) {
-      g.add(cyl(0.09, 2.4, MAT.timberDark, px, -1.2, pz, 6));
-    }
-    const boat = new THREE.Group();
-    boat.add(box(1.0, 0.35, 2.2, MAT.timberDark, 0, 0, 0));
-    boat.add(box(0.7, 0.25, 1.6, lam(0x8a5a33), 0, 0.15, 0));
-    boat.add(cyl(0.05, 1.4, MAT.timberDark, 0, 0.8, -0.3, 6));
-    const sail = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.9), lam(0xe7dcc4, { side: THREE.DoubleSide }));
-    sail.position.set(0, 0.95, -0.28);
-    boat.add(sail);
-    boat.position.set(1.9, -2.38, 3.2); // hull sits in the water, not above it
-    boat.rotation.y = 0.4;
-    g.add(boat);
-    register(g, 0, 16.4, { name: 'THE PIER', level: 1, blurb: 'Expeditions push off from here into the drowned ruins.' }, 2.4);
+    g.add(box(1.6, 4.2, 1.6, MAT.timber, 0, 2.1, 0));
+    g.add(box(2.2, 0.3, 2.2, MAT.timberDark, 0, 4.35, 0));
+    g.add(box(1.9, 1.0, 1.9, MAT.plaster, 0, 5.0, 0));
+    g.add(pyramid(2.3, 1.1, 2.3, MAT.roofSlateDark, 0, 6.05, 0));
+    g.add(glowCube(0.4, 0, 5.1, 0.98));
+    register(g, x, z, { name: 'STATISTICS', level: 2, blurb: 'Dawns survived, pledges counted — the chronicle keeps score.' }, 2.4, { icon: '📊', y: 7.0 });
   }
 
-  // torches along the road (glow material — bright at night, dead by day)
-  for (const [tx, tz] of [[-1.4, 3.4], [1.4, 3.4], [-1.4, 6.8], [1.4, 6.8], [-1.4, 10.4], [1.4, 10.4]] as const) {
-    scene.add(cyl(0.07, 0.9, MAT.timberDark, tx, 0.45, tz, 6));
-    scene.add(glowCube(0.16, tx, 0.98, tz));
-  }
-
-  // orchard (NW): two rows of round fruit trees
+  // ---------- filler houses along the roads (~80) ----------
   {
-    for (let i = 0; i < 6; i++) {
-      const x = -11 + (i % 3) * 1.9;
-      const z = -9.6 + Math.floor(i / 3) * 2.1;
-      const g = new THREE.Group();
-      g.add(cyl(0.1, 0.5, MAT.trunk, 0, 0.25, 0, 6));
-      const canopy = new THREE.Mesh(new THREE.IcosahedronGeometry(0.65, 1), lam(C.leaf, { flatShading: true }));
-      canopy.position.y = 0.95;
-      canopy.castShadow = true;
-      g.add(canopy);
-      g.position.set(x, 0, z);
-      scene.add(g);
-    }
-  }
-
-  // decorations: tree ring, rocks, flowers, bushes
-  {
-    const clearSpot = (x: number, z: number): boolean => {
-      const spots: [number, number, number][] = [
-        [0, -1, 2.9], [-3.6, 2.6, 1.3], [3.4, 1.8, 1.3], [4.6, -2.6, 1.3], [-4.4, -2.2, 1.3],
-        [2.2, 5.4, 1.3], [7.8, 7.4, 1.3], [-5.4, -8.8, 1.3], [8.6, -3.4, 1.3],
-        [6.6, -5.6, 1.4], [-6.2, -4.6, 1.4], [6.4, 1.6, 1.3], [0, WALL_R, 2.0],
-        [-3.2, 7.0, 1.6], [-7.6, 8.6, 2.2], [2.0, -5.0, 1.4], [1.9, 2.9, 1.2],
-        [-2.4, 1.5, 1.0], [8.6, -8.4, 1.8],
-      ];
-      for (const [sx, sz, sr] of spots) if (Math.hypot(x - sx, z - sz) < sr) return false;
-      if (x >= -9.2 && x <= -4.8 && z >= -0.2 && z <= 3.0) return false; // farm
-      if (Math.abs(x) <= 1.6 && z >= 0) return false; // south road
-      if (Math.abs(z) <= 1.2 && x >= -7 && x <= 0) return false; // west spur
-      if (Math.abs(z + 8.4) <= 1.2 && x >= 2 && x <= 8.6) return false; // plaza spur
-      if (Math.abs(x) <= 1.4 && z >= 1.0 && z <= 12.4) return false; // route: road patrol
-      if (x >= -6.0 && x <= -0.6 && z >= -2.2 && z <= 1.0) return false; // route: west loop
-      if (x >= 1.8 && x <= 6.0 && z >= 0.2 && z <= 4.2) return false; // route: east loop
-      if (x >= -8.2 && x <= -3.4 && z >= 4.2 && z <= 7.0) return false; // pasture
-      if (x >= -12.2 && x <= -6.4 && z >= -10.4 && z <= -6.8) return false; // orchard (3 columns to x=-7.2)
-      return true;
-    };
-    const tree = (x: number, z: number, pine: boolean) => {
-      const g = new THREE.Group();
-      const s = 0.8 + rng() * 0.5;
-      g.add(cyl(0.12 * s, 0.5 * s, MAT.trunk, 0, 0.25 * s, 0, 6));
-      if (pine) {
-        const m1 = new THREE.Mesh(new THREE.ConeGeometry(0.62 * s, 1.0 * s, 7), lam(C.leafDark));
-        m1.position.y = 0.9 * s; m1.castShadow = true; g.add(m1);
-        const m2 = new THREE.Mesh(new THREE.ConeGeometry(0.45 * s, 0.8 * s, 7), lam(C.leaf));
-        m2.position.y = 1.45 * s; m2.castShadow = true; g.add(m2);
-      } else {
-        const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62 * s, 1), lam(C.leaf, { flatShading: true }));
-        m.position.y = 0.95 * s; m.castShadow = true; g.add(m);
-      }
-      g.position.set(x, 0, z);
-      scene.add(g);
-    };
-    for (let i = 0; i < 44; i++) {
-      const a = (i / 44) * Math.PI * 2 + rng() * 0.2;
-      const r = 14.2 + rng() * 1.2;
-      const x = Math.cos(a) * r;
-      const z = Math.sin(a) * r;
-      if (Math.abs(x) < 2.6 && z > 11) continue; // gate + pier corridor
-      if (Math.max(Math.abs(x), Math.abs(z)) > HALF - 0.8) continue;
-      if (TOWERS.some(([tx, tz]) => Math.hypot(x - tx, z - tz) < 2.2)) continue;
-      tree(x, z, rng() > 0.45);
-    }
-    for (let i = 0; i < 10; i++) {
-      const x = (rng() * 2 - 1) * 11.5;
-      const z = (rng() * 2 - 1) * 11.5;
-      if (!clearSpot(x, z) || Math.hypot(x, z) < 5.5) continue;
-      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3 + rng() * 0.3, 0), lam(C.rock, { flatShading: true }));
-      rock.position.set(x, 0.2, z);
-      rock.rotation.set(rng() * 3, rng() * 3, rng() * 3);
-      rock.castShadow = true;
-      scene.add(rock);
-    }
-    const flowerGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
-    const flowerMats = [lam(0xe86a6a), lam(0xe8c34a), lam(0xffffff)];
     let placed = 0;
-    for (let tries = 0; tries < 140 && placed < 24; tries++) {
-      const r = Math.sqrt(rng()) * 11.5;
+    const candidates: [number, number, number][] = [];
+    for (const road of roads) {
+      for (let i = 0; i < road.length - 1; i++) {
+        const [x1, z1] = road[i]!;
+        const [x2, z2] = road[i + 1]!;
+        const len = Math.hypot(x2 - x1, z2 - z1);
+        const steps = Math.max(1, Math.floor(len / 2.4));
+        for (let s = 0; s < steps; s++) {
+          const t = (s + 0.5) / steps;
+          const x = x1 + (x2 - x1) * t;
+          const z = z1 + (z2 - z1) * t;
+          const nx = -(z2 - z1) / len;
+          const nz = (x2 - x1) / len;
+          for (const side of [1, -1]) {
+            const off = 3.0 + rng() * 1.3; // clear of the 1-tile road half-width + check radius
+            const hx = x + nx * off * side;
+            const hz = z + nz * off * side;
+            const facing = Math.atan2(x - hx, z - hz); // door toward the road
+            candidates.push([hx, hz, facing]);
+          }
+        }
+      }
+    }
+    // interior in-fill blocks (the reference town is dense between roads too)
+    for (let i = 0; i < 90; i++) {
       const a = rng() * Math.PI * 2;
-      const x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (!clearSpot(x, z)) continue;
-      const f = new THREE.Mesh(flowerGeo, flowerMats[Math.floor(rng() * 3)]!);
-      f.position.set(x, 0.08, z);
-      scene.add(f);
+      const r = 8 + Math.sqrt(rng()) * 26;
+      candidates.push([Math.cos(a) * r, Math.sin(a) * r, rng() * Math.PI * 2]);
+    }
+    // shuffle-ish deterministic order
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j]!, candidates[i]!];
+    }
+    for (const [hx, hz, facing] of candidates) {
+      if (placed >= 96) break;
+      if (!insidePlateau(hx, hz, 8)) continue;
+      // r=1 (3×3 tiles) fits the ~2-unit house footprint without swallowing the
+      // roadside strip; occupy() below still reserves 5×5 so houses keep gaps.
+      if (!isFree(hx, hz, 1)) continue;
+      house(hx, hz, facing, rng() > 0.8);
       placed++;
     }
-    let bushes = 0;
-    for (let tries = 0; tries < 90 && bushes < 10; tries++) {
-      const r = Math.sqrt(rng()) * 11.5;
-      const a = rng() * Math.PI * 2;
-      const x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (!clearSpot(x, z)) continue;
-      const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 0), lam(C.leaf, { flatShading: true }));
-      b.position.set(x, 0.2, z);
-      b.castShadow = true;
-      scene.add(b);
-      bushes++;
+  }
+
+  // ---------- palisade wall (instanced log posts along the plateau, inset) ----------
+  {
+    const posts: [number, number][] = [];
+    const N = 560;
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      const r = plateauR(a) - 2.6;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      // gate gaps
+      if (GATE_ANGLES.some((ga) => {
+        const d = Math.atan2(Math.sin(a - ga), Math.cos(a - ga));
+        return Math.abs(d) < 0.055;
+      })) continue;
+      posts.push([x, z]);
+    }
+    const postGeo = new THREE.CylinderGeometry(0.28, 0.34, 3.1, 6);
+    const inst = new THREE.InstancedMesh(postGeo, lam(C.timberDark), posts.length);
+    inst.castShadow = true;
+    const m4 = new THREE.Matrix4();
+    posts.forEach(([x, z], i) => {
+      m4.makeScale(1, 0.88 + ((i * 37) % 10) / 34, 1);
+      m4.setPosition(x, 1.45, z);
+      inst.setMatrixAt(i, m4);
+    });
+    scene.add(inst);
+    // gate towers
+    for (const ga of GATE_ANGLES) {
+      const r = plateauR(ga) - 2.6;
+      for (const side of [-0.09, 0.09]) {
+        const a = ga + side;
+        const g = new THREE.Group();
+        g.add(box(1.4, 3.4, 1.4, MAT.timberDark, 0, 1.7, 0));
+        g.add(pyramid(1.8, 1.0, 1.8, MAT.roofBrown, 0, 3.9, 0));
+        g.add(glowCube(0.3, 0, 3.0, 0.74));
+        g.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+        scene.add(g);
+      }
     }
   }
 
-  // ---------- characters (dynamic population) ----------
+  // ---------- forest (instanced pines: between wall and cliffs + sprinkled inside) ----------
+  {
+    const spots: [number, number, number][] = [];
+    for (let i = 0; i < 900; i++) {
+      const a = rng() * Math.PI * 2;
+      const edge = plateauR(a);
+      const r = edge - 2.2 + rng() * 1.6; // just outside the palisade
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      if (!insidePlateau(x, z, 0.5)) continue;
+      if (GATE_ANGLES.some((ga) => Math.abs(Math.atan2(Math.sin(a - ga), Math.cos(a - ga))) < 0.09)) continue;
+      spots.push([x, z, 0.8 + rng() * 0.9]);
+      if (spots.length >= 300) break;
+    }
+    for (let i = 0; i < 700 && spots.length < 440; i++) {
+      const a = rng() * Math.PI * 2;
+      const r = Math.sqrt(rng()) * 40;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      if (!isFree(x, z, 1) || !insidePlateau(x, z, 6)) continue;
+      spots.push([x, z, 0.7 + rng() * 0.8]);
+    }
+    const trunkGeo = new THREE.CylinderGeometry(0.12, 0.16, 0.7, 5);
+    const canopyGeo = new THREE.ConeGeometry(0.75, 2.0, 7);
+    const trunks = new THREE.InstancedMesh(trunkGeo, MAT.trunk, spots.length);
+    const canopies = new THREE.InstancedMesh(canopyGeo, lam(0xffffff, { flatShading: true }), spots.length);
+    canopies.castShadow = true;
+    const m4 = new THREE.Matrix4();
+    const col = new THREE.Color();
+    spots.forEach(([x, z, s], i) => {
+      m4.makeScale(s, s, s);
+      m4.setPosition(x, 0.35 * s, z);
+      trunks.setMatrixAt(i, m4);
+      m4.makeScale(s, s, s);
+      m4.setPosition(x, (0.7 + 1.0) * s, z);
+      canopies.setMatrixAt(i, m4);
+      col.setHex(rng() > 0.5 ? C.leaf : C.leafDark);
+      canopies.setColorAt(i, col);
+    });
+    scene.add(trunks, canopies);
+  }
+
+  // ---------- characters ----------
   type Actor = { obj: THREE.Object3D; mixer: THREE.AnimationMixer; walker?: (dt: number) => void };
   const actors = new Set<Actor>();
   const orbiters = new Map<CompanionKind, { actor: Actor; radius: number; height: number; speed: number; phase: number }>();
@@ -742,12 +868,11 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     return root;
   }
   const humanize = (root: THREE.Object3D) => {
-    root.scale.setScalar(0.92); // Soldier.glb is authored human-scale (skinned Box3 lies)
+    root.scale.setScalar(0.92); // Soldier.glb is human-scale (skinned Box3 lies)
     root.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
     });
   };
-
   function makeWalker(obj: THREE.Object3D, points: [number, number][], speed: number) {
     let seg = 0;
     let t = 0;
@@ -766,30 +891,40 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     };
   }
 
-  // six villager routes across the larger town
-  const ROUTES: { pts: [number, number][]; speed: number }[] = [
-    { pts: [[0.8, 8.5], [0.8, 1.6], [-0.8, 1.6], [-0.8, 8.5]], speed: 1.5 },
-    { pts: [[-1.2, 0.4], [-5.4, 0.4], [-5.4, -1.6], [-1.2, -1.6]], speed: 1.2 },
-    { pts: [[2.4, 0.8], [5.4, 0.8], [5.4, 3.6], [2.4, 3.6]], speed: 1.35 },
-    { pts: [[0.8, 12.2], [0.8, 9.6], [-0.8, 9.6], [-0.8, 12.2]], speed: 1.1 },
-    { pts: [[2.6, -7.9], [6.6, -7.9], [6.6, -9.0], [2.6, -9.0]], speed: 1.3 }, // stops short of the fire-pit logs
-    { pts: [[-9.4, -2.4], [-11.4, -2.4], [-11.4, -5.6], [-9.4, -5.6]], speed: 1.05 },
-  ];
+  // villager routes: real road polylines (gate roads walked out-and-back, ring arcs)
+  const ROUTES: { pts: [number, number][]; speed: number }[] = [];
+  for (const road of roads.slice(0, 3)) {
+    const there = road.slice(0, Math.max(2, road.length - 2)); // stop short of the gate
+    const back = [...there].reverse().slice(1, -1);
+    ROUTES.push({ pts: [...there, ...back] as [number, number][], speed: 1.35 + rng() * 0.3 });
+  }
+  {
+    const ring = roads[3]!;
+    const third = Math.floor(ring.length / 3);
+    for (let i = 0; i < 3; i++) {
+      const arc = ring.slice(i * third, (i + 1) * third + 1);
+      const back = [...arc].reverse().slice(1, -1);
+      ROUTES.push({ pts: [...arc, ...back] as [number, number][], speed: 1.15 + rng() * 0.3 });
+    }
+  }
+  ROUTES.push({ pts: [[3, 3], [3, -3], [-3, -3], [-3, 3]], speed: 1.2 }); // plaza stroll
+  ROUTES.push({ pts: roads[4]!.concat([...roads[4]!].reverse().slice(1, -1)) as [number, number][], speed: 1.25 });
+
   const villagers: Actor[] = [];
   let guard: Actor | null = null;
-  let wantedVillagers = 3;
+  let wantedVillagers = 4;
 
   async function syncVillagers() {
     const gltf = await loadGlb('Soldier.glb');
     if (disposed) return;
     const clips = gltf.animations;
     const clip = (re: RegExp, fb: number) => clips.find((c) => re.test(c.name)) ?? clips[fb]!;
-    // the gate guard exists whenever there is at least one villager
     if (wantedVillagers > 0 && !guard) {
+      const [gx, gz] = gates[0]!;
       const g = SkeletonUtils.clone(gltf.scene);
       humanize(g);
-      g.position.set(2.4, 0, 12.6);
-      g.rotation.y = -Math.PI / 2;
+      g.position.set(gx + 1.6, 0, gz - 0.6);
+      g.rotation.y = Math.atan2(-gx, -gz);
       scene.add(g);
       const mixer = new THREE.AnimationMixer(g);
       mixer.clipAction(clip(/idle/i, 0)).play();
@@ -822,13 +957,12 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
 
   const COMPANIONS: Record<CompanionKind, { file: string; size: number; orbit?: [number, number, number, number] }> = {
     horse: { file: 'Horse.glb', size: 2.1 },
-    flamingo: { file: 'Flamingo.glb', size: 1.4, orbit: [6.4, 7.2, 0.28, 0] },
-    parrot: { file: 'Parrot.glb', size: 1.4, orbit: [4.6, 6.2, 0.38, 2.2] },
-    stork: { file: 'Stork.glb', size: 1.4, orbit: [9.0, 8.4, 0.22, 4.1] },
+    flamingo: { file: 'Flamingo.glb', size: 1.5, orbit: [20, 13, 0.2, 0] },
+    parrot: { file: 'Parrot.glb', size: 1.5, orbit: [14, 11, 0.27, 2.2] },
+    stork: { file: 'Stork.glb', size: 1.5, orbit: [27, 15, 0.16, 4.1] },
   };
   const companions = new Map<CompanionKind, Actor>();
-
-  async function setCompanion(kind: CompanionKind, on: boolean) {
+  async function setCompanionImpl(kind: CompanionKind, on: boolean) {
     if (!on) {
       const actor = companions.get(kind);
       if (actor) {
@@ -850,7 +984,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     if (gltf.animations[0]) mixer.clipAction(gltf.animations[0]).play();
     const actor: Actor = { obj, mixer };
     if (kind === 'horse') {
-      actor.walker = makeWalker(obj, [[-7.6, 4.6], [-4.9, 4.7], [-5.4, 6.4], [-7.2, 6.4]], 1.1);
+      // paddock by the PRODUCTION fields (west ring)
+      const [px, pz] = ringSpot(3.3, 26);
+      actor.walker = makeWalker(obj, [[px - 1, pz - 5.4], [px + 3.6, pz - 5.0], [px + 4.2, pz - 7.4], [px - 0.4, pz - 7.6]], 1.1);
     } else if (def.orbit) {
       orbiters.set(kind, { actor, radius: def.orbit[0], height: def.orbit[1], speed: def.orbit[2], phase: def.orbit[3] });
     }
@@ -858,12 +994,11 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     actors.add(actor);
   }
 
-  // defaults: 3 villagers + guard, horse, all three birds
   void syncVillagers();
-  void setCompanion('horse', true);
-  void setCompanion('flamingo', true);
-  void setCompanion('parrot', true);
-  void setCompanion('stork', true);
+  void setCompanionImpl('horse', true);
+  void setCompanionImpl('flamingo', true);
+  void setCompanionImpl('parrot', true);
+  void setCompanionImpl('stork', true);
 
   // ---------- hover / select ----------
   const ray = new THREE.Raycaster();
@@ -882,17 +1017,22 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     const hit = ray.intersectObjects(interactables, true)[0];
     return hit ? rootOf(hit.object) : null;
   };
-  const setRing = (group: THREE.Group | null, on: boolean) => {
+  const setRingVis = (group: THREE.Group | null, on: boolean) => {
     const ring = group?.userData.ring as THREE.Mesh | undefined;
     if (ring) ring.visible = on;
   };
+  function setSelected(g: THREE.Group | null) {
+    if (selected && selected !== g) setRingVis(selected, false);
+    selected = g;
+    if (g) setRingVis(g, true);
+  }
   const onMove = (e: PointerEvent) => {
     if (e.pointerType !== 'mouse') return;
     const g = pick(e.clientX, e.clientY);
     if (g !== hovered) {
-      if (hovered !== selected) setRing(hovered, false);
+      if (hovered !== selected) setRingVis(hovered, false);
       hovered = g;
-      if (hovered) setRing(hovered, true);
+      if (hovered) setRingVis(hovered, true);
       renderer.domElement.style.cursor = hovered ? 'pointer' : 'grab';
     }
   };
@@ -904,10 +1044,8 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     downAt = null;
     if (moved > 8) return;
     const g = pick(e.clientX, e.clientY);
-    if (selected && selected !== g) setRing(selected, false);
-    selected = g;
+    setSelected(g);
     if (g) {
-      setRing(g, true);
       const { name, level, blurb } = g.userData as BuildingMeta;
       hooks.onSelect({ name, level, blurb });
     } else {
@@ -920,6 +1058,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
 
   // ---------- main loop ----------
   const clock = new THREE.Clock();
+  const flagged = interactables.find((g) => g.userData.flag);
   const tick = () => {
     const dt = Math.min(clock.getDelta(), 0.1);
     const t = clock.elapsedTime;
@@ -931,14 +1070,14 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     }
     for (const [, o] of orbiters) {
       const a = t * o.speed + o.phase;
-      o.actor.obj.position.set(Math.cos(a) * o.radius, o.height + Math.sin(t * 1.7 + o.phase) * 0.4, Math.sin(a) * o.radius);
+      o.actor.obj.position.set(Math.cos(a) * o.radius, o.height + Math.sin(t * 1.7 + o.phase) * 0.6, Math.sin(a) * o.radius);
       o.actor.obj.rotation.y = -a;
     }
-    if (flag) flag.rotation.y = Math.sin(t * 2.4) * 0.35;
-    if (rotor) rotor.rotation.z = t * 2.2;
-    // fire flicker rides on top of the lerped base intensity
+    if (flagged) (flagged.userData.flag as THREE.Mesh).rotation.y = Math.sin(t * 2.4) * 0.35;
+    if (rotor) rotor.rotation.z = t * 1.6;
     fireLight.intensity = Math.max(0, env.campfire + Math.sin(t * 9.3) * env.campfire * 0.25 + Math.sin(t * 23.7) * env.campfire * 0.12);
     renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
   };
   renderer.setAnimationLoop(tick);
 
@@ -951,7 +1090,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       void syncVillagers();
     },
     setCompanion: (kind, on) => {
-      void setCompanion(kind, on);
+      void setCompanionImpl(kind, on);
     },
     pause: () => renderer.setAnimationLoop(null),
     resume: () => renderer.setAnimationLoop(tick),
@@ -975,6 +1114,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();
+      labelRenderer.domElement.remove();
     },
   };
 
