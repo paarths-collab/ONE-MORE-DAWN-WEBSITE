@@ -46,6 +46,8 @@ export type VillageHandle = {
   focusOn: (name: string) => void;
   /** Toggle raid-watch ambience: red glow beyond the south gate + tinted sky. */
   setRaidWatch: (on: boolean) => void;
+  /** Toggle the visible raiding party: 5 dark-tinted soldiers pacing at the main gate. */
+  setRaiders: (on: boolean) => void;
   /** One-shot vigil light-pillar pulse at the RELIGION district (retriggerable). */
   pulseMarked: () => void;
   /** Speech-bubble a line (5s) over a random villager — or the gate guard if none walk. */
@@ -939,7 +941,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     scene.add(trunks, canopies);
   }
 
-  // ---------- ambient / game-event visuals (raid light, vigil pillar, smoke, idle cam) ----------
+  // ---------- ambient / game-event visuals (raid light, vigil pillar, smoke) ----------
   // raid watch: something red gathers beyond the wall, outside the south gate
   const raidLight = new THREE.PointLight(0xff3a26, 0, 60);
   {
@@ -979,10 +981,6 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     new THREE.PointsMaterial({ color: 0x9a9a92, size: 0.5, transparent: true, opacity: 0.4, depthWrite: false }),
   );
   scene.add(smoke);
-
-  // idle cinematic: after 18s without input the camera drifts around the target
-  let lastInteract = Date.now();
-  const idleOffset = new THREE.Vector3();
 
   // ---------- characters ----------
   type Actor = {
@@ -1182,6 +1180,77 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     actors.add(actor);
   }
 
+  // ---------- raiders (visible war party menacing the main gate) ----------
+  // Same async toggle shape as setCompanionImpl. Positions use plain Math.random
+  // on purpose — runtime activity, not layout — so the seeded town stays intact.
+  let raidersOn = false;
+  const raiderActors: Actor[] = [];
+  const raiderMats: THREE.Material[] = [];
+  const raiderTorches: THREE.PointLight[] = [];
+  const raiderTintCol = new THREE.Color(0x8a1f12);
+  function clearRaiders() {
+    for (const a of raiderActors) {
+      scene.remove(a.obj);
+      actors.delete(a);
+    }
+    raiderActors.length = 0;
+    for (const m of raiderMats) m.dispose();
+    raiderMats.length = 0;
+    for (const l of raiderTorches) scene.remove(l);
+    raiderTorches.length = 0;
+  }
+  async function setRaidersImpl(on: boolean) {
+    raidersOn = on;
+    if (!on) {
+      clearRaiders();
+      return;
+    }
+    if (raiderActors.length > 0) return;
+    const gltf = await loadGlb('Soldier.glb');
+    if (disposed || !raidersOn || raiderActors.length > 0) return;
+    const walkClip = gltf.animations.find((c) => /walk/i.test(c.name)) ?? gltf.animations[3]!;
+    const [gx, gz] = gates[0]!;
+    const out = new THREE.Vector3(gx, 0, gz).normalize(); // gate → wilderness
+    for (let i = 0; i < 5; i++) {
+      const r = SkeletonUtils.clone(gltf.scene);
+      humanize(r);
+      // dark blood-red silhouettes: clone + darken every mesh material
+      r.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
+        mat.color.multiplyScalar(0.35);
+        mat.color.lerp(raiderTintCol, 0.45);
+        mesh.material = mat;
+        raiderMats.push(mat);
+      });
+      const dist = 6 + Math.random() * 8; // 6..14 beyond the gate
+      const jitter = (Math.random() - 0.5) * 6; // ±3 lateral
+      const px = gx + out.x * dist - out.z * jitter;
+      const pz = gz + out.z * dist + out.x * jitter;
+      r.position.set(px, 0, pz);
+      scene.add(r);
+      const mixer = new THREE.AnimationMixer(r);
+      mixer.clipAction(walkClip).play();
+      const actor: Actor = {
+        obj: r,
+        mixer,
+        // menacing pace: scatter spot ↔ ~4 units toward the gate (makeWalker loops)
+        walker: makeWalker(r, [[px, pz], [px - out.x * 4, pz - out.z * 4]], 0.9 + Math.random() * 0.4),
+      };
+      raiderActors.push(actor);
+      actors.add(actor); // mixers/walkers tick with everyone else
+    }
+    // two torches among the party (flickered in tick while raiders are out)
+    for (const idx of [1, 3] as const) {
+      const at = raiderActors[idx]!.obj.position;
+      const torch = new THREE.PointLight(0xff6a2a, 30, 18, 2);
+      torch.position.set(at.x, 2, at.z);
+      scene.add(torch);
+      raiderTorches.push(torch);
+    }
+  }
+
   void syncVillagers();
   void setCompanionImpl('horse', true);
   void setCompanionImpl('flamingo', true);
@@ -1306,8 +1375,6 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   // like focusOn but at a bare ground point (minimap tap on empty land): same
   // azimuth-preserving fly, no selection/onSelect since there's no building here
   function focusPoint(x: number, z: number) {
-    fly = null; // starting a fresh fly also cancels idle-drift (Date.now bump below)
-    lastInteract = Date.now();
     const tgt = new THREE.Vector3(x, 1.2, z);
     const dir = camera.position.clone().sub(controls.target);
     dir.y = 0;
@@ -1519,7 +1586,6 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   let downAt: [number, number] | null = null;
   const onDown = (e: PointerEvent) => {
     fly = null; // grabbing the camera cancels any dashboard fly-to
-    lastInteract = Date.now();
     downAt = [e.clientX, e.clientY];
   };
   const onUp = (e: PointerEvent) => {
@@ -1558,10 +1624,6 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   renderer.domElement.addEventListener('pointermove', onMove);
   renderer.domElement.addEventListener('pointerdown', onDown);
   renderer.domElement.addEventListener('pointerup', onUp);
-  const onWheel = () => {
-    lastInteract = Date.now();
-  };
-  renderer.domElement.addEventListener('wheel', onWheel, { passive: true });
 
   // ---------- main loop ----------
   const clock = new THREE.Clock();
@@ -1574,18 +1636,6 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       controls.target.lerp(fly.tgt, k);
       camera.position.lerp(fly.pos, k);
       if (camera.position.distanceTo(fly.pos) < 0.4) fly = null;
-    }
-    // idle cinematic: slow orbit around the target after 18s of no input
-    if (!fly && Date.now() - lastInteract > 18000) {
-      idleOffset.copy(camera.position).sub(controls.target);
-      const ia = dt * 0.03;
-      const ic = Math.cos(ia);
-      const isn = Math.sin(ia);
-      const ox = idleOffset.x;
-      const oz = idleOffset.z;
-      idleOffset.x = ox * ic - oz * isn;
-      idleOffset.z = ox * isn + oz * ic;
-      camera.position.copy(controls.target).add(idleOffset);
     }
     controls.update();
     lerpEnv(dt);
@@ -1627,6 +1677,11 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       glowMat.color.multiplyScalar(1 + 0.15 * Math.sin(t * 7) * raidTint);
     } else {
       raidLight.intensity = 0;
+    }
+    // raider torches: fast firelight flicker while the war party is out
+    if (raidersOn && raiderTorches.length > 0) {
+      const torchInt = 30 + Math.sin(t * 11) * 8 + Math.sin(t * 23) * 4;
+      for (const torch of raiderTorches) torch.intensity = torchInt;
     }
     // vigil pillar: one-shot fade + gentle vertical stretch
     if (markedPulseT >= 0) {
@@ -1685,6 +1740,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     setRaidWatch: (on) => {
       raidOn = on;
     },
+    setRaiders: (on) => {
+      void setRaidersImpl(on);
+    },
     pulseMarked: () => {
       markedPulseT = 0; // restart the vigil pulse (retriggerable)
     },
@@ -1704,6 +1762,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       disposed = true;
       renderer.setAnimationLoop(null);
       window.clearInterval(chatTimer);
+      clearRaiders(); // drops cloned raider materials before the scene sweep
       for (const t of ownerTimers) window.clearTimeout(t);
       ownerTimers.clear();
       for (const a of actors) {
@@ -1715,7 +1774,6 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       renderer.domElement.removeEventListener('pointermove', onMove);
       renderer.domElement.removeEventListener('pointerdown', onDown);
       renderer.domElement.removeEventListener('pointerup', onUp);
-      renderer.domElement.removeEventListener('wheel', onWheel);
       controls.dispose();
       scene.traverse((o) => {
         const mesh = o as THREE.Mesh;

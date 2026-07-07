@@ -47,12 +47,12 @@ type MapView = { cx: number; cz: number; tx: number; tz: number; fov: number };
 // WORLD map — fabricated network of rival subreddit-cities (not wired to Reddit).
 type WorldStatus = 'thriving' | 'holding' | 'strained' | 'under_raid' | 'fallen';
 const WORLD_CITIES: { id: string; name: string; status: WorldStatus; x: number; y: number }[] = [
-  { id: 'you', name: 'YOUR CITY', status: 'holding', x: 50, y: 50 },
-  { id: 'ironhollow', name: 'r/ironhollow', status: 'thriving', x: 22, y: 26 },
-  { id: 'ashfall', name: 'r/ashfall', status: 'under_raid', x: 80, y: 30 },
-  { id: 'deepwater', name: 'r/deepwater', status: 'fallen', x: 78, y: 76 },
-  { id: 'saltmere', name: 'r/saltmere', status: 'holding', x: 20, y: 72 },
-  { id: 'thornwick', name: 'r/thornwick', status: 'strained', x: 52, y: 14 },
+  { id: 'you', name: 'YOUR CITY', status: 'holding', x: 52, y: 54 },
+  { id: 'ironhollow', name: 'r/ironhollow', status: 'thriving', x: 28, y: 32 },
+  { id: 'ashfall', name: 'r/ashfall', status: 'under_raid', x: 78, y: 32 },
+  { id: 'deepwater', name: 'r/deepwater', status: 'fallen', x: 72, y: 78 },
+  { id: 'saltmere', name: 'r/saltmere', status: 'holding', x: 30, y: 72 },
+  { id: 'thornwick', name: 'r/thornwick', status: 'strained', x: 62, y: 17 },
 ];
 const WORLD_STATUS: Record<WorldStatus, { icon: string; label: string; color: string; flavor: string }> = {
   thriving: { icon: '🌿', label: 'Thriving', color: '#7fd6a2', flavor: 'Holding the line — and then some.' },
@@ -61,6 +61,65 @@ const WORLD_STATUS: Record<WorldStatus, { icon: string; label: string; color: st
   under_raid: { icon: '🚨', label: 'Under raid', color: '#ff5b4d', flavor: 'The wall decides tonight.' },
   fallen: { icon: '💀', label: 'Fallen', color: '#6b7089', flavor: 'The lights went out.' },
 };
+
+// ---- WORLD map terrain (all static, hand-drawn coordinates; nothing moves) ----
+// one big continent with bays and peninsulas — every city sits on this landmass
+const WM_LAND =
+  'M 30 8 Q 44 4.5 55 10 Q 68 7 78 14 Q 90 18 88 30 Q 84 38 91 46 Q 94 56 86 62 ' +
+  'Q 81 66 85 74 Q 88 84 76 89 Q 66 93 56 87 Q 48 91 40 86 Q 28 89 22 78 ' +
+  'Q 15 72 19 62 Q 25 56 18 50 Q 12 44 17 34 Q 13 24 22 17 Q 25 11 30 8 Z';
+const WM_ISLES = [
+  'M 6 22 Q 10 18.5 13 22 Q 14.5 26 10 27.5 Q 5.5 26.5 6 22 Z',
+  'M 90 84 Q 94 81 97 85 Q 96.5 89.5 92 89.5 Q 88.5 87 90 84 Z',
+];
+// mountain range — an arc of peaks between r/ironhollow and r/thornwick
+const WM_MTNS: { x: number; y: number; s: number }[] = [
+  { x: 35, y: 26, s: 0.9 },
+  { x: 39, y: 23.5, s: 1.1 },
+  { x: 43, y: 21.5, s: 1.3 },
+  { x: 47.5, y: 20.5, s: 1.15 },
+  { x: 52, y: 21, s: 1.0 },
+  { x: 56, y: 23, s: 0.85 },
+];
+// mountain glyph: triangle body + a small snow-cap stroke near the peak
+const mtnPath = (x: number, y: number, s: number): string =>
+  `M ${x - 1.7 * s} ${y} L ${x} ${y - 3.1 * s} L ${x + 1.7 * s} ${y} Z ` +
+  `M ${x - 0.55 * s} ${y - 2 * s} L ${x} ${y - 3.1 * s} L ${x + 0.55 * s} ${y - 2 * s}`;
+// forest groves — three clusters of canopy circles
+const WM_TREES: [number, number][] = [
+  [36, 62], [38.6, 64.2], [34.2, 65], // southwest grove
+  [65, 51], [67.6, 53.2], [63.4, 54.4], // eastern grove
+  [55, 82], [57.8, 80.4], // southern grove
+];
+// river — from the high peaks down to the western bay
+const WM_RIVER = 'M 46 22 Q 42 30 36 34 Q 28 40 23 44 Q 19 46.5 17 49';
+// curved trade routes: YOUR CITY → each rival (quadratic arcs, hand-tuned)
+const WM_ROUTES: Record<string, string> = {
+  ironhollow: 'M 52 54 Q 36 45 28 32',
+  ashfall: 'M 52 54 Q 68 46 78 32',
+  deepwater: 'M 52 54 Q 64 65 72 78',
+  saltmere: 'M 52 54 Q 40 61 30 72',
+  thornwick: 'M 52 54 Q 60 36 62 17',
+};
+// city wall for YOUR CITY — an octagon around the hut cluster
+const octPath = (cx: number, cy: number, r: number): string =>
+  Array.from({ length: 8 }, (_, i) => {
+    const a = (Math.PI / 4) * i - Math.PI / 8;
+    return `${i === 0 ? 'M' : 'L'} ${(cx + Math.cos(a) * r).toFixed(2)} ${(cy + Math.sin(a) * r).toFixed(2)}`;
+  }).join(' ') + ' Z';
+// hut cluster offsets (relative to the city anchor)
+const WM_HUTS_SMALL: [number, number][] = [
+  [-1.7, 0.4],
+  [0.4, -0.9],
+  [1.5, 1.0],
+];
+const WM_HUTS_BIG: [number, number][] = [
+  [-2.4, 0.6],
+  [-0.2, -1.5],
+  [2.2, -0.3],
+  [-1.0, 2.0],
+  [1.7, 1.8],
+];
 
 // ---------- LIVE tab demo data (copied from the game's mock fixtures in
 // src/client/game/api.ts + src/client/react/defs.ts — this prototype is not
@@ -71,6 +130,8 @@ type PlanId = 'prepare_raid' | 'stockpile_food' | 'repair_power';
 type LiveEvent = { icon: string; text: string; key: number };
 type TalkMsg = { who: string; text: string; you?: boolean; key: number };
 type RaidPhase = 'idle' | 'incoming' | 'held' | 'breach';
+// one resolved raid, newest first — the losses recorded are the ones applied
+type RaidLogEntry = { day: number; outcome: 'held' | 'breach'; souls: number; food: number; defense: number; key: number };
 type NotifTone = 'good' | 'bad' | undefined;
 type Notif = { icon: string; text: string; tone: NotifTone; key: number };
 
@@ -553,35 +614,80 @@ function MiniMap({
 }
 
 // ---------- MAP tab: world map of rival subreddit-cities ----------
+// A parchment-style terrain map: sea → continent → mountains/forests/river →
+// curved trade routes → hut-cluster settlements with status flags. All static.
 function WorldMap({ youStatus }: { youStatus: WorldStatus }) {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const cities = WORLD_CITIES.map((c) => (c.id === 'you' ? { ...c, status: youStatus } : c));
-  const you = cities[0]!;
   const sel = cities.find((c) => c.id === selectedCity) ?? null;
   return (
     <div className="wm">
       <svg className="wm-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        {/* sea + landmass */}
+        <rect className="wm-sea" x={0} y={0} width={100} height={100} />
+        <path className="wm-land" d={WM_LAND} />
+        {WM_ISLES.map((d, i) => (
+          <path key={`isle${i}`} className="wm-isle" d={d} />
+        ))}
+        {/* terrain: river under the mountains, forests as canopy circles */}
+        <path className="wm-river" d={WM_RIVER} fill="none" />
+        {WM_MTNS.map((m, i) => (
+          <path key={`mtn${i}`} className="wm-mtn" d={mtnPath(m.x, m.y, m.s)} />
+        ))}
+        {WM_TREES.map(([tx, ty], i) => (
+          <circle key={`tree${i}`} className="wm-tree" cx={tx} cy={ty} r={1.2} />
+        ))}
+        {/* curved trade routes: YOUR CITY → each rival */}
         {cities
           .filter((c) => c.id !== 'you')
           .map((c) => (
-            <line key={`l${c.id}`} className="wm-link" x1={you.x} y1={you.y} x2={c.x} y2={c.y} />
+            <path key={`l${c.id}`} className="wm-link" d={WM_ROUTES[c.id] ?? ''} fill="none" />
           ))}
+        {/* settlements: hut clusters + status flag + name */}
         {cities.map((c) => {
           const st = WORLD_STATUS[c.status];
           const isYou = c.id === 'you';
+          const huts = isYou ? WM_HUTS_BIG : WM_HUTS_SMALL;
+          const s = isYou ? 1.15 : 1; // your city builds a little bigger
+          const w = 1.6 * s;
+          const h = 1.2 * s;
+          const poleX = c.x + (isYou ? 3.6 : 2.7);
+          const poleTop = c.y - (isYou ? 3.2 : 2.4);
           return (
-            <g key={c.id} className={isYou ? 'wm-node you' : 'wm-node'} onClick={() => setSelectedCity(c.id)}>
-              {isYou && <circle cx={c.x} cy={c.y} r={7} fill="none" stroke="#ffcf70" strokeWidth={0.8} />}
-              <circle cx={c.x} cy={c.y} r={isYou ? 5 : 3.5} fill={st.color} />
-              <text className="wm-name" x={c.x} y={c.y + (isYou ? 9 : 7)} fontSize={3.4} textAnchor="middle">
+            <g key={c.id} className={isYou ? 'wm-city you' : 'wm-city'} onClick={() => setSelectedCity(c.id)}>
+              {/* generous invisible hit target */}
+              <circle cx={c.x} cy={c.y} r={6} fill="transparent" />
+              {isYou && <circle className="wm-ring" cx={c.x} cy={c.y} r={5.6} fill="none" />}
+              {isYou && <path className="wm-wall" d={octPath(c.x, c.y, 4.6)} fill="none" />}
+              {huts.map(([dx, dy], i) => {
+                const hx = c.x + dx;
+                const hy = c.y + dy;
+                return (
+                  <g key={`hut${i}`}>
+                    <rect x={hx - w / 2} y={hy - h} width={w} height={h} />
+                    <path d={`M ${hx - w / 2 - 0.2 * s} ${hy - h} L ${hx} ${hy - h - 0.9 * s} L ${hx + w / 2 + 0.2 * s} ${hy - h} Z`} />
+                  </g>
+                );
+              })}
+              {/* status banner: pole + colored flag */}
+              <line x1={poleX} y1={c.y + 0.6} x2={poleX} y2={poleTop} stroke="currentColor" strokeWidth={0.25} />
+              <circle className="wm-flag" cx={poleX} cy={poleTop - 0.9} r={1.1} fill={st.color} />
+              <text className="wm-name" x={c.x} y={c.y + (isYou ? 6.2 : 4.8)} fontSize={isYou ? 3 : 2.7} textAnchor="middle">
                 {c.name}
-              </text>
-              <text x={c.x} y={c.y - (isYou ? 7 : 5.5)} fontSize={4} textAnchor="middle">
-                {st.icon}
               </text>
             </g>
           );
         })}
+        {/* map furniture: caption + compass rose in the southwest sea */}
+        <text className="wm-cap" x={50} y={5.2} fontSize={3.2} textAnchor="middle" letterSpacing={1.4}>
+          THE KNOWN WORLD
+        </text>
+        <g className="wm-compass">
+          <path d="M 9 84.5 L 10.2 87.8 L 13.5 89 L 10.2 90.2 L 9 93.5 L 7.8 90.2 L 4.5 89 L 7.8 87.8 Z" />
+          <text x={9} y={83.4} fontSize={2.6} textAnchor="middle">
+            N
+          </text>
+        </g>
       </svg>
       {sel && (
         <div className="wm-info">
@@ -910,6 +1016,204 @@ function RaidBanner({ phase }: { phase: RaidPhase }) {
   );
 }
 
+// STATS — the full-screen city ledger: every number in the game, in tables.
+function StatsModal({
+  open,
+  onClose,
+  day,
+  vitals,
+  population,
+  pois,
+  levels,
+  contribs,
+  raidLog,
+  youStatus,
+}: {
+  open: boolean;
+  onClose: () => void;
+  day: number;
+  vitals: Vitals;
+  population: number;
+  pois: PoiInfo[];
+  levels: Record<string, number>;
+  contribs: Record<string, Contrib>;
+  raidLog: RaidLogEntry[];
+  youStatus: WorldStatus;
+}) {
+  const ranked = Object.entries(contribs)
+    .sort((a, b) => b[1].score - a[1].score)
+    .map(([name, c], i) => ({ name, c, rank: i }));
+  const worldRows = WORLD_CITIES.map((c) => (c.id === 'you' ? { ...c, status: youStatus } : c));
+  return (
+    <div className={open ? 'hud stats-modal on' : 'hud stats-modal'}>
+      <div className="stats-back" onClick={onClose} />
+      <div className="stats-sheet card-bit">
+        <button type="button" className="st-close" onClick={onClose} aria-label="Close stats">
+          ✕
+        </button>
+        <h2>CITY LEDGER — DAY {day}</h2>
+
+        <div className="st-sec">CITY VITALS</div>
+        <table className="st">
+          <thead>
+            <tr>
+              <th>RESOURCE</th>
+              <th>VALUE</th>
+              <th>MAX</th>
+              <th>%</th>
+              <th>STATE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {VITAL_DEFS.map((r) => {
+              const v = vitals[r.k];
+              const pct = Math.round((v / r.max) * 100);
+              const eff = r.danger ? 100 - pct : pct; // THREAT: high is bad
+              const tone = eff >= 50 ? 'good' : eff >= 25 ? 'low' : 'critical';
+              return (
+                <tr key={r.k}>
+                  <td>
+                    {r.icon} {r.k}
+                  </td>
+                  <td>{v}</td>
+                  <td>{r.max}</td>
+                  <td>{pct}%</td>
+                  <td>
+                    <span className={'st-tag ' + tone}>{tone}</span>
+                  </td>
+                </tr>
+              );
+            })}
+            <tr>
+              <td>👥 SOULS</td>
+              <td>{population}</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="st-sec">DISTRICTS</div>
+        <table className="st">
+          <thead>
+            <tr>
+              <th>DISTRICT</th>
+              <th>LEVEL</th>
+              <th>STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pois.length === 0 ? (
+              <tr>
+                <td colSpan={3}>the districts are still waking…</td>
+              </tr>
+            ) : (
+              pois.map((p) => {
+                const lvl = levels[p.name] ?? p.level;
+                return (
+                  <tr key={p.name}>
+                    <td>
+                      {p.icon} {p.name}
+                    </td>
+                    <td>LVL {lvl}</td>
+                    <td>{lvl > p.level ? 'upgraded' : 'standing'}</td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+
+        <div className="st-sec">TOP CONTRIBUTORS</div>
+        <table className="st">
+          <thead>
+            <tr>
+              <th>RANK</th>
+              <th>USER</th>
+              <th>🏠</th>
+              <th>🍞</th>
+              <th>⚡</th>
+              <th>🩹</th>
+              <th>SCORE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranked.map(({ name, c, rank }) => (
+              <tr key={name} className={name === 'u/you' ? 'me' : undefined}>
+                <td>{LB_RANKS[rank] ?? rank + 1}</td>
+                <td>{name}</td>
+                <td>{c.houses}</td>
+                <td>{c.food}</td>
+                <td>{c.power}</td>
+                <td>{c.medicine}</td>
+                <td>{c.score}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="st-sec">RAID LOG</div>
+        <table className="st">
+          <thead>
+            <tr>
+              <th>DAY</th>
+              <th>OUTCOME</th>
+              <th>SOULS</th>
+              <th>FOOD</th>
+              <th>DEFENSE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {raidLog.length === 0 ? (
+              <tr>
+                <td colSpan={5}>no raids survived yet — the wall waits</td>
+              </tr>
+            ) : (
+              raidLog.map((e) => (
+                <tr key={e.key}>
+                  <td>{e.day}</td>
+                  <td className={e.outcome}>{e.outcome === 'held' ? '🛡 HELD' : '🔥 BREACH'}</td>
+                  <td>−{e.souls}</td>
+                  <td>−{e.food}</td>
+                  <td>−{e.defense}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        <div className="st-sec">THE KNOWN WORLD</div>
+        <table className="st">
+          <thead>
+            <tr>
+              <th>CITY</th>
+              <th>STATUS</th>
+              <th>NOTE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {worldRows.map((c) => {
+              const st = WORLD_STATUS[c.status];
+              return (
+                <tr key={c.id} className={c.id === 'you' ? 'me' : undefined}>
+                  <td>{c.name}</td>
+                  <td>
+                    <span className={'st-tag ' + (c.status === 'thriving' ? 'good' : c.status === 'holding' ? 'good' : c.status === 'strained' ? 'low' : 'critical')}>
+                      {st.icon} {st.label}
+                    </span>
+                  </td>
+                  <td>{st.flavor}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function Loader({ pct, done }: { pct: number; done: boolean }) {
   return (
     <div className={done ? 'loader done' : 'loader'}>
@@ -941,6 +1245,8 @@ export function App() {
   const [levels, setLevels] = useState<Record<string, number>>({});
   const [buildMode, setBuildMode] = useState(false);
   const [raidPhase, setRaidPhase] = useState<RaidPhase>('idle');
+  const [raidLog, setRaidLog] = useState<RaidLogEntry[]>([]); // resolved raids, newest first
+  const [statsOpen, setStatsOpen] = useState(false); // 📊 full-screen city ledger
   const [talk, setTalk] = useState<TalkMsg[]>(() => [
     { who: 'u/saltcedar', text: 'watch fires lit, see you at dawn 🔥', key: 1 },
     { who: 'u/ashen_fox', text: "gm city, who's on wall duty?", key: 0 },
@@ -983,6 +1289,7 @@ export function App() {
   const raidPhaseRef = useRef<RaidPhase>('idle');
   const raidDaysRef = useRef(5);
   const raidTimersRef = useRef<number[]>([]);
+  const raidLogKeyRef = useRef(0); // monotonic key for raid-log entries
   const hiCooldownRef = useRef(false);
   const hiReplyIdxRef = useRef(0);
   const hiReplyTimerRef = useRef<number | null>(null);
@@ -1332,6 +1639,14 @@ export function App() {
     [addContrib, pushEvent, pushNotif],
   );
 
+  // record a resolved raid in the ledger (losses = the ones actually applied)
+  const logRaid = useCallback((outcome: 'held' | 'breach') => {
+    const key = raidLogKeyRef.current;
+    raidLogKeyRef.current += 1;
+    const loss = outcome === 'held' ? { souls: 0, food: 6, defense: 8 } : { souls: 8, food: 18, defense: 15 };
+    setRaidLog((prev) => [{ day: dayRef.current, outcome, ...loss, key }, ...prev].slice(0, 12));
+  }, []);
+
   // RAID — 9s of dread, then the wall decides on CURRENT defense.
   const startRaid = useCallback(() => {
     if (raidPhaseRef.current !== 'idle') return;
@@ -1339,6 +1654,7 @@ export function App() {
     setRaidPhase('incoming');
     pushNotif('⚔', 'RAID — raiders are at the gate!', 'bad');
     (handleRef.current as any)?.setRaidWatch?.(true);
+    (handleRef.current as any)?.setRaiders?.(true); // raider party appears at the gate
     raidTimersRef.current.push(
       window.setTimeout(() => {
         const held = vitalsRef.current.DEFENSE >= 40;
@@ -1351,6 +1667,7 @@ export function App() {
           }));
           pushEvent('🛡', 'The raiders broke on the south wall. The city holds.');
           pushNotif('🛡', 'the wall held', 'good');
+          logRaid('held');
           raidPhaseRef.current = 'held';
           setRaidPhase('held');
         } else {
@@ -1364,6 +1681,7 @@ export function App() {
           }));
           pushEvent('🔥', 'Raiders breached the gate before the watch pushed them out.');
           pushNotif('🔥', 'the wall was breached — 8 souls lost', 'bad');
+          logRaid('breach');
           raidPhaseRef.current = 'breach';
           setRaidPhase('breach');
         }
@@ -1373,13 +1691,14 @@ export function App() {
             raidPhaseRef.current = 'idle';
             setRaidPhase('idle');
             (handleRef.current as any)?.setRaidWatch?.(false);
+            (handleRef.current as any)?.setRaiders?.(false); // the raiders melt away
             raidDaysRef.current = 5;
             setRaidDays(5);
           }, 6000),
         );
       }, 9000),
     );
-  }, [pushEvent, pushNotif]);
+  }, [pushEvent, pushNotif, logRaid]);
 
   // SUBREDDIT SIMULATION — a community member buys a house (scene API, added
   // by another agent) or gifts resources into the city stores.
@@ -1502,7 +1821,7 @@ export function App() {
 
   // QA hooks: window.__omdDemo.raidNow() / .build() / .sayHi() /
   // .selectVillager(name) / .action(id) / .scavenge(routeId) /
-  // .contribute(user?) / .buyHouse(user?)
+  // .contribute(user?) / .buyHouse(user?) / .stats()
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__omdDemo = {
       raidNow: () => {
@@ -1519,6 +1838,7 @@ export function App() {
       flyTo: (name: string) => handleRef.current?.focusOn(name),
       mapTab: () => setDashTab('map'),
       world: () => setMapView('world'),
+      stats: () => setStatsOpen((o) => !o),
     };
     return () => {
       delete (window as unknown as Record<string, unknown>).__omdDemo;
@@ -1583,6 +1903,26 @@ export function App() {
           events,
         }}
         contribs={contribs}
+      />
+      <button
+        type="button"
+        className="hud stats-fab card-bit"
+        onClick={() => setStatsOpen((o) => !o)}
+        aria-expanded={statsOpen}
+      >
+        📊 STATS
+      </button>
+      <StatsModal
+        open={statsOpen}
+        onClose={() => setStatsOpen(false)}
+        day={day}
+        vitals={vitals}
+        population={population}
+        pois={pois}
+        levels={levels}
+        contribs={contribs}
+        raidLog={raidLog}
+        youStatus={worldYouStatus}
       />
       {villager ? (
         <VillagerChip name={villager} hiCooldown={hiCooldown} onWave={onWaveAt} onSayHi={onSayHi} onClose={clearVillager} />
