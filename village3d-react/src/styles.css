@@ -50,7 +50,7 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 
 /* ---- CITY dashboard (right) ---- */
 .dash-fab { top: 84px; right: 14px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1.5px; color: var(--gold); padding: 10px 14px; border-radius: 12px; cursor: pointer; }
-.dash { top: 128px; right: 14px; width: 250px; max-height: calc(100vh - 220px); overflow-y: auto; scrollbar-gutter: stable; border-radius: 16px; padding: 14px; opacity: 0; transform: translateX(12px); transition: opacity 0.25s, transform 0.25s; pointer-events: none !important; }
+.dash { top: 128px; right: 14px; width: 250px; max-height: calc(100vh - 250px); overflow-y: auto; scrollbar-gutter: stable; border-radius: 16px; padding: 14px; opacity: 0; transform: translateX(12px); transition: opacity 0.25s, transform 0.25s; pointer-events: none !important; z-index: 6; }
 .dash.on { opacity: 1; transform: none; pointer-events: auto !important; }
 .dash.on * { pointer-events: auto; }
 .dash::-webkit-scrollbar { width: 7px; }
