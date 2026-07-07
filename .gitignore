@@ -5,3 +5,7 @@ dist
 docs/design/.thumbnail
 docs/design/support.js
 .gstack/
+
+# village3d QA captures (regenerable)
+village3d/shot.png
+village3d/qa-*.png

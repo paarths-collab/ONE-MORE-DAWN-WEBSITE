@@ -6,6 +6,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["tools/preview-server.mjs"],
       "port": 4519
+    },
+    {
+      "name": "village3d",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["village3d/serve.mjs"],
+      "port": 4620
     }
   ]
 }
