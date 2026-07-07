@@ -16,6 +16,14 @@ export type TimeOfDay = 'night' | 'dawn' | 'day' | 'dusk';
 export type CompanionKind = 'horse' | 'flamingo' | 'parrot' | 'stork';
 export type PoiInfo = { name: string; icon: string; level: number; blurb: string };
 
+/** Snapshot the React HUD reads (via getMapData) to draw its live minimap. */
+export type MapData = {
+  radius: number;                                              // max plateau radius (scale hint)
+  outline: [number, number][];                                 // plateau boundary polygon, world XZ
+  districts: { name: string; icon: string; x: number; z: number }[];
+  houses: [number, number][];                                  // snapshot copy of house centers
+};
+
 export type VillageHooks = {
   onProgress: (pct: number) => void;
   onLoad: () => void;
@@ -56,6 +64,12 @@ export type VillageHandle = {
   buyHouse: (owner: string) => { x: number; z: number; quarter: string } | null;
   /** One-shot golden ring flash + scale pop on a labeled district. */
   flashDistrict: (name: string) => void;
+  /** Snapshot of the world (plateau outline, districts, house centers) for the minimap. */
+  getMapData: () => MapData;
+  /** Camera ground position + look target + fov (degrees) for a minimap viewport indicator. */
+  getView: () => { cx: number; cz: number; tx: number; tz: number; fov: number };
+  /** Fly the camera to look at an arbitrary ground point (minimap tap on empty land). */
+  focusPoint: (x: number, z: number) => void;
   dispose: () => void;
   pause: () => void;
   resume: () => void;
@@ -576,6 +590,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   // ---------- rustic house kit (the town filler) ----------
   // chimney-smoke anchors: the first ~10 houses that win a coin flip volunteer
   const smokeSpots: [number, number][] = [];
+  // every house center (filler loop + buyHouse + build-mode tap) so getMapData
+  // can hand the React HUD a live minimap snapshot — see the three house() sites
+  const houseCenters: [number, number][] = [];
   const ROOFS = [MAT.roofSlate, MAT.roofSlateDark, MAT.roofBrown];
   function house(x: number, z: number, facing: number, big = false) {
     if (smokeSpots.length < 10 && rng() > 0.5) smokeSpots.push([x, z]);
@@ -834,6 +851,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       // roadside strip; occupy() below still reserves 5×5 so houses keep gaps.
       if (!isFree(hx, hz, 1)) continue;
       house(hx, hz, facing, rng() > 0.8);
+      houseCenters.push([hx, hz]);
       placed++;
     }
   }
@@ -1285,6 +1303,45 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     const { name: n, level, blurb } = group.userData as BuildingMeta;
     hooks.onSelect({ name: n, level, blurb });
   }
+  // like focusOn but at a bare ground point (minimap tap on empty land): same
+  // azimuth-preserving fly, no selection/onSelect since there's no building here
+  function focusPoint(x: number, z: number) {
+    fly = null; // starting a fresh fly also cancels idle-drift (Date.now bump below)
+    lastInteract = Date.now();
+    const tgt = new THREE.Vector3(x, 1.2, z);
+    const dir = camera.position.clone().sub(controls.target);
+    dir.y = 0;
+    if (dir.lengthSq() < 1) dir.set(0.4, 0, 1);
+    dir.normalize();
+    const pos = tgt.clone().addScaledVector(dir, 24);
+    pos.y = 17;
+    fly = { tgt, pos };
+  }
+
+  // ---------- minimap data + camera read-out (React HUD draws the minimap) ----------
+  function getMapData(): MapData {
+    // sample the plateau boundary at 64 even angles; radius = the sweep max
+    const outline: [number, number][] = [];
+    let radius = 0;
+    const N = 64;
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      const r = plateauR(a);
+      if (r > radius) radius = r;
+      outline.push([Math.cos(a) * r, Math.sin(a) * r]);
+    }
+    const districts: { name: string; icon: string; x: number; z: number }[] = [];
+    for (const [name, group] of poiMap) {
+      const icon = (group.userData.icon as string | undefined)
+        ?? poiList.find((p) => p.name === name)?.icon
+        ?? '📍';
+      districts.push({ name, icon, x: group.position.x, z: group.position.z });
+    }
+    return { radius, outline, districts, houses: houseCenters.map((h) => [...h] as [number, number]) };
+  }
+  function getView() {
+    return { cx: camera.position.x, cz: camera.position.z, tx: controls.target.x, tz: controls.target.z, fov: camera.fov };
+  }
 
   // ---------- district flash (ring blast + y-pop, driven per-frame in tick) ----------
   const flashes: { ring: THREE.Mesh; mat: THREE.MeshBasicMaterial; group: THREE.Group; t: number }[] = [];
@@ -1407,6 +1464,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     if (!spot) return null;
     const [x, z] = spot;
     house(x, z, Math.random() * Math.PI * 2); // adds to scene + occupies
+    houseCenters.push([x, z]);
 
     // temporary owner tag above the new roof — visibility is class-only
     // (CSS2DRenderer overwrites the element's inline transform every frame)
@@ -1474,6 +1532,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       const tile = groundTileAt(e.clientX, e.clientY);
       if (tile && buildValid(tile[0], tile[1])) {
         house(tile[0], tile[1], rng() * Math.PI * 2); // adds to scene + occupies
+        houseCenters.push([tile[0], tile[1]]);
         hooks.onBuilt?.(tile[0], tile[1]);
         ghost.visible = false;
       }
@@ -1635,6 +1694,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     setBuildMode,
     buyHouse,
     flashDistrict,
+    getMapData,
+    getView,
+    focusPoint,
     pause: () => renderer.setAnimationLoop(null),
     resume: () => renderer.setAnimationLoop(tick),
     frame: () => tick(),

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import {
   createVillageScene,
   MAX_VILLAGERS,
@@ -11,11 +11,12 @@ import {
 } from './scene';
 
 // ONE MORE DAWN — 3D town, React edition v4: the self-running mini-game.
-// Left panel: SCENE (time of day, villagers, companions). Right panel: CITY
-// dashboard (live vitals + district directory) and LIVE (Marked, comments,
-// crisis, council, raid watch, events). The city now plays itself: vitals
-// drift, survivors trickle in, days count up, raids arrive and resolve
-// against your defense, and you can talk, build huts, and upgrade districts.
+// The scene runs itself (time cycles, companions on, players walk the streets).
+// Right panel: MAP (town minimap + world map of rival cities), CITY dashboard
+// (live vitals + district directory), LIVE (Marked, comments, crisis, council,
+// raid watch, events) and TOP (contribution leaderboard). The city plays
+// itself: vitals drift, survivors trickle in, days count up, raids arrive and
+// resolve against your defense, and you can talk, build huts, upgrade districts.
 
 const TIMES: { id: TimeOfDay; icon: string; label: string; tagline: string }[] = [
   { id: 'night', icon: '🌙', label: 'NIGHT', tagline: 'the city sleeps — dawn is coming' },
@@ -31,6 +32,35 @@ const COMPANIONS: { id: CompanionKind; icon: string; label: string }[] = [
   { id: 'parrot', icon: '🦜', label: 'PARROT' },
   { id: 'stork', icon: '🕊️', label: 'STORK' },
 ];
+
+// ---------- MAP tab data ----------
+// Shape of the scene's getMapData() (added by the scene agent; may be absent).
+type MapData = {
+  radius: number;
+  outline: [number, number][];
+  districts: { name: string; icon: string; x: number; z: number }[];
+  houses: [number, number][];
+};
+// Shape of getView() — the live camera + look-at target.
+type MapView = { cx: number; cz: number; tx: number; tz: number; fov: number };
+
+// WORLD map — fabricated network of rival subreddit-cities (not wired to Reddit).
+type WorldStatus = 'thriving' | 'holding' | 'strained' | 'under_raid' | 'fallen';
+const WORLD_CITIES: { id: string; name: string; status: WorldStatus; x: number; y: number }[] = [
+  { id: 'you', name: 'YOUR CITY', status: 'holding', x: 50, y: 50 },
+  { id: 'ironhollow', name: 'r/ironhollow', status: 'thriving', x: 22, y: 26 },
+  { id: 'ashfall', name: 'r/ashfall', status: 'under_raid', x: 80, y: 30 },
+  { id: 'deepwater', name: 'r/deepwater', status: 'fallen', x: 78, y: 76 },
+  { id: 'saltmere', name: 'r/saltmere', status: 'holding', x: 20, y: 72 },
+  { id: 'thornwick', name: 'r/thornwick', status: 'strained', x: 52, y: 14 },
+];
+const WORLD_STATUS: Record<WorldStatus, { icon: string; label: string; color: string; flavor: string }> = {
+  thriving: { icon: '🌿', label: 'Thriving', color: '#7fd6a2', flavor: 'Holding the line — and then some.' },
+  holding: { icon: '🕯️', label: 'Holding', color: '#ffcf70', flavor: 'Holding the line.' },
+  strained: { icon: '🩸', label: 'Strained', color: '#ff8a3d', flavor: 'Rationing candles. Still standing.' },
+  under_raid: { icon: '🚨', label: 'Under raid', color: '#ff5b4d', flavor: 'The wall decides tonight.' },
+  fallen: { icon: '💀', label: 'Fallen', color: '#6b7089', flavor: 'The lights went out.' },
+};
 
 // ---------- LIVE tab demo data (copied from the game's mock fixtures in
 // src/client/game/api.ts + src/client/react/defs.ts — this prototype is not
@@ -225,13 +255,11 @@ function TopBar({ vitals, population }: { vitals: Vitals; population: number }) 
 
 function DayPill({
   time,
-  auto,
   day,
   raidSoon,
   raidActive,
 }: {
   time: TimeOfDay;
-  auto: boolean;
   day: number;
   raidSoon: boolean;
   raidActive: boolean;
@@ -242,7 +270,6 @@ function DayPill({
       <span className="day-n">DAY {day}</span>
       <div className="dn">
         {def.icon} {def.label}
-        {auto && <span className="auto-tag">AUTO</span>}
       </div>
       <div className="dt">{def.tagline}</div>
       {raidActive ? (
@@ -266,96 +293,6 @@ function NotifStack({ notifs }: { notifs: Notif[] }) {
         </div>
       ))}
     </div>
-  );
-}
-
-function ScenePanel({
-  open,
-  setOpen,
-  time,
-  setTime,
-  auto,
-  setAuto,
-  villagers,
-  bumpVillagers,
-  companions,
-  toggleCompanion,
-}: {
-  open: boolean;
-  setOpen: (b: boolean) => void;
-  time: TimeOfDay;
-  setTime: (t: TimeOfDay) => void;
-  auto: boolean;
-  setAuto: (b: boolean) => void;
-  villagers: number;
-  bumpVillagers: (delta: number) => void;
-  companions: Record<CompanionKind, boolean>;
-  toggleCompanion: (k: CompanionKind) => void;
-}) {
-  return (
-    <>
-      <button type="button" className="hud panel-fab card-bit" onClick={() => setOpen(!open)} aria-expanded={open}>
-        ⚙ SCENE
-      </button>
-      <div className={open ? 'hud panel card-bit on' : 'hud panel card-bit'}>
-        <div className="p-head">
-          <span>SCENE</span>
-          <button type="button" className="p-x" onClick={() => setOpen(false)} aria-label="Close panel">
-            ✕
-          </button>
-        </div>
-
-        <div className="p-sec">TIME OF DAY</div>
-        <div className="seg">
-          {TIMES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={t.id === time && !auto ? 'seg-btn on' : 'seg-btn'}
-              onClick={() => {
-                setAuto(false);
-                setTime(t.id);
-              }}
-              aria-pressed={t.id === time}
-            >
-              <span className="si">{t.icon}</span>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <button type="button" className={auto ? 'auto-btn on' : 'auto-btn'} onClick={() => setAuto(!auto)} aria-pressed={auto}>
-          {auto ? '◉' : '○'} AUTO — let the day turn
-        </button>
-
-        <div className="p-sec">VILLAGERS</div>
-        <div className="stepper">
-          <button type="button" onClick={() => bumpVillagers(-1)} aria-label="Fewer villagers">
-            −
-          </button>
-          <span className="count">
-            {villagers} <i>walking</i>
-          </span>
-          <button type="button" onClick={() => bumpVillagers(1)} aria-label="More villagers">
-            +
-          </button>
-        </div>
-
-        <div className="p-sec">COMPANIONS</div>
-        <div className="chips">
-          {COMPANIONS.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className={companions[c.id] ? 'chip-t on' : 'chip-t'}
-              onClick={() => toggleCompanion(c.id)}
-              aria-pressed={companions[c.id]}
-            >
-              {c.icon} {c.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </>
   );
 }
 
@@ -538,13 +475,138 @@ function TopTab({ contribs }: { contribs: Record<string, Contrib> }) {
   );
 }
 
-type DashTab = 'city' | 'live' | 'top';
+// ---------- MAP tab: town minimap (SVG schematic from getMapData/getView) ----------
+function MiniMap({
+  mapData,
+  view,
+  onFocusDistrict,
+  onFocusPoint,
+}: {
+  mapData: MapData | null;
+  view: MapView | null;
+  onFocusDistrict: (name: string) => void;
+  onFocusPoint: (x: number, z: number) => void;
+}) {
+  const R = (mapData?.radius ?? 72) * 1.08;
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const flyToClick = (e: ReactMouseEvent<SVGRectElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const pt = svg.getBoundingClientRect();
+    const sx = -R + ((e.clientX - pt.left) / pt.width) * 2 * R;
+    const sz = -R + ((e.clientY - pt.top) / pt.height) * 2 * R;
+    onFocusPoint(sx, sz);
+  };
+
+  // view cone: two edges fanned ±20° around the cam→target direction, out to ~40 units
+  let cone: string | null = null;
+  if (view) {
+    const dx = view.tx - view.cx;
+    const dz = view.tz - view.cz;
+    const base = Math.atan2(dz, dx);
+    const spread = (20 * Math.PI) / 180;
+    const reach = 40;
+    const ax = view.cx + Math.cos(base - spread) * reach;
+    const az = view.cz + Math.sin(base - spread) * reach;
+    const bx = view.cx + Math.cos(base + spread) * reach;
+    const bz = view.cz + Math.sin(base + spread) * reach;
+    cone = `${view.cx},${view.cz} ${ax},${az} ${bx},${bz}`;
+  }
+
+  return (
+    <div className="mini">
+      <svg ref={svgRef} className="mini-svg" viewBox={`${-R} ${-R} ${2 * R} ${2 * R}`} xmlns="http://www.w3.org/2000/svg">
+        {/* click-anywhere fly target sits behind everything */}
+        <rect x={-R} y={-R} width={2 * R} height={2 * R} fill="transparent" pointerEvents="all" onClick={flyToClick} />
+        {mapData && mapData.outline.length > 0 && (
+          <polygon className="mm-plateau" points={mapData.outline.map(([x, z]) => `${x},${z}`).join(' ')} />
+        )}
+        {mapData?.houses.map(([x, z], i) => <circle key={`h${i}`} className="mm-house" cx={x} cy={z} r={0.9} />)}
+        {view && cone && <polygon className="mm-cone" points={cone} />}
+        {view && (
+          <>
+            <line className="mm-cam" x1={view.cx} y1={view.cz} x2={view.tx} y2={view.tz} />
+            <circle className="mm-cam" cx={view.cx} cy={view.cz} r={2.5} />
+          </>
+        )}
+        {mapData?.districts.map((d) => (
+          <g
+            key={d.name}
+            className="mm-pin"
+            data-name={d.name}
+            onClick={(e) => {
+              e.stopPropagation();
+              onFocusDistrict(d.name);
+            }}
+          >
+            <circle cx={d.x} cy={d.z} r={2.2} />
+            <text className="mm-pin-ic" x={d.x} y={d.z} fontSize={4} textAnchor="middle" dominantBaseline="central">
+              {d.icon}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <div className="mini-cap">tap a district or the map to fly there</div>
+    </div>
+  );
+}
+
+// ---------- MAP tab: world map of rival subreddit-cities ----------
+function WorldMap({ youStatus }: { youStatus: WorldStatus }) {
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const cities = WORLD_CITIES.map((c) => (c.id === 'you' ? { ...c, status: youStatus } : c));
+  const you = cities[0]!;
+  const sel = cities.find((c) => c.id === selectedCity) ?? null;
+  return (
+    <div className="wm">
+      <svg className="wm-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        {cities
+          .filter((c) => c.id !== 'you')
+          .map((c) => (
+            <line key={`l${c.id}`} className="wm-link" x1={you.x} y1={you.y} x2={c.x} y2={c.y} />
+          ))}
+        {cities.map((c) => {
+          const st = WORLD_STATUS[c.status];
+          const isYou = c.id === 'you';
+          return (
+            <g key={c.id} className={isYou ? 'wm-node you' : 'wm-node'} onClick={() => setSelectedCity(c.id)}>
+              {isYou && <circle cx={c.x} cy={c.y} r={7} fill="none" stroke="#ffcf70" strokeWidth={0.8} />}
+              <circle cx={c.x} cy={c.y} r={isYou ? 5 : 3.5} fill={st.color} />
+              <text className="wm-name" x={c.x} y={c.y + (isYou ? 9 : 7)} fontSize={3.4} textAnchor="middle">
+                {c.name}
+              </text>
+              <text x={c.x} y={c.y - (isYou ? 7 : 5.5)} fontSize={4} textAnchor="middle">
+                {st.icon}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      {sel && (
+        <div className="wm-info">
+          {WORLD_STATUS[sel.status].icon} {sel.name} — {WORLD_STATUS[sel.status].label}. {WORLD_STATUS[sel.status].flavor}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type DashTab = 'map' | 'city' | 'live' | 'top';
+type MapViewMode = 'town' | 'world';
 
 function CityDashboard({
   open,
   setOpen,
   tab,
   setTab,
+  mapView,
+  setMapView,
+  mapData,
+  view,
+  onFocusDistrict,
+  onFocusPoint,
+  worldYouStatus,
   pois,
   levels,
   vitals,
@@ -557,6 +619,13 @@ function CityDashboard({
   setOpen: (b: boolean) => void;
   tab: DashTab;
   setTab: (t: DashTab) => void;
+  mapView: MapViewMode;
+  setMapView: (m: MapViewMode) => void;
+  mapData: MapData | null;
+  view: MapView | null;
+  onFocusDistrict: (name: string) => void;
+  onFocusPoint: (x: number, z: number) => void;
+  worldYouStatus: WorldStatus;
   pois: PoiInfo[];
   levels: Record<string, number>;
   vitals: Vitals;
@@ -579,6 +648,9 @@ function CityDashboard({
         </div>
 
         <div className="dash-tabs">
+          <button type="button" className={tab === 'map' ? 'dash-tab on' : 'dash-tab'} onClick={() => setTab('map')} aria-pressed={tab === 'map'}>
+            MAP
+          </button>
           <button type="button" className={tab === 'city' ? 'dash-tab on' : 'dash-tab'} onClick={() => setTab('city')} aria-pressed={tab === 'city'}>
             CITY
           </button>
@@ -589,6 +661,24 @@ function CityDashboard({
             TOP 🏆
           </button>
         </div>
+
+        {tab === 'map' && (
+          <>
+            <div className="map-seg">
+              <button type="button" className={mapView === 'town' ? 'map-seg-btn on' : 'map-seg-btn'} onClick={() => setMapView('town')} aria-pressed={mapView === 'town'}>
+                TOWN
+              </button>
+              <button type="button" className={mapView === 'world' ? 'map-seg-btn on' : 'map-seg-btn'} onClick={() => setMapView('world')} aria-pressed={mapView === 'world'}>
+                WORLD
+              </button>
+            </div>
+            {mapView === 'town' ? (
+              <MiniMap mapData={mapData} view={view} onFocusDistrict={onFocusDistrict} onFocusPoint={onFocusPoint} />
+            ) : (
+              <WorldMap youStatus={worldYouStatus} />
+            )}
+          </>
+        )}
 
         {tab === 'live' && <LiveTab {...live} />}
 
@@ -728,7 +818,6 @@ function BuildDock({
 }) {
   return (
     <div className="hud dock">
-      <div className="credits">villagers &amp; wildlife: three.js example models (threejs.org)</div>
       <div style={{ position: 'relative' }}>
         <div className={toastOn ? 'toast on' : 'toast'}>{toastText}</div>
         <button
@@ -840,17 +929,11 @@ export function App() {
   const [selected, setSelected] = useState<BuildingMeta | null>(null);
   const [pois, setPois] = useState<PoiInfo[]>([]);
   const [time, setTimeState] = useState<TimeOfDay>('dawn');
-  const [auto, setAuto] = useState(true);
-  const [villagers, setVillagersState] = useState(3);
-  const [companions, setCompanions] = useState<Record<CompanionKind, boolean>>({
-    horse: true,
-    flamingo: true,
-    parrot: true,
-    stork: true,
-  });
-  const [panelOpen, setPanelOpen] = useState(true);
   const [dashOpen, setDashOpen] = useState(true);
-  const [dashTab, setDashTab] = useState<DashTab>('live');
+  const [dashTab, setDashTab] = useState<DashTab>('map');
+  const [mapView, setMapView] = useState<MapViewMode>('town');
+  const [mapData, setMapData] = useState<MapData | null>(null);
+  const [view, setView] = useState<MapView | null>(null);
   // ---- the mini-game state machines ----
   const [vitals, setVitals] = useState<Vitals>(START_VITALS);
   const [population, setPopulation] = useState(143);
@@ -887,7 +970,6 @@ export function App() {
   // seed newest-first: DRAMA[2] is the freshest, rotation continues at index 3
   const [events, setEvents] = useState<LiveEvent[]>(() => [2, 1, 0].map((i) => ({ ...DRAMA[i]!, key: i })));
   const handleRef = useRef<VillageHandle | null>(null);
-  const manualPauseRef = useRef(0); // Date.now() until which the auto-ramp holds off
   const pledgedRef = useRef(false); // click guard (double-tap before re-render)
   const votedRef = useRef(false);
   const nextEvRef = useRef(3);
@@ -1017,38 +1099,54 @@ export function App() {
     [addContrib, pushEvent, pushNotif, popToast],
   );
 
-  const setTime = useCallback((t: TimeOfDay) => {
-    timeRef.current = t;
-    setTimeState(t);
-    handleRef.current?.setTimeOfDay(t);
-  }, []);
-  // Functional updates + effect-driven sync: rapid +/- taps land between React
-  // renders, so reading `villagers` in a click handler would use stale state.
-  // A manual tap also pauses the auto-ramp for 30s so it doesn't fight the user.
-  const bumpVillagers = useCallback((delta: number) => {
-    manualPauseRef.current = Date.now() + 30_000;
-    setVillagersState((v) => Math.max(0, Math.min(MAX_VILLAGERS, v + delta)));
-  }, []);
+  // VILLAGERS are now PLAYERS — the walking count tracks the number of distinct
+  // contributors (people who opted into the game), clamped to a sane range.
+  const playerCount = Object.keys(contribs).length;
   useEffect(() => {
-    handleRef.current?.setVillagers(villagers);
-  }, [villagers, loaded]);
-  const toggleCompanion = useCallback((k: CompanionKind) => {
-    setCompanions((prev) => ({ ...prev, [k]: !prev[k] }));
-  }, []);
+    handleRef.current?.setVillagers(Math.max(3, Math.min(MAX_VILLAGERS, playerCount)));
+  }, [playerCount, loaded]);
+
+  // COMPANIONS are permanently on — sync all four once the scene is ready.
   useEffect(() => {
     const h = handleRef.current;
     if (!h) return;
-    (Object.keys(companions) as CompanionKind[]).forEach((k) => h.setCompanion(k, companions[k]));
-  }, [companions, loaded]);
+    (COMPANIONS.map((c) => c.id) as CompanionKind[]).forEach((k) => h.setCompanion(k, true));
+  }, [loaded]);
 
   const visitDistrict = useCallback((name: string) => {
     handleRef.current?.focusOn(name);
   }, []);
 
-  // AUTO: the day slowly turns — night → dawn → day → dusk, ~12s per phase.
-  // Each transition INTO dawn is a new day: day counter +1 + a chronicle line.
+  // MAP: fetch the town schematic once loaded, then refetch on an interval to
+  // pick up newly-bought houses. Guard for the scene API being absent.
   useEffect(() => {
-    if (!auto) return undefined;
+    if (!loaded) return undefined;
+    const fetchMap = () => {
+      const md = (handleRef.current as any)?.getMapData?.() as MapData | undefined;
+      if (md) setMapData(md);
+    };
+    fetchMap();
+    const id = window.setInterval(fetchMap, 4000);
+    return () => window.clearInterval(id);
+  }, [loaded]);
+
+  // MAP: poll the live camera view so the minimap can draw where it's looking.
+  useEffect(() => {
+    if (!loaded) return undefined;
+    const id = window.setInterval(() => {
+      const v = (handleRef.current as any)?.getView?.() as MapView | undefined;
+      if (v) setView(v);
+    }, 250);
+    return () => window.clearInterval(id);
+  }, [loaded]);
+
+  const focusPoint = useCallback((x: number, z: number) => {
+    (handleRef.current as any)?.focusPoint?.(x, z);
+  }, []);
+
+  // The day always turns — night → dawn → day → dusk, ~12s per phase. Each
+  // transition INTO dawn is a new day: day counter +1 + a chronicle line.
+  useEffect(() => {
     const id = window.setInterval(() => {
       const next = TIME_ORDER[(TIME_ORDER.indexOf(timeRef.current) + 1) % TIME_ORDER.length]!;
       timeRef.current = next;
@@ -1062,7 +1160,7 @@ export function App() {
       }
     }, 12000);
     return () => window.clearInterval(id);
-  }, [auto, pushEvent, pushNotif]);
+  }, [pushEvent, pushNotif]);
 
   // New dawn → the daily actions refresh (skip the initial render).
   useEffect(() => {
@@ -1072,17 +1170,6 @@ export function App() {
     setUsed({});
     pushNotif('🌅', 'new dawn — actions refreshed');
   }, [day, pushNotif]);
-
-  // AUTO: villager count random-walks ±1 within [3, MAX_VILLAGERS] every ~6s.
-  // Holds off while manualPauseRef says a human just used the stepper.
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      if (Date.now() < manualPauseRef.current) return;
-      const delta = Math.random() < 0.5 ? -1 : 1;
-      setVillagersState((v) => Math.max(3, Math.min(MAX_VILLAGERS, v + delta)));
-    }, 6000);
-    return () => window.clearInterval(id);
-  }, []);
 
   // LIVE tab handlers — one pledge / one crisis vote per "day" (session).
   const onPledge = useCallback(() => {
@@ -1429,11 +1516,24 @@ export function App() {
       scavenge: (routeId: RouteId) => runScavenge(routeId),
       contribute: (user?: string) => simTick(user),
       buyHouse: (user?: string) => simBuyHouse(user ?? SUB_USERS[Math.floor(Math.random() * SUB_USERS.length)]!),
+      flyTo: (name: string) => handleRef.current?.focusOn(name),
+      mapTab: () => setDashTab('map'),
+      world: () => setMapView('world'),
     };
     return () => {
       delete (window as unknown as Record<string, unknown>).__omdDemo;
     };
   }, [toggleBuild, onSayHi, onVillager, runAction, runScavenge, simTick, simBuyHouse]);
+
+  // YOUR CITY's world-map status reflects live vitals + raid state.
+  const worldYouStatus: WorldStatus =
+    raidPhase === 'incoming'
+      ? 'under_raid'
+      : vitals.MORALE < 25 || vitals.FOOD < 60
+        ? 'strained'
+        : vitals.MORALE > 60 && vitals.DEFENSE > 55
+          ? 'thriving'
+          : 'holding';
 
   return (
     <>
@@ -1448,25 +1548,20 @@ export function App() {
         onVillager={onVillager}
       />
       <TopBar vitals={vitals} population={population} />
-      <DayPill time={time} auto={auto} day={day} raidSoon={raidDays <= 1} raidActive={raidPhase === 'incoming'} />
+      <DayPill time={time} day={day} raidSoon={raidDays <= 1} raidActive={raidPhase === 'incoming'} />
       <NotifStack notifs={notifs} />
-      <ScenePanel
-        open={panelOpen}
-        setOpen={setPanelOpen}
-        time={time}
-        setTime={setTime}
-        auto={auto}
-        setAuto={setAuto}
-        villagers={villagers}
-        bumpVillagers={bumpVillagers}
-        companions={companions}
-        toggleCompanion={toggleCompanion}
-      />
       <CityDashboard
         open={dashOpen}
         setOpen={setDashOpen}
         tab={dashTab}
         setTab={setDashTab}
+        mapView={mapView}
+        setMapView={setMapView}
+        mapData={mapData}
+        view={view}
+        onFocusDistrict={visitDistrict}
+        onFocusPoint={focusPoint}
+        worldYouStatus={worldYouStatus}
         pois={pois}
         levels={levels}
         vitals={vitals}
@@ -1509,6 +1604,7 @@ export function App() {
       ) : (
         <div className="hud hint card-bit">drag to pan · scroll / pinch to zoom · click a district</div>
       )}
+      <div className="hud attrib">three.js example models · threejs.org</div>
       <Loader pct={pct} done={loaded} />
     </>
   );
