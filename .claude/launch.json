@@ -6,6 +6,18 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["tools/preview-server.mjs"],
       "port": 4519
+    },
+    {
+      "name": "village3d",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["village3d/serve.mjs"],
+      "port": 4620
+    },
+    {
+      "name": "village3d-react",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "village3d-react"],
+      "port": 4630
     }
   ]
 }
