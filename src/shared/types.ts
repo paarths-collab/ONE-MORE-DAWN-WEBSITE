@@ -371,7 +371,11 @@ export type LawDef = {
   cost: string;
 };
 
-export type LeaderboardEntry = { userId: string; username: string; score: number };
+/**
+ * Public leaderboard row. Deliberately carries NO userId: raw t2_* identifiers
+ * are server-side keys and never leave the API (see GET /api/leaderboard).
+ */
+export type LeaderboardEntry = { username: string; score: number };
 
 export type LeaderboardResponse = {
   type: 'leaderboard';

@@ -2,27 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <!-- Fonts (Silkscreen + JetBrains Mono) are self-hosted and bundled by Vite
-         via game.tsx, so they load same-origin under the Devvit webview CSP.
-         Monospace remains the fallback stack if a face is ever unavailable. -->
-    <link rel="stylesheet" href="game.css" />
-    <style>
-      :root {
-        --pixel-font: 'Silkscreen', monospace;
-        --mono-font: 'JetBrains Mono', monospace;
-      }
-      #game-container {
-        background: #0c0a0a;
-      }
-    </style>
+         via game.tsx, so they load same-origin under the Devvit webview CSP. -->
     <title>One More Dawn</title>
   </head>
-
   <body>
-    <div id="app">
-      <div id="game-container"></div>
-    </div>
+    <!-- Vite entry shell only — the entire UI is React (App.tsx + scene.ts). -->
+    <div id="root"></div>
     <script type="module" src="game.tsx"></script>
   </body>
 </html>

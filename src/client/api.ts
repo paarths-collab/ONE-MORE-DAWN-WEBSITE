@@ -1,0 +1,95 @@
+// Typed same-origin fetch helpers for the real multiplayer game API
+// (src/server/routes/api.ts). Every helper resolves with the parsed JSON
+// payload or throws an ApiFailure — callers decide live vs demo from that.
+
+import type {
+  ActionRequest,
+  ActionResponse,
+  ActionType,
+  InitResponse,
+  LeaderboardResponse,
+  PledgeKind,
+  PledgeRequest,
+  PledgeResponse,
+  StrategyPlanId,
+  StrategyRequest,
+  StrategyResponse,
+  VoteRequest,
+  VoteResponse,
+  WorldResponse,
+} from '../shared/types';
+
+/** Any failed API call: HTTP error (status + server message) or network/timeout (status 0). */
+export class ApiFailure extends Error {
+  /** HTTP status of the failed response; 0 for network errors and timeouts. */
+  readonly httpStatus: number;
+  constructor(message: string, httpStatus: number) {
+    super(message);
+    this.name = 'ApiFailure';
+    this.httpStatus = httpStatus;
+  }
+}
+
+const TIMEOUT_MS = 8000;
+
+/**
+ * Same-origin JSON fetch with an 8s abort. GET when `body` is omitted, POST
+ * otherwise. Non-2xx responses throw ApiFailure carrying the server's
+ * `{ status:'error', message }` text when present. No retries.
+ */
+async function request<T>(path: string, body?: unknown): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(path, {
+      method: body === undefined ? 'GET' : 'POST',
+      signal: ctrl.signal,
+      ...(body === undefined
+        ? {}
+        : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+    });
+    if (!res.ok) {
+      let message = `HTTP ${res.status}`;
+      try {
+        const parsed = (await res.json()) as { message?: unknown };
+        if (typeof parsed.message === 'string') message = parsed.message;
+      } catch {
+        // non-JSON error body (e.g. the dev harness's 404 page) — keep the status text
+      }
+      throw new ApiFailure(message, res.status);
+    }
+    return (await res.json()) as T;
+  } catch (err) {
+    if (err instanceof ApiFailure) throw err;
+    throw new ApiFailure(err instanceof Error ? err.message : 'network error', 0);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export const getInit = (): Promise<InitResponse> => request<InitResponse>('/api/init');
+
+export const postAction = (action: ActionType): Promise<ActionResponse> => {
+  const body: ActionRequest = { action };
+  return request<ActionResponse>('/api/action', body);
+};
+
+export const postVote = (optionId: string, crisisId: string): Promise<VoteResponse> => {
+  const body: VoteRequest = { optionId, crisisId };
+  return request<VoteResponse>('/api/vote', body);
+};
+
+export const postPledge = (kind: PledgeKind): Promise<PledgeResponse> => {
+  const body: PledgeRequest = { kind };
+  return request<PledgeResponse>('/api/pledge', body);
+};
+
+export const postStrategy = (planId: StrategyPlanId): Promise<StrategyResponse> => {
+  const body: StrategyRequest = { planId };
+  return request<StrategyResponse>('/api/strategy', body);
+};
+
+export const getWorld = (): Promise<WorldResponse> => request<WorldResponse>('/api/world');
+
+export const getLeaderboard = (): Promise<LeaderboardResponse> =>
+  request<LeaderboardResponse>('/api/leaderboard');

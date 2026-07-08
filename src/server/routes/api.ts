@@ -711,12 +711,16 @@ api.get('/world', async (c) => {
 });
 
 api.get('/timeline', async (c) => {
+  const user = requireUser();
+  if (!user) return c.json<ApiError>({ status: 'error', message: 'Not logged in' }, 401);
   const store = getStore();
   const entries = await store.getTimeline(30);
   return c.json<TimelineResponse>({ type: 'timeline', entries });
 });
 
 api.get('/leaderboard', async (c) => {
+  const user = requireUser();
+  if (!user) return c.json<ApiError>({ status: 'error', message: 'Not logged in' }, 401);
   const store = getStore();
   const [contribRows, scoutRows] = await Promise.all([
     store.topContributors(10),
@@ -724,12 +728,13 @@ api.get('/leaderboard', async (c) => {
   ]);
 
   // Resolve usernames from the players hash (in parallel); fall back to
-  // 'citizen' if unknown.
+  // 'citizen' if unknown. The raw t2_* userId keys the leaderboard is stored
+  // under NEVER leave the server — the client gets public usernames only.
   const resolve = (rows: { userId: string; score: number }[]): Promise<LeaderboardEntry[]> =>
     Promise.all(
       rows.map(async (r) => {
         const p = await store.getPlayer(r.userId);
-        return { userId: r.userId, username: p?.username ?? 'citizen', score: Math.round(r.score) };
+        return { username: p?.username ?? 'citizen', score: Math.round(r.score) };
       }),
     );
 

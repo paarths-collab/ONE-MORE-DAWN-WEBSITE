@@ -1013,7 +1013,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   const gltfCache = new Map<string, Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>>();
   const loadGlb = (file: string) => {
     if (!gltfCache.has(file)) {
-      gltfCache.set(file, new Promise((res, rej) => loader.load(`/assets/${file}`, (g) => res(g as never), undefined, rej)));
+      gltfCache.set(file, new Promise((res, rej) => loader.load(`assets/${file}`, (g) => res(g as never), undefined, rej)));
     }
     return gltfCache.get(file)!;
   };

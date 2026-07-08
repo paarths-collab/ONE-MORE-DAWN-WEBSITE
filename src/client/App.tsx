@@ -9,6 +9,22 @@ import {
   type VillageHandle,
   type VillageHooks,
 } from './scene';
+import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postPledge, postStrategy, postVote } from './api';
+import type {
+  ActionType,
+  Crisis,
+  DawnReport,
+  InitResponse,
+  LeaderboardEntry,
+  Marked,
+  PledgeInfo,
+  PledgeKind,
+  ResourceDelta,
+  Standing,
+  StrategyPlanId,
+  VoteTally,
+  WorldCity,
+} from '../shared/types';
 
 // ONE MORE DAWN — 3D town, React edition v4: the self-running mini-game.
 // The scene runs itself (time cycles, companions on, players walk the streets).
@@ -137,6 +153,68 @@ type Notif = { icon: string; text: string; tone: NotifTone; key: number };
 
 const MARKED_GOAL = 40;
 
+// ---------- LIVE mode (real backend via src/client/api.ts) ----------
+// 'connecting' while the first /api/init is in flight; 'live' when the real
+// game answers; 'demo' (the standalone harness / logged-out) keeps every local
+// simulation exactly as before.
+type Mode = 'connecting' | 'live' | 'demo';
+
+// Server vitals caps (src/shared/balance.ts: food store 300, medicine 120,
+// power/morale/threat/defense 0..100). Demo keeps the old local maxes.
+const LIVE_VITAL_MAX: Record<VitKey, number> = { FOOD: 300, POWER: 100, MEDICINE: 120, MORALE: 100, THREAT: 100, DEFENSE: 100 };
+
+// ResourceDelta key → HUD emoji, for rendering crisis option effects.
+const DELTA_ICONS: Record<string, string> = {
+  population: '👥',
+  food: '🍞',
+  power: '⚡',
+  medicine: '🩹',
+  morale: '🙂',
+  threat: '☠️',
+  defense: '🛡️',
+};
+const fmtDelta = (fx: ResourceDelta): string =>
+  Object.entries(fx)
+    .filter((e): e is [string, number] => typeof e[1] === 'number' && e[1] !== 0)
+    .map(([k, n]) => `${n > 0 ? '+' : '−'}${Math.abs(n)} ${DELTA_ICONS[k] ?? k}`)
+    .join(' · ');
+
+// Council plan labels for every server StrategyPlanId (fallback = raw id).
+const PLAN_LABELS: Record<string, string> = {
+  prepare_raid: '🛡️ Prepare for Raid',
+  stockpile_food: '🍞 Stockpile Food',
+  repair_power: '⚡ Repair Power',
+  send_scouts: '🧭 Send Scouts',
+  treat_sick: '⛑️ Treat the Sick',
+};
+const STRATEGY_IDS: StrategyPlanId[] = ['stockpile_food', 'repair_power', 'prepare_raid', 'send_scouts', 'treat_sick'];
+const PLEDGE_KINDS: PledgeKind[] = ['stand_vigil', 'share_rations', 'run_messages', 'back_council'];
+const ACTION_IDS: ActionType[] = ['grow_food', 'repair_power', 'treat_sick', 'guard_wall'];
+const MARKED_ICONS: Record<Marked['kind'], string> = { person: '🧒', place: '🏚️', symbol: '🕯️' };
+
+// Everything the LIVE tab needs when the real backend is talking. null = demo.
+type LiveData = {
+  markedIcon: string;
+  markedName: string;
+  markedBlurb: string;
+  markedGoal: number;
+  markedUnit: string;
+  pledgeOptions: { id: PledgeKind; icon: string; label: string }[];
+  onPledgeKind: (kind: PledgeKind) => void;
+  crisisTitle: string;
+  crisisNarrative: string;
+  crisisOptions: { id: string; label: string; fx: string }[];
+  crisisVotes: VoteTally;
+  myVote: string | null;
+  onVote: (id: string) => void;
+  plans: { id: string; nm: string; votes: number }[];
+  myPlan: string | null;
+  onPlan: (id: string) => void;
+  raidLikely: boolean;
+  hasDawnReport: boolean;
+  onOpenDawn: () => void;
+};
+
 const PLEDGES: { id: string; icon: string; label: string }[] = [
   { id: 'stand_vigil', icon: '🕯️', label: 'Stand Vigil' },
   { id: 'share_rations', icon: '🍞', label: 'Share Rations' },
@@ -195,7 +273,8 @@ const clampVit = (k: VitKey, n: number): number => Math.max(0, Math.min(VITAL_MA
 const UPGRADE_COST = 10; // food per district upgrade
 
 // DAWN ACTIONS — the real game's once-per-day free actions, HUD edition.
-const ACTIONS = [
+// Ids match the server's ActionType exactly (live mode posts them verbatim).
+const ACTIONS: { id: ActionType; icon: string; label: string; fx: string }[] = [
   { id: 'grow_food', icon: '🌾', label: 'GROW FOOD', fx: '+3 🍞' },
   { id: 'repair_power', icon: '🔧', label: 'REPAIR', fx: '+4 ⚡' },
   { id: 'treat_sick', icon: '⛑️', label: 'TREAT', fx: '+2 🩹' },
@@ -282,12 +361,11 @@ function VillageCanvas({
     onReady(handle);
     return () => handle.dispose();
     // mount once — callbacks are stable (useCallback in App)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return <div ref={mountRef} className="canvas-mount" />;
 }
 
-function TopBar({ vitals, population }: { vitals: Vitals; population: number }) {
+function TopBar({ vitals, population, subtitle }: { vitals: Vitals; population: number; subtitle: string }) {
   const RES: [string, number][] = [
     ['🍞', vitals.FOOD],
     ['⚡', vitals.POWER],
@@ -301,7 +379,7 @@ function TopBar({ vitals, population }: { vitals: Vitals; population: number }) 
     <div className="hud topbar">
       <div className="title card-bit">
         <h1>THE LAST CITY</h1>
-        <div className="sub">3D town · React + three.js · not wired to the game</div>
+        <div className="sub">{subtitle}</div>
       </div>
       <div className="res">
         {RES.map(([icon, value]) => (
@@ -371,6 +449,8 @@ type LiveState = {
   councilVotes: Record<PlanId, number>;
   raidDays: number;
   events: LiveEvent[];
+  /** Real-backend payload — null keeps the demo rendering untouched. */
+  liveData: LiveData | null;
 };
 
 function LiveTab({
@@ -387,34 +467,56 @@ function LiveTab({
   councilVotes,
   raidDays,
   events,
+  liveData,
 }: LiveState) {
-  const mkPct = Math.round((pledged / MARKED_GOAL) * 100);
+  const mkGoal = liveData?.markedGoal ?? MARKED_GOAL;
+  const mkPct = Math.min(100, Math.round((pledged / Math.max(1, mkGoal)) * 100));
   const crisisTotal = Math.max(1, crisisVotes.a + crisisVotes.b + crisisVotes.c);
+  const liveCrisisTotal = liveData ? Math.max(1, Object.values(liveData.crisisVotes).reduce((a, b) => a + b, 0)) : 1;
   const councilMax = Math.max(1, ...PLAN_IDS.map((id) => councilVotes[id]));
+  const liveCouncilMax = liveData ? Math.max(1, ...liveData.plans.map((p) => p.votes)) : 1;
   const raidSoon = raidDays <= 1;
   return (
     <>
+      {liveData?.hasDawnReport && (
+        <button type="button" className="say-hi" onClick={liveData.onOpenDawn}>
+          🌅 DAWN REPORT
+        </button>
+      )}
       <div className="p-sec">THE MARKED</div>
       <div className="marked">
         <div className="mk-head">
-          <span className="mi">🧒</span>
-          <span className="mn">Mira, the greenhouse child</span>
+          <span className="mi">{liveData?.markedIcon ?? '🧒'}</span>
+          <span className="mn">{liveData?.markedName ?? 'Mira, the greenhouse child'}</span>
         </div>
+        {liveData && <div className="mini-cap">{liveData.markedBlurb}</div>}
         <div className="mk-bar">
           <i style={{ width: `${mkPct}%` }} />
         </div>
         <div className="mk-meta">
           <span>
-            {pledged} / {MARKED_GOAL} resolve
+            {pledged} / {mkGoal} {liveData?.markedUnit ?? 'resolve'}
           </span>
           <span>{pledgedToday ? "You've helped today" : `${mkPct}% saved`}</span>
         </div>
         <div className="mk-pledges">
-          {PLEDGES.map((p) => (
-            <button key={p.id} type="button" className="mk-pledge" disabled={pledgedToday} onClick={onPledge}>
-              {p.icon} {p.label}
-            </button>
-          ))}
+          {liveData
+            ? liveData.pledgeOptions.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="mk-pledge"
+                  disabled={pledgedToday}
+                  onClick={() => liveData.onPledgeKind(p.id)}
+                >
+                  {p.icon} {p.label}
+                </button>
+              ))
+            : PLEDGES.map((p) => (
+                <button key={p.id} type="button" className="mk-pledge" disabled={pledgedToday} onClick={onPledge}>
+                  {p.icon} {p.label}
+                </button>
+              ))}
         </div>
       </div>
 
@@ -433,40 +535,78 @@ function LiveTab({
 
       <div className="p-sec">TODAY'S CRISIS</div>
       <div className="crisis">
-        <div className="cr-title">⚔️ The Convoy at the Gate</div>
-        {CRISIS_OPTS.map((o) => {
-          const pct = Math.round((crisisVotes[o.id] / crisisTotal) * 100);
-          return (
-            <button
-              key={o.id}
-              type="button"
-              className={myCrisisVote === o.id ? 'cr-opt mine' : 'cr-opt'}
-              disabled={myCrisisVote !== null}
-              onClick={() => onCrisisVote(o.id)}
-            >
-              <span className="cr-nm">{o.nm}</span>
-              <span className="cr-fx">{o.fx}</span>
-              <span className="cr-pct">{pct}%</span>
-            </button>
-          );
-        })}
+        <div className="cr-title">⚔️ {liveData ? liveData.crisisTitle : 'The Convoy at the Gate'}</div>
+        {liveData && <div className="mini-cap">{liveData.crisisNarrative}</div>}
+        {liveData
+          ? liveData.crisisOptions.map((o) => {
+              const pct = Math.round(((liveData.crisisVotes[o.id] ?? 0) / liveCrisisTotal) * 100);
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  className={liveData.myVote === o.id ? 'cr-opt mine' : 'cr-opt'}
+                  disabled={liveData.myVote !== null}
+                  onClick={() => liveData.onVote(o.id)}
+                >
+                  <span className="cr-nm">{o.label}</span>
+                  <span className="cr-fx">{o.fx}</span>
+                  <span className="cr-pct">{pct}%</span>
+                </button>
+              );
+            })
+          : CRISIS_OPTS.map((o) => {
+              const pct = Math.round((crisisVotes[o.id] / crisisTotal) * 100);
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  className={myCrisisVote === o.id ? 'cr-opt mine' : 'cr-opt'}
+                  disabled={myCrisisVote !== null}
+                  onClick={() => onCrisisVote(o.id)}
+                >
+                  <span className="cr-nm">{o.nm}</span>
+                  <span className="cr-fx">{o.fx}</span>
+                  <span className="cr-pct">{pct}%</span>
+                </button>
+              );
+            })}
       </div>
 
       <div className="p-sec">THE COUNCIL</div>
       <div className="council">
-        {PLANS.map((p) => {
-          const v = councilVotes[p.id];
-          const lead = v === councilMax;
-          return (
-            <div key={p.id} className={lead ? 'co-plan lead' : 'co-plan'}>
-              <span className="co-nm">{p.nm}</span>
-              <div className="co-bar">
-                <i style={{ width: `${Math.round((v / councilMax) * 100)}%` }} />
-              </div>
-              <span className="co-v">{v}</span>
-            </div>
-          );
-        })}
+        {liveData
+          ? liveData.plans.map((p) => {
+              const lead = p.votes === liveCouncilMax && p.votes > 0;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={liveData.myPlan === p.id || lead ? 'co-plan lead' : 'co-plan'}
+                  disabled={liveData.myPlan !== null}
+                  onClick={() => liveData.onPlan(p.id)}
+                  style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: liveData.myPlan === null ? 'pointer' : 'default' }}
+                >
+                  <span className="co-nm">{p.nm}</span>
+                  <div className="co-bar">
+                    <i style={{ width: `${Math.round((p.votes / liveCouncilMax) * 100)}%` }} />
+                  </div>
+                  <span className="co-v">{p.votes}</span>
+                </button>
+              );
+            })
+          : PLANS.map((p) => {
+              const v = councilVotes[p.id];
+              const lead = v === councilMax;
+              return (
+                <div key={p.id} className={lead ? 'co-plan lead' : 'co-plan'}>
+                  <span className="co-nm">{p.nm}</span>
+                  <div className="co-bar">
+                    <i style={{ width: `${Math.round((v / councilMax) * 100)}%` }} />
+                  </div>
+                  <span className="co-v">{v}</span>
+                </div>
+              );
+            })}
       </div>
 
       <div className="p-sec">RAID WATCH</div>
@@ -474,7 +614,11 @@ function LiveTab({
         <span className="raid-ic">☠️</span>
         <div className="raid-body">
           <div className="raid-count">{raidSoon ? 'RAID AT NEXT DAWN' : `RAID IN ${raidDays} DAWNS`}</div>
-          <div className="raid-note">guard the wall — every point of defense counts</div>
+          <div className="raid-note">
+            {liveData?.raidLikely
+              ? '⚠ the forecast says raiders move at dawn — guard the wall'
+              : 'guard the wall — every point of defense counts'}
+          </div>
         </div>
       </div>
 
@@ -492,7 +636,31 @@ function LiveTab({
 }
 
 // TOP 🏆 tab — subreddit contribution leaderboard + city totals.
-function TopTab({ contribs }: { contribs: Record<string, Contrib> }) {
+// Live mode renders the real server leaderboard (username + score only).
+function TopTab({ contribs, lb }: { contribs: Record<string, Contrib>; lb: LeaderboardEntry[] | null }) {
+  if (lb) {
+    const topScore = Math.max(1, lb[0]?.score ?? 1);
+    return (
+      <>
+        <div className="p-sec">TOP CONTRIBUTORS</div>
+        <div className="lb">
+          {lb.length === 0 && <div className="mini-cap">no contributions yet — be the first</div>}
+          {lb.map((row, i) => (
+            <div key={`${row.username}-${i}`} className="lb-row">
+              <span className="lb-rank">{LB_RANKS[i] ?? i + 1}</span>
+              <span className="lb-user">u/{row.username}</span>
+              <span className="lb-score">{row.score}</span>
+              <div className="lb-bar">
+                <i style={{ width: `${Math.round((row.score / topScore) * 100)}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="p-sec">CITY TOTALS</div>
+        <div className="lb-total">every action, pledge and expedition counts toward the ledger</div>
+      </>
+    );
+  }
   const ranked = Object.entries(contribs)
     .sort((a, b) => b[1].score - a[1].score)
     .map(([name, c], i) => ({ name, c, rank: i }));
@@ -615,10 +783,37 @@ function MiniMap({
 
 // ---------- MAP tab: world map of rival subreddit-cities ----------
 // A parchment-style terrain map: sea → continent → mountains/forests/river →
-// curved trade routes → hut-cluster settlements with status flags. All static.
-function WorldMap({ youStatus }: { youStatus: WorldStatus }) {
+// curved trade routes → hut-cluster settlements with status flags. Demo shows
+// the fictional set; live maps real /api/world cities onto the same 6 slots.
+type WmCity = { id: string; name: string; status: WorldStatus; x: number; y: number; info?: string };
+function WorldMap({
+  youStatus,
+  liveCities,
+  note,
+}: {
+  youStatus: WorldStatus;
+  liveCities: WorldCity[] | null;
+  note: string | null;
+}) {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
-  const cities = WORLD_CITIES.map((c) => (c.id === 'you' ? { ...c, status: youStatus } : c));
+  let cities: WmCity[];
+  if (liveCities) {
+    // your city → the center slot; the top 5 others (already ranked) → the
+    // remaining slots. Fewer than 6 cities just leaves slots empty.
+    const you = liveCities.find((c) => c.isYou) ?? null;
+    const others = liveCities.filter((c) => !c.isYou).slice(0, 5);
+    const info = (c: WorldCity) => `${c.survivalDays} dawns · ${c.population} souls`;
+    cities = [];
+    const center = WORLD_CITIES[0]!;
+    if (you) cities.push({ id: 'you', name: you.subreddit, status: you.status, x: center.x, y: center.y, info: info(you) });
+    others.forEach((c, i) => {
+      const slot = WORLD_CITIES[i + 1];
+      if (!slot) return;
+      cities.push({ id: slot.id, name: c.subreddit, status: c.status, x: slot.x, y: slot.y, info: info(c) });
+    });
+  } else {
+    cities = WORLD_CITIES.map((c) => (c.id === 'you' ? { ...c, status: youStatus } : c));
+  }
   const sel = cities.find((c) => c.id === selectedCity) ?? null;
   return (
     <div className="wm">
@@ -691,9 +886,11 @@ function WorldMap({ youStatus }: { youStatus: WorldStatus }) {
       </svg>
       {sel && (
         <div className="wm-info">
-          {WORLD_STATUS[sel.status].icon} {sel.name} — {WORLD_STATUS[sel.status].label}. {WORLD_STATUS[sel.status].flavor}
+          {WORLD_STATUS[sel.status].icon} {sel.name} — {WORLD_STATUS[sel.status].label}.{' '}
+          {sel.info ?? WORLD_STATUS[sel.status].flavor}
         </div>
       )}
+      {note && <div className="mini-cap">{note}</div>}
     </div>
   );
 }
@@ -713,13 +910,17 @@ function CityDashboard({
   onFocusDistrict,
   onFocusPoint,
   worldYouStatus,
+  worldCities,
+  worldNote,
   pois,
   levels,
   vitals,
+  vitalMaxes,
   selectedName,
   onVisit,
   live,
   contribs,
+  lb,
 }: {
   open: boolean;
   setOpen: (b: boolean) => void;
@@ -732,13 +933,17 @@ function CityDashboard({
   onFocusDistrict: (name: string) => void;
   onFocusPoint: (x: number, z: number) => void;
   worldYouStatus: WorldStatus;
+  worldCities: WorldCity[] | null;
+  worldNote: string | null;
   pois: PoiInfo[];
   levels: Record<string, number>;
   vitals: Vitals;
+  vitalMaxes: Record<VitKey, number>;
   selectedName: string | null;
   onVisit: (name: string) => void;
   live: LiveState;
   contribs: Record<string, Contrib>;
+  lb: LeaderboardEntry[] | null;
 }) {
   return (
     <>
@@ -781,22 +986,23 @@ function CityDashboard({
             {mapView === 'town' ? (
               <MiniMap mapData={mapData} view={view} onFocusDistrict={onFocusDistrict} onFocusPoint={onFocusPoint} />
             ) : (
-              <WorldMap youStatus={worldYouStatus} />
+              <WorldMap youStatus={worldYouStatus} liveCities={worldCities} note={worldNote} />
             )}
           </>
         )}
 
         {tab === 'live' && <LiveTab {...live} />}
 
-        {tab === 'top' && <TopTab contribs={contribs} />}
+        {tab === 'top' && <TopTab contribs={contribs} lb={lb} />}
 
         {tab === 'city' && (
           <>
             <div className="p-sec">CITY VITALS</div>
             <div className="vits">
               {VITAL_DEFS.map((r) => {
+                const max = vitalMaxes[r.k];
                 const v = vitals[r.k];
-                const pct = Math.min(100, (v / r.max) * 100);
+                const pct = Math.min(100, (v / max) * 100);
                 const col = vitColor(pct, r.danger);
                 return (
                   <div key={r.k} className="vit">
@@ -806,7 +1012,7 @@ function CityDashboard({
                       </span>
                       <span className="v" style={{ color: col }}>
                         {v}
-                        <em>/{r.max}</em>
+                        <em>/{max}</em>
                       </span>
                     </div>
                     <div className="track">
@@ -942,6 +1148,8 @@ function BuildDock({
 }
 
 // DAWN ACTIONS hotbar — once each per day, plus the scavenge route picker.
+// Live mode: buttons post to the real API, an energy pill shows what's left,
+// and SCAVENGE is hidden (the mission minigame isn't ported to the 3D town).
 function Hotbar({
   used,
   onAction,
@@ -949,6 +1157,9 @@ function Hotbar({
   scavOpen,
   onToggleScav,
   onScavenge,
+  live,
+  energyLeft,
+  actionCounts,
 }: {
   used: Record<string, boolean>;
   onAction: (id: string) => void;
@@ -956,10 +1167,13 @@ function Hotbar({
   scavOpen: boolean;
   onToggleScav: () => void;
   onScavenge: (id: RouteId) => void;
+  live: boolean;
+  energyLeft: number;
+  actionCounts: Partial<Record<ActionType, number>>;
 }) {
   return (
     <>
-      {scavOpen && (
+      {scavOpen && !live && (
         <div className="hud scav card-bit on">
           {ROUTES.map((r) => (
             <button key={r.id} type="button" className="route" onClick={() => onScavenge(r.id)}>
@@ -971,24 +1185,36 @@ function Hotbar({
         </div>
       )}
       <div className="hud hotbar">
-        {ACTIONS.map((a) => (
-          <button key={a.id} type="button" className="act" disabled={!!used[a.id]} onClick={() => onAction(a.id)}>
-            <span className="ai">{a.icon}</span>
-            <span className="al">{a.label}</span>
-            <span className="af">{used[a.id] ? '✓ done' : a.fx}</span>
+        {live && (
+          <span className="pill card-bit" title="energy left today">
+            ⚡ <b>{energyLeft}</b>
+          </span>
+        )}
+        {ACTIONS.map((a) => {
+          const count = actionCounts[a.id] ?? 0;
+          const disabled = live ? energyLeft <= 0 : !!used[a.id];
+          const fx = live ? (count > 0 ? `✓ ×${count} today` : a.fx) : used[a.id] ? '✓ done' : a.fx;
+          return (
+            <button key={a.id} type="button" className="act" disabled={disabled} onClick={() => onAction(a.id)}>
+              <span className="ai">{a.icon}</span>
+              <span className="al">{a.label}</span>
+              <span className="af">{fx}</span>
+            </button>
+          );
+        })}
+        {!live && (
+          <button
+            type="button"
+            className="act scv"
+            disabled={scouting}
+            onClick={onToggleScav}
+            aria-expanded={scavOpen}
+          >
+            <span className="ai">🧭</span>
+            <span className="al">SCAVENGE</span>
+            <span className="af">{scouting ? 'scout out…' : 'pick a route'}</span>
           </button>
-        ))}
-        <button
-          type="button"
-          className="act scv"
-          disabled={scouting}
-          onClick={onToggleScav}
-          aria-expanded={scavOpen}
-        >
-          <span className="ai">🧭</span>
-          <span className="al">SCAVENGE</span>
-          <span className="af">{scouting ? 'scout out…' : 'pick a route'}</span>
-        </button>
+        )}
       </div>
     </>
   );
@@ -1028,6 +1254,8 @@ function StatsModal({
   contribs,
   raidLog,
   youStatus,
+  vitalMaxes,
+  lb,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1039,6 +1267,8 @@ function StatsModal({
   contribs: Record<string, Contrib>;
   raidLog: RaidLogEntry[];
   youStatus: WorldStatus;
+  vitalMaxes: Record<VitKey, number>;
+  lb: LeaderboardEntry[] | null;
 }) {
   const ranked = Object.entries(contribs)
     .sort((a, b) => b[1].score - a[1].score)
@@ -1066,8 +1296,9 @@ function StatsModal({
           </thead>
           <tbody>
             {VITAL_DEFS.map((r) => {
+              const max = vitalMaxes[r.k];
               const v = vitals[r.k];
-              const pct = Math.round((v / r.max) * 100);
+              const pct = Math.round((v / max) * 100);
               const eff = r.danger ? 100 - pct : pct; // THREAT: high is bad
               const tone = eff >= 50 ? 'good' : eff >= 25 ? 'low' : 'critical';
               return (
@@ -1076,7 +1307,7 @@ function StatsModal({
                     {r.icon} {r.k}
                   </td>
                   <td>{v}</td>
-                  <td>{r.max}</td>
+                  <td>{max}</td>
                   <td>{pct}%</td>
                   <td>
                     <span className={'st-tag ' + tone}>{tone}</span>
@@ -1126,32 +1357,59 @@ function StatsModal({
         </table>
 
         <div className="st-sec">TOP CONTRIBUTORS</div>
-        <table className="st">
-          <thead>
-            <tr>
-              <th>RANK</th>
-              <th>USER</th>
-              <th>🏠</th>
-              <th>🍞</th>
-              <th>⚡</th>
-              <th>🩹</th>
-              <th>SCORE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ranked.map(({ name, c, rank }) => (
-              <tr key={name} className={name === 'u/you' ? 'me' : undefined}>
-                <td>{LB_RANKS[rank] ?? rank + 1}</td>
-                <td>{name}</td>
-                <td>{c.houses}</td>
-                <td>{c.food}</td>
-                <td>{c.power}</td>
-                <td>{c.medicine}</td>
-                <td>{c.score}</td>
+        {lb ? (
+          <table className="st">
+            <thead>
+              <tr>
+                <th>RANK</th>
+                <th>USER</th>
+                <th>SCORE</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {lb.length === 0 ? (
+                <tr>
+                  <td colSpan={3}>no contributions recorded yet</td>
+                </tr>
+              ) : (
+                lb.map((row, i) => (
+                  <tr key={`${row.username}-${i}`}>
+                    <td>{LB_RANKS[i] ?? i + 1}</td>
+                    <td>u/{row.username}</td>
+                    <td>{row.score}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        ) : (
+          <table className="st">
+            <thead>
+              <tr>
+                <th>RANK</th>
+                <th>USER</th>
+                <th>🏠</th>
+                <th>🍞</th>
+                <th>⚡</th>
+                <th>🩹</th>
+                <th>SCORE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ranked.map(({ name, c, rank }) => (
+                <tr key={name} className={name === 'u/you' ? 'me' : undefined}>
+                  <td>{LB_RANKS[rank] ?? rank + 1}</td>
+                  <td>{name}</td>
+                  <td>{c.houses}</td>
+                  <td>{c.food}</td>
+                  <td>{c.power}</td>
+                  <td>{c.medicine}</td>
+                  <td>{c.score}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
 
         <div className="st-sec">RAID LOG</div>
         <table className="st">
@@ -1209,6 +1467,43 @@ function StatsModal({
             })}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+// DAWN REPORT — live-mode morning recap, reusing the stats-modal chrome.
+function DawnReportModal({
+  report,
+  open,
+  onClose,
+}: {
+  report: DawnReport | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  if (!report) return null;
+  return (
+    <div className={open ? 'hud stats-modal on' : 'hud stats-modal'}>
+      <div className="stats-back" onClick={onClose} />
+      <div className="stats-sheet card-bit">
+        <button type="button" className="st-close" onClick={onClose} aria-label="Close dawn report">
+          ✕
+        </button>
+        <h2>DAWN REPORT — DAY {report.day}</h2>
+        <div className="st-sec">THE CITY</div>
+        {report.citySummary.length === 0 ? (
+          <div className="mini-cap">a quiet night — nothing to report</div>
+        ) : (
+          report.citySummary.map((line, i) => <div key={i}>{line}</div>)
+        )}
+        <div className="st-sec">YOUR PART</div>
+        {report.yourImpact.length === 0 ? (
+          <div className="mini-cap">You rested. The city carried on without you — today, change that.</div>
+        ) : (
+          report.yourImpact.map((line, i) => <div key={i}>{line}</div>)
+        )}
+        {report.title && <div className="st-sec">TITLE: {report.title}</div>}
       </div>
     </div>
   );
@@ -1275,7 +1570,35 @@ export function App() {
   const [contribs, setContribs] = useState<Record<string, Contrib>>(START_CONTRIBS);
   // seed newest-first: DRAMA[2] is the freshest, rotation continues at index 3
   const [events, setEvents] = useState<LiveEvent[]>(() => [2, 1, 0].map((i) => ({ ...DRAMA[i]!, key: i })));
+  // ---- LIVE mode (real backend) state ----
+  const [mode, setMode] = useState<Mode>('connecting');
+  const [liveCrisis, setLiveCrisis] = useState<Crisis | null>(null);
+  const [liveCrisisVotes, setLiveCrisisVotes] = useState<VoteTally>({});
+  const [liveMyVote, setLiveMyVote] = useState<string | null>(null);
+  const [liveStrategyVotes, setLiveStrategyVotes] = useState<VoteTally>({});
+  const [liveMyPlan, setLiveMyPlan] = useState<string | null>(null);
+  const [liveMarked, setLiveMarked] = useState<Marked | null>(null);
+  const [livePledge, setLivePledge] = useState<PledgeInfo | null>(null);
+  const [liveEnergy, setLiveEnergy] = useState({ effective: 0, used: 0 });
+  const [liveActions, setLiveActions] = useState<Partial<Record<ActionType, number>>>({});
+  const [liveStanding, setLiveStanding] = useState<Standing | null>(null);
+  const [liveCycle, setLiveCycle] = useState(1);
+  const [liveRaidLikely, setLiveRaidLikely] = useState(false);
+  const [dawnReport, setDawnReport] = useState<DawnReport | null>(null);
+  const [dawnOpen, setDawnOpen] = useState(false);
+  const [worldCities, setWorldCities] = useState<WorldCity[] | null>(null);
+  const [worldNote, setWorldNote] = useState<string | null>(null);
+  const [liveLb, setLiveLb] = useState<LeaderboardEntry[] | null>(null);
   const handleRef = useRef<VillageHandle | null>(null);
+  const modeRef = useRef<Mode>('connecting'); // current mode, readable inside timers
+  const mutatingRef = useRef(false); // a POST is in flight — pause polls + block double-taps
+  const liveDayRef = useRef(0); // last server day seen (dawn diffing)
+  const liveCrisisIdRef = useRef(''); // pins votes to the crisis being shown
+  const seenDramaRef = useRef<Set<string>>(new Set()); // drama lines already in the feed
+  const worldFetchedRef = useRef(false); // world fetched at least once (first tab open)
+  const lbFetchedRef = useRef(false); // leaderboard fetched at least once
+  const dashTabRef = useRef<DashTab>('map'); // open tab, readable inside the poll
+  const mapViewRef = useRef<MapViewMode>('town');
   const pledgedRef = useRef(false); // click guard (double-tap before re-render)
   const votedRef = useRef(false);
   const nextEvRef = useRef(3);
@@ -1317,6 +1640,15 @@ export function App() {
   useEffect(() => {
     levelsRef.current = levels;
   }, [levels]);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+  useEffect(() => {
+    dashTabRef.current = dashTab;
+  }, [dashTab]);
+  useEffect(() => {
+    mapViewRef.current = mapView;
+  }, [mapView]);
 
   // ---- feed helpers ----
   const pushEvent = useCallback((icon: string, text: string) => {
@@ -1358,6 +1690,218 @@ export function App() {
     });
   }, []);
 
+  // ---- LIVE mode: map an InitResponse onto the HUD state ----
+  const applyInit = useCallback(
+    (init: InitResponse, first: boolean) => {
+      const { city } = init;
+      const dayIncreased = !first && city.day > liveDayRef.current;
+      liveDayRef.current = city.day;
+      liveCrisisIdRef.current = init.crisis.id;
+      dayRef.current = city.day;
+      prevDayRef.current = city.day; // keep the demo dawn-refresh effect quiet
+      setDay(city.day);
+      setVitals({
+        FOOD: Math.round(city.food),
+        POWER: Math.round(city.power),
+        MEDICINE: Math.round(city.medicine),
+        MORALE: Math.round(city.morale),
+        THREAT: Math.round(city.threat),
+        DEFENSE: Math.round(city.defense),
+      });
+      setPopulation(city.population);
+      setLiveCrisis(init.crisis);
+      setLiveCrisisVotes(init.crisisVotes);
+      setLiveMyVote(init.yourCrisisVote);
+      setLiveStrategyVotes(init.strategyVotes);
+      setLiveMyPlan(init.yourStrategyVote);
+      setLiveMarked(init.marked);
+      setLivePledge(init.pledge);
+      setLiveEnergy({ effective: init.effectiveEnergy, used: init.player.energyUsedToday });
+      setLiveActions(init.yourActionsToday);
+      setLiveStanding(init.standing);
+      setLiveCycle(city.cycle);
+      setLiveRaidLikely(init.forecast.raidLikely);
+      raidDaysRef.current = init.raidInDays;
+      setRaidDays(init.raidInDays);
+      // events feed: seed from the drama feed, then append only unseen lines
+      for (const d of [...init.drama].reverse()) {
+        const dk = `${d.icon}|${d.text}`;
+        if (seenDramaRef.current.has(dk)) continue;
+        seenDramaRef.current.add(dk);
+        pushEvent(d.icon, d.text);
+      }
+      if (first && init.marked.savedYesterday) {
+        const s = init.marked.savedYesterday;
+        pushEvent('🕯️', s.saved ? `${s.name} was saved before dawn.` : `${s.name} was lost in the night.`);
+      }
+      if (init.dawnReport) {
+        setDawnReport(init.dawnReport);
+        if ((first && init.firstVisitToday) || dayIncreased) setDawnOpen(true);
+      }
+      if (dayIncreased) {
+        pushNotif('🌅', `dawn breaks — day ${city.day}`);
+        pushEvent('🌅', `Dawn broke over the city — day ${city.day}, still standing.`);
+        // last night's raid, if the timeline recorded one
+        const t = init.timelinePreview;
+        if (t && (t.deltas.population ?? 0) < 0 && t.events.some((e) => /raid|red signal/i.test(e))) {
+          const line = t.events.find((e) => /raid|red signal/i.test(e)) ?? 'Raiders came in the night.';
+          pushNotif('⚔', line, 'bad');
+          pushEvent('⚔', line);
+        }
+      }
+    },
+    [pushEvent, pushNotif],
+  );
+
+  // Boot: one real /api/init decides the mode. Success = LIVE (the shared city
+  // is truth, local sims stay off). Any failure — network, 401, 404 from the
+  // standalone harness on :4630 — = DEMO, exactly the self-running town.
+  useEffect(() => {
+    let cancelled = false;
+    getInit()
+      .then((init) => {
+        if (cancelled) return;
+        setMode('live');
+        modeRef.current = 'live';
+        applyInit(init, true);
+      })
+      .catch(() => {
+        if (!cancelled) setMode('demo');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyInit]);
+
+  // WORLD map (live): real cities from /api/world; any failure or an
+  // ineligible sub falls back to the fictional charts with a caption.
+  const refreshWorld = useCallback(() => {
+    getWorld()
+      .then((w) => {
+        if (!w.eligible || w.cities.length === 0) {
+          setWorldCities(null);
+          setWorldNote('world charts unavailable — showing the old maps');
+        } else {
+          setWorldCities(w.cities);
+          setWorldNote(null);
+        }
+      })
+      .catch(() => {
+        setWorldCities(null);
+        setWorldNote('world charts unavailable — showing the old maps');
+      });
+  }, []);
+
+  const refreshLb = useCallback(() => {
+    getLeaderboard()
+      .then((r) => setLiveLb(r.contributors))
+      .catch(() => {
+        // keep the last leaderboard on a transient failure
+      });
+  }, []);
+
+  // First open of the WORLD map / TOP tab in live mode triggers the fetch;
+  // afterwards the 30s poll refreshes whichever is on screen.
+  useEffect(() => {
+    if (mode !== 'live') return;
+    if (dashTab === 'map' && mapView === 'world' && !worldFetchedRef.current) {
+      worldFetchedRef.current = true;
+      refreshWorld();
+    }
+    if (dashTab === 'top' && !lbFetchedRef.current) {
+      lbFetchedRef.current = true;
+      refreshLb();
+    }
+  }, [mode, dashTab, mapView, refreshWorld, refreshLb]);
+  useEffect(() => {
+    if (mode !== 'live' || !statsOpen || lbFetchedRef.current) return;
+    lbFetchedRef.current = true;
+    refreshLb();
+  }, [mode, statsOpen, refreshLb]);
+
+  // Poll the real game every 30s so other players' votes/pledges/actions (and
+  // the next dawn) show up. Skipped while one of our own POSTs is in flight.
+  useEffect(() => {
+    if (mode !== 'live') return undefined;
+    const id = window.setInterval(() => {
+      if (mutatingRef.current) return;
+      getInit()
+        .then((init) => {
+          applyInit(init, false);
+          if (dashTabRef.current === 'map' && mapViewRef.current === 'world') refreshWorld();
+          if (dashTabRef.current === 'top') refreshLb();
+        })
+        .catch(() => {
+          // transient poll failure — keep showing the last known state
+        });
+    }, 30000);
+    return () => window.clearInterval(id);
+  }, [mode, applyInit, refreshWorld, refreshLb]);
+
+  // ---- LIVE mode mutations (each guards the poll + double-taps via mutatingRef) ----
+  const toastFailure = useCallback(
+    (err: unknown, fallback: string) => {
+      popToast(err instanceof ApiFailure ? err.message : fallback);
+    },
+    [popToast],
+  );
+
+  const onLiveVote = useCallback(
+    (optionId: string) => {
+      if (mutatingRef.current) return;
+      mutatingRef.current = true;
+      postVote(optionId, liveCrisisIdRef.current)
+        .then((res) => {
+          setLiveCrisisVotes(res.crisisVotes);
+          setLiveMyVote(res.yourCrisisVote);
+          pushNotif('🗳️', 'your vote is in', 'good');
+        })
+        .catch((err) => toastFailure(err, 'vote failed — try again'))
+        .finally(() => {
+          mutatingRef.current = false;
+        });
+    },
+    [pushNotif, toastFailure],
+  );
+
+  const onLivePledge = useCallback(
+    (kind: PledgeKind) => {
+      if (mutatingRef.current || !PLEDGE_KINDS.includes(kind)) return;
+      mutatingRef.current = true;
+      postPledge(kind)
+        .then((res) => {
+          setLiveMarked(res.marked);
+          setLivePledge(res.pledge);
+          pushNotif('🕯️', `you pledged for ${res.marked.name}`, 'good');
+          handleRef.current?.pulseMarked?.();
+        })
+        .catch((err) => toastFailure(err, 'pledge failed — try again'))
+        .finally(() => {
+          mutatingRef.current = false;
+        });
+    },
+    [pushNotif, toastFailure],
+  );
+
+  const onLiveStrategy = useCallback(
+    (planId: string) => {
+      const plan = STRATEGY_IDS.find((p) => p === planId);
+      if (!plan || mutatingRef.current) return;
+      mutatingRef.current = true;
+      postStrategy(plan)
+        .then((res) => {
+          setLiveStrategyVotes(res.strategyVotes);
+          setLiveMyPlan(res.yourStrategyVote);
+          pushNotif('📜', 'the council heard you', 'good');
+        })
+        .catch((err) => toastFailure(err, 'the council is busy — try again'))
+        .finally(() => {
+          mutatingRef.current = false;
+        });
+    },
+    [pushNotif, toastFailure],
+  );
+
   const onReady = useCallback((h: VillageHandle) => {
     handleRef.current = h;
   }, []);
@@ -1390,28 +1934,37 @@ export function App() {
     setVillager(name);
   }, []);
 
-  // scene reports a placed hut → grow the city, spend food, exit build mode
+  // scene reports a placed hut → grow the city, spend food, exit build mode.
+  // Live mode: the hut is purely cosmetic — city numbers belong to the server.
   const onBuilt = useCallback(
     (x: number, _z: number) => {
-      setPopulation((p) => p + 4);
-      setVitals((v) => ({ ...v, FOOD: clampVit('FOOD', v.FOOD - 5) }));
-      addContrib('u/you', { houses: 1 });
-      pushEvent('🔨', `A new hut rose in the ${x < 0 ? 'west' : 'east'} quarter — a family moves in.`);
-      pushNotif('🔨', 'a new hut — +4 souls', 'good');
-      popToast('Hut raised — +4 souls');
+      if (modeRef.current !== 'live') {
+        setPopulation((p) => p + 4);
+        setVitals((v) => ({ ...v, FOOD: clampVit('FOOD', v.FOOD - 5) }));
+        addContrib('u/you', { houses: 1 });
+        pushEvent('🔨', `A new hut rose in the ${x < 0 ? 'west' : 'east'} quarter — a family moves in.`);
+        pushNotif('🔨', 'a new hut — +4 souls', 'good');
+        popToast('Hut raised — +4 souls');
+      } else {
+        pushEvent('🔨', `A new hut rose in the ${x < 0 ? 'west' : 'east'} quarter — a family moves in.`);
+        pushNotif('🔨', 'a new hut rises (cosmetic)', 'good');
+        popToast('Hut raised');
+      }
       buildModeRef.current = false;
       setBuildMode(false);
-      (handleRef.current as any)?.setBuildMode?.(false);
+      handleRef.current?.setBuildMode?.(false);
     },
     [addContrib, pushEvent, pushNotif, popToast],
   );
 
   // VILLAGERS are now PLAYERS — the walking count tracks the number of distinct
   // contributors (people who opted into the game), clamped to a sane range.
+  // Live mode keeps a small constant crowd (the server has no walker roster).
   const playerCount = Object.keys(contribs).length;
   useEffect(() => {
-    handleRef.current?.setVillagers(Math.max(3, Math.min(MAX_VILLAGERS, playerCount)));
-  }, [playerCount, loaded]);
+    const n = mode === 'live' ? 5 : Math.max(3, Math.min(MAX_VILLAGERS, playerCount));
+    handleRef.current?.setVillagers(n);
+  }, [playerCount, loaded, mode]);
 
   // COMPANIONS are permanently on — sync all four once the scene is ready.
   useEffect(() => {
@@ -1429,7 +1982,7 @@ export function App() {
   useEffect(() => {
     if (!loaded) return undefined;
     const fetchMap = () => {
-      const md = (handleRef.current as any)?.getMapData?.() as MapData | undefined;
+      const md = handleRef.current?.getMapData?.() as MapData | undefined;
       if (md) setMapData(md);
     };
     fetchMap();
@@ -1441,25 +1994,27 @@ export function App() {
   useEffect(() => {
     if (!loaded) return undefined;
     const id = window.setInterval(() => {
-      const v = (handleRef.current as any)?.getView?.() as MapView | undefined;
+      const v = handleRef.current?.getView?.() as MapView | undefined;
       if (v) setView(v);
     }, 250);
     return () => window.clearInterval(id);
   }, [loaded]);
 
   const focusPoint = useCallback((x: number, z: number) => {
-    (handleRef.current as any)?.focusPoint?.(x, z);
+    handleRef.current?.focusPoint?.(x, z);
   }, []);
 
-  // The day always turns — night → dawn → day → dusk, ~12s per phase. Each
-  // transition INTO dawn is a new day: day counter +1 + a chronicle line.
+  // The day always turns — night → dawn → day → dusk, ~12s per phase. The
+  // visual cycle runs in BOTH modes (the server has no time-of-day), but only
+  // demo mode lets a dawn transition advance the day counter — in live mode
+  // the day is the server's.
   useEffect(() => {
     const id = window.setInterval(() => {
       const next = TIME_ORDER[(TIME_ORDER.indexOf(timeRef.current) + 1) % TIME_ORDER.length]!;
       timeRef.current = next;
       setTimeState(next);
       handleRef.current?.setTimeOfDay(next);
-      if (next === 'dawn') {
+      if (next === 'dawn' && modeRef.current === 'demo') {
         dayRef.current += 1;
         setDay(dayRef.current);
         pushEvent('🌅', `Dawn broke over the city — day ${dayRef.current}, still standing.`);
@@ -1469,14 +2024,19 @@ export function App() {
     return () => window.clearInterval(id);
   }, [pushEvent, pushNotif]);
 
-  // New dawn → the daily actions refresh (skip the initial render).
+  // New dawn → the daily actions refresh (skip the initial render). Demo only:
+  // in live mode `yourActionsToday`/energy come back fresh from the server.
   useEffect(() => {
+    if (mode !== 'demo') {
+      prevDayRef.current = day;
+      return;
+    }
     if (day === prevDayRef.current) return;
     prevDayRef.current = day;
     usedRef.current = {};
     setUsed({});
     pushNotif('🌅', 'new dawn — actions refreshed');
-  }, [day, pushNotif]);
+  }, [day, mode, pushNotif]);
 
   // LIVE tab handlers — one pledge / one crisis vote per "day" (session).
   const onPledge = useCallback(() => {
@@ -1485,7 +2045,7 @@ export function App() {
     setPledged((p) => Math.min(MARKED_GOAL, p + 3));
     setPledgedToday(true);
     // optional scene API (added by another agent) — never crash if absent
-    (handleRef.current as any)?.pulseMarked?.();
+    handleRef.current?.pulseMarked?.();
   }, []);
   const onCrisisVote = useCallback((id: CrisisOptId) => {
     if (votedRef.current) return;
@@ -1505,20 +2065,20 @@ export function App() {
     if (hiReplyTimerRef.current !== null) window.clearTimeout(hiReplyTimerRef.current);
     if (target) {
       pushTalk('u/you', `@${target} hii 👋`, true);
-      (handleRef.current as any)?.sayTo?.(target, 'hii 👋');
+      handleRef.current?.sayTo?.(target, 'hii 👋');
       hiReplyTimerRef.current = window.setTimeout(() => {
         pushTalk(target, 'hii 👋 good to see you');
-        (handleRef.current as any)?.waveAt?.(target);
+        handleRef.current?.waveAt?.(target);
         pushNotif('💬', `${target} waved back!`, 'good');
       }, 2500);
     } else {
       pushTalk('u/you', 'hii 👋', true);
-      (handleRef.current as any)?.say?.('hii 👋');
+      handleRef.current?.say?.('hii 👋');
       const reply = HI_REPLIES[hiReplyIdxRef.current % HI_REPLIES.length]!;
       hiReplyIdxRef.current += 1;
       hiReplyTimerRef.current = window.setTimeout(() => {
         pushTalk(reply.who, reply.text);
-        (handleRef.current as any)?.say?.(reply.text);
+        handleRef.current?.say?.(reply.text);
         pushNotif('💬', `${reply.who} replied`, 'good');
       }, 2500);
     }
@@ -1533,7 +2093,7 @@ export function App() {
   const onWaveAt = useCallback(() => {
     const target = villagerRef.current;
     if (!target) return;
-    (handleRef.current as any)?.waveAt?.(target);
+    handleRef.current?.waveAt?.(target);
     pushTalk('u/you', `waved at ${target} 👋`, true);
   }, [pushTalk]);
   const clearVillager = useCallback(() => {
@@ -1544,7 +2104,7 @@ export function App() {
   // BUILD — toggle placement mode in the scene (fallback toast if the scene
   // API isn't there yet).
   const toggleBuild = useCallback(() => {
-    const h = handleRef.current as any;
+    const h = handleRef.current;
     if (!h?.setBuildMode) {
       popToast('Building placement — coming soon');
       return;
@@ -1562,15 +2122,38 @@ export function App() {
       const n = (levelsRef.current[name] ?? 1) + 1;
       setLevels((prev) => ({ ...prev, [name]: n }));
       setVitals((v) => ({ ...v, FOOD: clampVit('FOOD', v.FOOD - UPGRADE_COST) }));
-      (handleRef.current as any)?.flashDistrict?.(name);
+      handleRef.current?.flashDistrict?.(name);
       pushEvent('⬆', `${name} upgraded to LVL ${n}.`);
     },
     [pushEvent],
   );
 
   // DAWN ACTIONS — each spends once per day; refreshed by the day effect.
+  // Live mode posts the real action instead: no optimistic vital bump (the next
+  // poll brings the server truth), energy/counters from the response, 400/409
+  // surfaced as a toast.
   const runAction = useCallback(
     (id: string) => {
+      if (modeRef.current === 'live') {
+        const act = ACTION_IDS.find((a) => a === id);
+        if (!act || mutatingRef.current) return;
+        mutatingRef.current = true;
+        postAction(act)
+          .then((res) => {
+            setLiveEnergy({ effective: res.effectiveEnergy, used: res.player.energyUsedToday });
+            setLiveActions(res.yourActionsToday);
+            pushNotif('✅', 'your work lands at the next dawn', 'good');
+            if (res.unlockedTitle) pushNotif('🏅', `title unlocked — ${res.unlockedTitle}`, 'good');
+            const liveFrags = ACTION_FLASH[id] ?? [];
+            const liveHit = poisRef.current.find((p) => liveFrags.some((f) => p.name.toUpperCase().includes(f)));
+            if (liveHit) handleRef.current?.flashDistrict?.(liveHit.name);
+          })
+          .catch((err) => toastFailure(err, 'the action failed — try again'))
+          .finally(() => {
+            mutatingRef.current = false;
+          });
+        return;
+      }
       if (usedRef.current[id]) return;
       if (!ACTIONS.some((a) => a.id === id)) return;
       usedRef.current = { ...usedRef.current, [id]: true };
@@ -1602,7 +2185,7 @@ export function App() {
       // flash the matching district if the scene labeled one
       const frags = ACTION_FLASH[id] ?? [];
       const hit = poisRef.current.find((p) => frags.some((f) => p.name.toUpperCase().includes(f)));
-      if (hit) (handleRef.current as any)?.flashDistrict?.(hit.name);
+      if (hit) handleRef.current?.flashDistrict?.(hit.name);
     },
     [addContrib, pushEvent, pushNotif],
   );
@@ -1653,8 +2236,8 @@ export function App() {
     raidPhaseRef.current = 'incoming';
     setRaidPhase('incoming');
     pushNotif('⚔', 'RAID — raiders are at the gate!', 'bad');
-    (handleRef.current as any)?.setRaidWatch?.(true);
-    (handleRef.current as any)?.setRaiders?.(true); // raider party appears at the gate
+    handleRef.current?.setRaidWatch?.(true);
+    handleRef.current?.setRaiders?.(true); // raider party appears at the gate
     raidTimersRef.current.push(
       window.setTimeout(() => {
         const held = vitalsRef.current.DEFENSE >= 40;
@@ -1690,8 +2273,8 @@ export function App() {
           window.setTimeout(() => {
             raidPhaseRef.current = 'idle';
             setRaidPhase('idle');
-            (handleRef.current as any)?.setRaidWatch?.(false);
-            (handleRef.current as any)?.setRaiders?.(false); // the raiders melt away
+            handleRef.current?.setRaidWatch?.(false);
+            handleRef.current?.setRaiders?.(false); // the raiders melt away
             raidDaysRef.current = 5;
             setRaidDays(5);
           }, 6000),
@@ -1705,7 +2288,7 @@ export function App() {
   const simBuyHouse = useCallback(
     (user: string) => {
       // optional scene API — returns where the house rose, or null if full
-      const spot = (handleRef.current as any)?.buyHouse?.(user) as { x: number; z: number; quarter: string } | null | undefined;
+      const spot = handleRef.current?.buyHouse?.(user) as { x: number; z: number; quarter: string } | null | undefined;
       if (!spot) return; // town full (or scene API absent) — skip silently
       setPopulation((p) => p + 3);
       addContrib(user, { houses: 1 });
@@ -1735,18 +2318,22 @@ export function App() {
     },
     [simBuyHouse, simContribute],
   );
-  // the subreddit stirs every ~11s
+  // the subreddit stirs every ~11s — DEMO only; in live mode the real city's
+  // numbers belong to the server, so the local sim must never touch them.
   useEffect(() => {
+    if (mode !== 'demo') return undefined;
     const id = window.setInterval(() => simTick(), 11000);
     return () => window.clearInterval(id);
-  }, [simTick]);
+  }, [mode, simTick]);
 
   // LIVE tab simulation — every number drifts on its own clock:
   //   pledges +1 / ~7s · crisis votes +1 / ~9s · council votes +1 / ~11s ·
   //   raid countdown −1 / 48s (threat creeps +2 per tick; at 0 the raid plays
   //   out) · event feed rotates / ~8s · ambient vitals drift / 20s ·
   //   a survivor reaches the gate / ~25s.
+  // DEMO only — in live mode every one of these numbers is the server's truth.
   useEffect(() => {
+    if (mode !== 'demo') return undefined;
     const ids: number[] = [
       window.setInterval(() => setPledged((p) => Math.min(MARKED_GOAL, p + 1)), 7000),
       window.setInterval(() => {
@@ -1792,7 +2379,7 @@ export function App() {
       }, 25000),
     ];
     return () => ids.forEach((id) => window.clearInterval(id));
-  }, [pushEvent, pushNotif, startRaid]);
+  }, [mode, pushEvent, pushNotif, startRaid]);
 
   // one-shot timers (say-hi reply/cooldown, toast, raid sequence, notification
   // dismissals, scout return) — swept on unmount
@@ -1814,7 +2401,7 @@ export function App() {
   // have it). The active raid sequence drives setRaidWatch itself.
   useEffect(() => {
     if (raidPhaseRef.current !== 'idle') return;
-    const h = handleRef.current as any;
+    const h = handleRef.current;
     if (raidDays <= 1) h?.setRaidWatch?.(true);
     else if (raidDays >= 5) h?.setRaidWatch?.(false);
   }, [raidDays, loaded]);
@@ -1855,6 +2442,52 @@ export function App() {
           ? 'thriving'
           : 'holding';
 
+  // ---- derived render values (live vs demo) ----
+  const isLive = mode === 'live';
+  const subtitle = isLive
+    ? (liveStanding?.rankLabel ?? `cycle ${liveCycle} · the last city`)
+    : mode === 'demo'
+      ? '3D town · demo mode'
+      : '3D town';
+  const vitalMaxes = isLive ? LIVE_VITAL_MAX : VITAL_MAX;
+  const energyLeft = Math.max(0, liveEnergy.effective - liveEnergy.used);
+  const liveLeaderboard = isLive ? liveLb : null;
+
+  // The LIVE tab's real-backend payload — null until the first /api/init lands,
+  // which keeps the demo rendering (fictional crisis/marked/council) untouched.
+  const liveData: LiveData | null =
+    isLive && liveCrisis && liveMarked && livePledge
+      ? {
+          markedIcon: MARKED_ICONS[liveMarked.kind],
+          markedName: liveMarked.name,
+          markedBlurb: liveMarked.blurb,
+          markedGoal: liveMarked.goal,
+          markedUnit: liveMarked.unit,
+          pledgeOptions: livePledge.options.map((o) => ({ id: o.id, icon: o.icon, label: o.label })),
+          onPledgeKind: onLivePledge,
+          crisisTitle: liveCrisis.title,
+          crisisNarrative: liveCrisis.narrative,
+          crisisOptions: liveCrisis.options.map((o) => ({ id: o.id, label: o.label, fx: fmtDelta(o.effects) })),
+          crisisVotes: liveCrisisVotes,
+          myVote: liveMyVote,
+          onVote: onLiveVote,
+          plans: (Object.keys(liveStrategyVotes).length ? Object.keys(liveStrategyVotes) : STRATEGY_IDS).map((id) => ({
+            id,
+            nm: PLAN_LABELS[id] ?? id,
+            votes: liveStrategyVotes[id] ?? 0,
+          })),
+          myPlan: liveMyPlan,
+          onPlan: onLiveStrategy,
+          raidLikely: liveRaidLikely,
+          hasDawnReport: dawnReport !== null,
+          onOpenDawn: () => setDawnOpen(true),
+        }
+      : null;
+  // In live mode the Marked count/goal come from the server (via liveData); the
+  // pledged/pledgedToday the LiveTab reads for the bar come from live state too.
+  const shownPledged = isLive && liveMarked ? liveMarked.pledged : pledged;
+  const shownPledgedToday = isLive && livePledge ? livePledge.usedToday : pledgedToday;
+
   return (
     <>
       <VillageCanvas
@@ -1867,7 +2500,7 @@ export function App() {
         onBuilt={onBuilt}
         onVillager={onVillager}
       />
-      <TopBar vitals={vitals} population={population} />
+      <TopBar vitals={vitals} population={population} subtitle={subtitle} />
       <DayPill time={time} day={day} raidSoon={raidDays <= 1} raidActive={raidPhase === 'incoming'} />
       <NotifStack notifs={notifs} />
       <CityDashboard
@@ -1882,14 +2515,17 @@ export function App() {
         onFocusDistrict={visitDistrict}
         onFocusPoint={focusPoint}
         worldYouStatus={worldYouStatus}
+        worldCities={worldCities}
+        worldNote={worldNote}
         pois={pois}
         levels={levels}
         vitals={vitals}
+        vitalMaxes={vitalMaxes}
         selectedName={selected?.name ?? null}
         onVisit={visitDistrict}
         live={{
-          pledged,
-          pledgedToday,
+          pledged: shownPledged,
+          pledgedToday: shownPledgedToday,
           onPledge,
           talk,
           hiCooldown,
@@ -1901,8 +2537,10 @@ export function App() {
           councilVotes,
           raidDays,
           events,
+          liveData,
         }}
         contribs={contribs}
+        lb={liveLeaderboard}
       />
       <button
         type="button"
@@ -1923,6 +2561,8 @@ export function App() {
         contribs={contribs}
         raidLog={raidLog}
         youStatus={worldYouStatus}
+        vitalMaxes={vitalMaxes}
+        lb={liveLeaderboard}
       />
       {villager ? (
         <VillagerChip name={villager} hiCooldown={hiCooldown} onWave={onWaveAt} onSayHi={onSayHi} onClose={clearVillager} />
@@ -1938,7 +2578,11 @@ export function App() {
         scavOpen={scavOpen}
         onToggleScav={() => setScavOpen((o) => !o)}
         onScavenge={runScavenge}
+        live={isLive}
+        energyLeft={energyLeft}
+        actionCounts={liveActions}
       />
+      <DawnReportModal report={dawnReport} open={dawnOpen} onClose={() => setDawnOpen(false)} />
       {buildMode ? (
         <div className="hud build-hint card-bit">🔨 tap open ground to raise a hut · tap BUILD to cancel</div>
       ) : (

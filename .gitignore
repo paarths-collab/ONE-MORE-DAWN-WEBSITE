@@ -6,7 +6,5 @@ docs/design/.thumbnail
 docs/design/support.js
 .gstack/
 
-# village3d QA captures (regenerable)
-village3d/shot.png
-village3d/qa-*.png
-village3d-react/shot.png
+# village3d QA capture (regenerable — written by vite.dev3d.config.mjs /shot)
+village-shot.png

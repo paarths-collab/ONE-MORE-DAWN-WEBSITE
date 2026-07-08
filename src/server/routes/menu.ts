@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { UiResponse } from '@devvit/web/shared';
+import { requireModerator } from '../core/moderator';
 import { createPost } from '../core/post';
 import { seedDemoCity } from '../game/demoSeed';
 import { newCityState, resolveDay, type DayInputs } from '../game/resolver';
@@ -8,6 +9,23 @@ import { KEYS } from '../storage/redisKeys';
 import { deriveWorldSeed, getStore, redisLike } from './api';
 
 export const menu = new Hono();
+
+/**
+ * Defense in depth: devvit.json only OFFERS these routes as moderator menu
+ * items — it does not AUTHORIZE the caller. This middleware fronts every
+ * /internal/menu/* handler (present and future) and rejects anyone who is not
+ * a moderator of the current subreddit before any state is touched. The body
+ * keeps the menu-item `showToast` shape so a rejected call surfaces as a toast
+ * if the platform renders it, while the 403 status marks it as denied for any
+ * other caller.
+ */
+menu.use('*', async (c, next) => {
+  const check = await requireModerator();
+  if (!check.ok) {
+    return c.json<UiResponse>({ showToast: check.message }, 403);
+  }
+  await next();
+});
 
 menu.post('/post-create', async (c) => {
   const post = await createPost();

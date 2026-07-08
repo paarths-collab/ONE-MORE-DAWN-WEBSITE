@@ -1,4 +1,3 @@
-import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 // Self-hosted fonts: bundled by Vite as same-origin assets so they always load
 // inside the Devvit webview's strict CSP (external Google Fonts get blocked and
@@ -10,20 +9,10 @@ import '@fontsource/jetbrains-mono/latin-400.css';
 import '@fontsource/jetbrains-mono/latin-500.css';
 import '@fontsource/jetbrains-mono/latin-700.css';
 import '@fontsource/jetbrains-mono/latin-800.css';
-import { App } from './react/App';
+import { App } from './App';
+import './styles.css';
 
-// Flag the document once web fonts have settled, so any Phaser scene that raced
-// the font load can re-render its pixel text. Safe no-op where unsupported.
-// (Moved out of an inline <script> in game.html — Devvit disallows inline JS.)
-if (typeof document !== 'undefined' && document.fonts?.ready) {
-  void document.fonts.ready.then(() => document.documentElement.classList.add('fonts-ready'));
-}
-
-const container = document.getElementById('game-container');
-if (container) {
-  createRoot(container).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  );
-}
+// No StrictMode on purpose: its dev double-mount would create and dispose a
+// full WebGL context + reload all GLBs twice for zero benefit in this demo.
+const container = document.getElementById('root');
+if (container) createRoot(container).render(<App />);

@@ -4,8 +4,8 @@
 > "last city." The whole community keeps it alive — one dawn at a time — but not
 > everyone agrees what kind of city it should become.
 
-Built for **Reddit's Games with a Hook Hackathon** on **Devvit Web + React**,
-with **Phaser** reserved for the expedition mini-game.
+Built for **Reddit's Games with a Hook Hackathon** on **Devvit Web**. The
+client is a **three.js 3D town** with a React HUD.
 
 ## Pitch
 
@@ -16,17 +16,12 @@ what the community's choices did to the city. It's Frostpunk-style resource
 pressure filtered through a subreddit's daily rhythm, resolved **async** so nobody
 has to be online at the same time.
 
-## Why React (and where Phaser fits)
+## The client: a living 3D town
 
-One More Dawn is an **asynchronous community strategy dashboard**, not an arcade
-game — so the UI is React/DOM:
-
-- Mobile-first, crisp pixel UI with no canvas blur or 60fps battery drain.
-- Stateful community surfaces: the Marked, one-tap pledges, crisis/council votes,
-  the Dawn Report, the live drama feed, the cross-subreddit World map, and a
-  persistent city timeline.
-- **Phaser 4** powers only the 90-second **expedition mini-game** — the one place
-  a real-time canvas earns its keep.
+The frontend is a **three.js town** (`src/client/scene.ts`) — a low-poly city on
+a plateau with districts, villagers, companions, day/night cycles and raids —
+wrapped in a **React HUD** (`src/client/App.tsx`) for the map, city dashboard,
+live feed and leaderboard.
 
 The fonts (Silkscreen + JetBrains Mono) are **self-hosted and bundled
 same-origin**, so the pixel aesthetic survives the Devvit webview CSP.

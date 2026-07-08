@@ -1,7 +1,8 @@
-// Standalone review server for the One More Dawn client (mock mode).
+// Standalone review server for the BUILT One More Dawn client (dist/client).
 // Usage: npm run build && node tools/preview-server.mjs → http://localhost:4519
-// The api client auto-enables mock fixtures on localhost (src/client/game/api.ts),
-// so the full UI is reviewable in a plain browser with no Devvit runtime.
+// There is no Devvit runtime here, so the app boots in demo mode (the /api
+// calls fail and the HUD falls back to its local simulation).
+// For source-watching dev, prefer: vite --config vite.dev3d.config.mjs (:4630).
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize } from 'node:path';
@@ -19,6 +20,8 @@ const MIME = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.glb': 'model/gltf-binary',
 };
 
 createServer(async (req, res) => {
