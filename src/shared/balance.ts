@@ -55,7 +55,28 @@ export const BALANCE = {
     repair_power: { power: 4 },
     treat_sick: { medicine: 2 },
     guard_wall: { threat: -5, defense: 2 },
+    // build_city produces no direct city-stat delta — its labor feeds the build
+    // system (see BALANCE.build + game/building.ts), so its effect map is empty.
+    build_city: {},
   } satisfies Record<ActionType, ResourceDelta>,
+
+  // ---------- City progression: build from zero (V1) ----------
+  // A brand-new city starts as a Camp with no buildings. Each build_city action
+  // adds `progressPerAction` labor; buildings unlock in list order as progress
+  // crosses each threshold. Effects are modest and bounded (see game/building.ts).
+  build: {
+    progressPerAction: 6,
+    stages: ['Camp', 'Settlement', 'Village', 'Fortified Town', 'Surviving City'],
+    buildings: [
+      { id: 'shelter',      name: 'Shelter',      description: 'Tents become homes — fewer are lost to the cold.', progressRequired: 24, effect: '+1 morale/day' },
+      { id: 'farm',         name: 'Farm',         description: 'Worked beds — food grows faster.',                  progressRequired: 30, effect: '+3 food/day' },
+      { id: 'clinic',       name: 'Clinic',       description: 'The sick rest and recover.',                         progressRequired: 34, effect: '+1 medicine/day' },
+      { id: 'watchtower',   name: 'Watchtower',   description: 'Eyes on the ridge — the wall holds harder.',         progressRequired: 30, effect: '+2 defense/day' },
+      { id: 'storehouse',   name: 'Storehouse',   description: 'Stores keep more before they spoil.',                progressRequired: 28, effect: '+100 food cap' },
+      { id: 'wall',         name: 'Wall',         description: 'Raiders break on stone.',                            progressRequired: 40, effect: 'softens raid losses' },
+      { id: 'council_hall', name: 'Council Hall', description: 'The council speaks with one voice.',                 progressRequired: 44, effect: '+1 morale/day' },
+    ],
+  } as const,
 
   // role -> action it boosts, multiplier applied to that action's effects
   roleBonus: {
@@ -167,6 +188,7 @@ export const BALANCE = {
     repair_power: 'builders',
     treat_sick: 'hearth',
     guard_wall: 'wardens',
+    build_city: 'builders',
   } satisfies Record<ActionType, FactionId | null>,
 
   factionPerMissionRun: 'seekers' as FactionId,

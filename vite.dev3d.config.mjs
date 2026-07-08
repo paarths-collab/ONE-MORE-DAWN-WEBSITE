@@ -55,6 +55,7 @@ const CITY = {
   day: 6, cycle: 1, status: 'alive', worldSeed: 12345, trait: 'standard',
   population: 143, food: 210, power: 78, medicine: 34, morale: 52, threat: 64, defense: 41,
   crisisId: 'first_light', activeLaw: null, lawExpiresDay: 0,
+  cityLevel: 1, buildProgress: 12, unlockedBuildings: ['shelter'],
 };
 const PLAYER = {
   userId: 't2_mock', username: 'you', role: 'guard', roleChangedDay: 1, faction: null, factionRep: 0,
@@ -99,6 +100,11 @@ const INIT = {
   marked: MARKED, pledge: PLEDGE,
   drama: [{ icon: '⚔️', text: 'Raiders probed the North Wall at dusk. The watch held.', kind: 'raid' }, { icon: '🕯️', text: 'ashen_fox stood vigil for Mira.', kind: 'marked' }],
   standing: { survivalDays: 5, rankLabel: 'holding the line · day 6', contributionRank: 7 },
+  build: {
+    stage: 1, stageLabel: 'Settlement', unlocked: ['shelter'],
+    next: { id: 'farm', name: 'Farm', description: 'Worked beds — food grows faster.', progressRequired: 30, effect: '+3 food/day' },
+    progress: 12, progressRequired: 30, contributorsToday: 8, youBuiltToday: false,
+  },
 };
 const WORLD = {
   type: 'world', totalCities: 6, yourRank: 2, eligible: true, subscribers: 1200, minSubscribers: 500,
@@ -123,9 +129,24 @@ const LEADERBOARD = {
 // Fixture variants for the two live-only edge states (set alongside MOCK_API):
 //   MOCK_ROLE_NULL=1 → brand-new player (role null) → onboarding overlay
 //   MOCK_FALLEN=1    → city.status 'fallen'          → fallen terminal screen
+//   MOCK_CAMP=1      → brand-new city progression    → Camp / no buildings
 const PLAYER_V = { ...PLAYER, role: process.env.MOCK_ROLE_NULL ? null : PLAYER.role, avatar: null };
-const CITY_V = { ...CITY, status: process.env.MOCK_FALLEN ? 'fallen' : CITY.status };
-const INIT_V = { ...INIT, player: PLAYER_V, city: CITY_V };
+const CAMP_BUILD = {
+  stage: 0, stageLabel: 'Camp', unlocked: [],
+  next: { id: 'shelter', name: 'Shelter', description: 'Tents become homes — fewer are lost to the cold.', progressRequired: 24, effect: '+1 morale/day' },
+  progress: 0, progressRequired: 24, contributorsToday: 0, youBuiltToday: false,
+};
+const CITY_V = {
+  ...CITY,
+  status: process.env.MOCK_FALLEN ? 'fallen' : CITY.status,
+  ...(process.env.MOCK_CAMP ? { cityLevel: 0, buildProgress: 0, unlockedBuildings: [] } : {}),
+};
+const INIT_V = {
+  ...INIT,
+  player: PLAYER_V,
+  city: CITY_V,
+  ...(process.env.MOCK_CAMP ? { build: CAMP_BUILD, yourActionsToday: {} } : {}),
+};
 const readBody = (req) => new Promise((r) => { let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => { try { r(JSON.parse(b || '{}')); } catch { r({}); } }); });
 const mockApi = () => ({
   name: 'mock-devvit-api',
@@ -138,7 +159,13 @@ const mockApi = () => ({
       if (path === '/api/init') return send(res, INIT_V);
       if (path === '/api/world') return send(res, WORLD);
       if (path === '/api/leaderboard') return send(res, LEADERBOARD);
-      if (path === '/api/action') return send(res, { type: 'action', player: { ...PLAYER_V, energyUsedToday: 2 }, effectiveEnergy: 3, yourActionsToday: { grow_food: 1, guard_wall: 1 }, unlockedTitle: null });
+      if (path === '/api/action') {
+        const b = await readBody(req);
+        // build_city is energy-gated too; echo it in yourActionsToday so the
+        // client's re-fetch path is exercised. Other actions keep the old shape.
+        const acts = b.action === 'build_city' ? { grow_food: 1, build_city: 1 } : { grow_food: 1, guard_wall: 1 };
+        return send(res, { type: 'action', player: { ...PLAYER_V, energyUsedToday: 2 }, effectiveEnergy: 3, yourActionsToday: acts, unlockedTitle: null });
+      }
       if (path === '/api/vote') return send(res, { type: 'vote', crisisVotes: { a: 13, b: 7, c: 5 }, yourCrisisVote: 'a' });
       if (path === '/api/pledge') return send(res, { type: 'pledge', marked: { ...MARKED, pledged: 26 }, pledge: { ...PLEDGE, usedToday: true }, player: PLAYER_V });
       if (path === '/api/strategy') return send(res, { type: 'strategy', strategyVotes: { prepare_raid: 10, stockpile_food: 6, repair_power: 4 }, yourStrategyVote: 'prepare_raid' });

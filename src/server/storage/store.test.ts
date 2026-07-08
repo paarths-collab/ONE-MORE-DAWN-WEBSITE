@@ -104,6 +104,7 @@ const city: CityState = {
   population: 120, food: 60, power: 55, medicine: 20,
   morale: 60, threat: 30, defense: 40,
   crisisId: 'first_light', activeLaw: null, lawExpiresDay: 0,
+  cityLevel: 0, buildProgress: 0, unlockedBuildings: [],
 };
 
 const player: PlayerProfile = {
@@ -137,6 +138,27 @@ describe('Store', () => {
     const loaded = await store.getCityState();
     expect(loaded?.worldSeed).toBe(987);
     expect(loaded?.trait).toBe('frozen');
+  });
+
+  it('backfills build-from-zero fields when reading pre-progression city JSON', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    // Simulate a city stored before city progression shipped.
+    const { cityLevel: _cl, buildProgress: _bp, unlockedBuildings: _ub, ...legacy } = city;
+    await redis.set('city:state', JSON.stringify(legacy));
+    const loaded = await store.getCityState();
+    expect(loaded?.cityLevel).toBe(0);
+    expect(loaded?.buildProgress).toBe(0);
+    expect(loaded?.unlockedBuildings).toEqual([]);
+  });
+
+  it('does not clobber stored build progression when present', async () => {
+    const store = new Store(makeFakeRedis());
+    await store.setCityState({ ...city, cityLevel: 2, buildProgress: 15, unlockedBuildings: ['shelter', 'farm'] });
+    const loaded = await store.getCityState();
+    expect(loaded?.cityLevel).toBe(2);
+    expect(loaded?.buildProgress).toBe(15);
+    expect(loaded?.unlockedBuildings).toEqual(['shelter', 'farm']);
   });
 
   it('returns undefined for malformed stored city JSON', async () => {

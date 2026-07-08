@@ -48,7 +48,16 @@ export class Store {
     // neutral world so every read path sees the full shape.
     const parsed = safeParse<CityState | null>(raw, null);
     if (!parsed) return undefined;
-    return { ...parsed, worldSeed: parsed.worldSeed ?? 0, trait: parsed.trait ?? 'standard' };
+    // Pre-progression cities lack the build-from-zero fields — default them to
+    // an empty Camp so old saves never crash and resolve identically to before.
+    return {
+      ...parsed,
+      worldSeed: parsed.worldSeed ?? 0,
+      trait: parsed.trait ?? 'standard',
+      cityLevel: parsed.cityLevel ?? 0,
+      buildProgress: parsed.buildProgress ?? 0,
+      unlockedBuildings: parsed.unlockedBuildings ?? [],
+    };
   }
 
   async setCityState(city: CityState): Promise<void> {

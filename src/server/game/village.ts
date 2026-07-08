@@ -73,6 +73,7 @@ const ZONE_NAMES: Record<ActionType, string> = {
   repair_power: 'Generator',
   treat_sick: 'Clinic',
   guard_wall: 'Watchtower',
+  build_city: 'Construction',
 };
 
 /** One zone per ActionType, count = today's aggregate action tally. */

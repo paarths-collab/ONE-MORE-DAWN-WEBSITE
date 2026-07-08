@@ -41,35 +41,44 @@ checks below **inside that post's webview**.
 | Take one action (e.g. Grow Food) | "lands at next dawn" notification; energy decrements | [ ] |
 | Try the same action again | Blocked (✓ done / out of energy) | [ ] |
 
-## 4. Crisis vote
+## 4. Build contribution / start-from-zero
+
+| Check | Expected result | Pass |
+|---|---|---|
+| Open CITY tab on a fresh game post | Build panel shows **Camp**, **Next: Shelter**, `0/24 labor`, and "nothing yet — just a camp" | [ ] |
+| Tap **ADD LABOR** | Notification appears; energy decrements; contribution is shown/remembered | [ ] |
+| Refresh / reopen the post | Build progress and your contributed-today state persist from Redis | [ ] |
+| After enough labor + force-resolve day | Next building unlocks for the whole city; stage/visuals update; no individual ownership copy appears | [ ] |
+
+## 5. Crisis vote
 
 | Check | Expected result | Pass |
 |---|---|---|
 | Open LIVE tab → vote on the crisis | Your option marks selected; tally updates | [ ] |
 | Try to vote again | Options disabled (one vote/day) | [ ] |
 
-## 5. Council strategy vote
+## 6. Council strategy vote
 
 | Check | Expected result | Pass |
 |---|---|---|
 | Back a council plan | Notification; plan locks | [ ] |
 | Try again | Disabled | [ ] |
 
-## 6. The Marked pledge
+## 7. The Marked pledge
 
 | Check | Expected result | Pass |
 |---|---|---|
 | Pledge to The Marked | Marked bar updates; "you stood for them" notification | [ ] |
 | Try again | Blocked (one pledge/day) | [ ] |
 
-## 7. Raid countdown / status
+## 8. Raid countdown / status
 
 | Check | Expected result | Pass |
 |---|---|---|
 | RAID WATCH shows a countdown | "Raid in N dawns" / "RAID AT NEXT DAWN" | [ ] |
 | Forecast line when raid is near | "⚠ raiders move at dawn" guidance | [ ] |
 
-## 8. Dawn resolution + report (mod)
+## 9. Dawn resolution + report (mod)
 
 | Check | Expected result | Pass |
 |---|---|---|
@@ -77,47 +86,47 @@ checks below **inside that post's webview**.
 | Run mod menu **"force-resolve day"** | Day advances; a **Dawn Report** is available | [ ] |
 | Open the Dawn Report | Yesterday's summary + your personal impact | [ ] |
 
-## 9. World view
+## 10. World view
 
 | Check | Expected result | Pass |
 |---|---|---|
 | Open MAP → WORLD | Your city shows; if others exist, they rank; else an honest empty/"not eligible" state | [ ] |
 
-## 10. Leaderboard / TOP view
+## 11. Leaderboard / TOP view
 
 | Check | Expected result | Pass |
 |---|---|---|
 | Open TOP tab | Contributors listed (username + score); empty state if none | [ ] |
 
-## 11. Fallen city (if reachable)
+## 12. Fallen city (if reachable)
 
 | Check | Expected result | Pass |
 |---|---|---|
 | Drive the city to fall (or seed a near-fall + force-resolve) | Terminal "THE CITY HAS FALLEN" screen; actions disabled | [ ] |
 | Mod **"reset city"** | New cycle begins; screen clears | [ ] |
 
-## 12. Persistence & refresh
+## 13. Persistence & refresh
 
 | Check | Expected result | Pass |
 |---|---|---|
 | After acting, refresh the post | Your actions/votes/pledges persist (server truth) | [ ] |
 | Reopen later | State loads from the server, no reset | [ ] |
 
-## 13. Mobile Reddit app / webview
+## 14. Mobile Reddit app / webview
 
 | Check | Expected result | Pass |
 |---|---|---|
 | Open the post in the **Reddit mobile app** | HUD fits; no horizontal overflow; tabs reachable; onboarding readable | [ ] |
 | Take one action on mobile | Works; feedback visible | [ ] |
 
-## 14. Multiple posts / cities (if possible)
+## 15. Multiple posts / cities (if possible)
 
 | Check | Expected result | Pass |
 |---|---|---|
 | Create a **second** game post (same or another test sub) | It has its **own** city/day/state, independent of the first | [ ] |
 | Act in both | The two cities do not share state | [ ] |
 
-## 15. Failure behavior (optional)
+## 16. Failure behavior (optional)
 
 | Check | Expected result | Pass |
 |---|---|---|

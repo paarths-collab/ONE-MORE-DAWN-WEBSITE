@@ -71,6 +71,22 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .district .dn2 i { font-style: normal; display: block; font-size: 7px; color: var(--mut); margin-top: 2px; }
 .district .go { color: var(--gold); font-size: 12px; flex: none; }
 
+/* ---- CITY tab: BUILD FROM ZERO community-progress panel ---- */
+.build-panel { background: linear-gradient(180deg, #1d1608, transparent); border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 12px; }
+.bp-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 9px; }
+.bp-stage { font-family: var(--pixel); font-size: 11px; letter-spacing: 0.5px; color: var(--gold); }
+.bp-sub { font-family: var(--mono); font-size: 8.5px; color: var(--mut); }
+.bp-next { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+.bp-nm { font-family: var(--pixel); font-size: 8.5px; letter-spacing: 0.5px; color: var(--ink); }
+.bp-desc { font-family: var(--mono); font-size: 9px; color: var(--mut); line-height: 1.45; }
+.bp-fx { font-family: var(--mono); font-size: 8.5px; color: var(--gold); }
+.bp-bar { height: 12px; background: #14100b; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.bp-bar i { display: block; height: 100%; background: linear-gradient(90deg, #e8a03d, #e8c34a); border-radius: 7px; transition: width 0.5s; }
+.bp-meta { font-family: var(--mono); font-size: 8.5px; color: var(--mut); margin: 6px 0; }
+.bp-built { font-family: var(--mono); font-size: 8.5px; color: var(--mut); line-height: 1.5; margin-bottom: 9px; }
+.bp-cta { width: 100%; font-family: var(--pixel); font-size: 8.5px; letter-spacing: 1px; color: #0c0a0a; background: linear-gradient(180deg, #f5d76e, #c99a2e); border: 1px solid #7a6120; border-radius: 10px; padding: 8px; cursor: pointer; }
+.bp-cta:disabled { opacity: 0.5; cursor: default; }
+
 /* ---- dashboard tabs (TOWN / LIVE) ---- */
 .dash-tabs { display: flex; width: 100%; gap: 0; margin-bottom: 12px; border: 1px solid #2f2828; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, 0.02); }
 .dash-tab { flex: 1; min-width: 0; font-family: var(--pixel); font-size: 8px; letter-spacing: 0.5px; color: var(--mut); background: none; border: none; padding: 9px 3px; cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s; }
@@ -438,6 +454,9 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .lb-row { padding: 6px 7px; }
   .lb-user { font-size: 7.5px; }
   .lb-stats { font-size: 7.5px; }
+  .build-panel { padding: 9px; margin-bottom: 10px; }
+  .bp-stage { font-size: 10px; }
+  .bp-desc { font-size: 8.5px; }
   .map-seg-btn { font-size: 8px; }
   .mini-cap { font-size: 8px; }
   .dr-line { font-size: 12px; line-height: 1.45; }
@@ -511,6 +530,10 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .lb-row { padding: 6px 7px; }
   .lb-user { font-size: 7.5px; }
   .lb-stats { font-size: 7.5px; }
+  .build-panel { padding: 8px; margin-bottom: 9px; }
+  .bp-stage { font-size: 10px; }
+  .bp-sub { font-size: 8px; }
+  .bp-desc { font-size: 8px; }
   .h-owner { font-size: 6.5px; }
   .map-seg-btn { font-size: 8px; }
   .mini-cap { font-size: 8px; }

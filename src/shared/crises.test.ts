@@ -7,6 +7,7 @@ const baseCity: CityState = {
   population: 120, food: 60, power: 55, medicine: 20,
   morale: 60, threat: 30, defense: 40,
   crisisId: 'first_light', activeLaw: null, lawExpiresDay: 0,
+  cityLevel: 0, buildProgress: 0, unlockedBuildings: [],
 };
 
 describe('crisis pool', () => {

@@ -59,6 +59,14 @@ export type VillageHandle = {
   /** Toggle hut-placement mode: ghost hut follows the pointer; tap a valid tile to build. */
   setBuildMode: (on: boolean) => void;
   /**
+   * "Build from zero" city-progression cue. `unlocked` is a subset (in canonical
+   * order) of ['shelter','farm','clinic','watchtower','storehouse','wall','council_hall'].
+   * Empty = a fresh Camp: the palisade wall is HIDDEN and a central hearth is lit.
+   * As ids appear, matching landmarks reveal. Idempotent + defensive: it only
+   * toggles `.visible` on landmarks created once, and never throws.
+   */
+  setBuildStage: (unlocked: string[]) => void;
+  /**
    * Build a house for a named owner at a random free spot (roadside preferred)
    * and float a temporary owner tag over it. Returns the tile + compass quarter,
    * or null if no valid spot was found.
@@ -859,6 +867,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   }
 
   // ---------- palisade wall (instanced log posts along the plateau, inset) ----------
+  // Collected so the build-from-zero cue (setBuildStage) can hide the ring for a
+  // fresh Camp and raise it when 'wall' unlocks. Default state stays visible.
+  const wallParts: THREE.Object3D[] = [];
   {
     const posts: [number, number][] = [];
     const N = 700;
@@ -884,6 +895,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       inst.setMatrixAt(i, m4);
     });
     scene.add(inst);
+    wallParts.push(inst);
     // gate towers
     for (const ga of GATE_ANGLES) {
       const r = plateauR(ga) - 2.6;
@@ -895,6 +907,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
         g.add(glowCube(0.3, 0, 3.0, 0.74));
         g.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
         scene.add(g);
+        wallParts.push(g);
       }
     }
   }
@@ -1725,6 +1738,91 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   };
   renderer.setAnimationLoop(tick);
 
+  // ---------- build-from-zero progression cue (setBuildStage) ----------
+  // A tiny, additive overlay on top of the finished town: hide the palisade for a
+  // fresh "Camp" and reveal a handful of persistent landmarks as buildings unlock.
+  // Every landmark mesh is created ONCE (lazily, on the first call) and only its
+  // `.visible` is toggled afterwards, so repeated / growing calls are idempotent
+  // and never leak. Geometry + materials live in the scene graph, so dispose()'s
+  // existing traverse-sweep frees them — no extra bookkeeping needed. Until the
+  // first call the scene keeps its full-town look (safe QA / screenshot fallback).
+  let buildLandmarks: { camp: THREE.Group; farm: THREE.Group; tower: THREE.Group; shelter: THREE.Group } | null = null;
+  function ensureBuildLandmarks() {
+    if (buildLandmarks) return buildLandmarks;
+    // basic (unlit) ember material so the hearth reads as "lit" at any hour
+    const emberMat = new THREE.MeshBasicMaterial({ color: 0xff8a3a, fog: false });
+
+    // central hearth — the one thing a brand-new Camp always has
+    const camp = new THREE.Group();
+    camp.add(cyl(0.9, 0.16, MAT.stoneDark, 0, 0.08, 0, 12));
+    const ember1 = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), emberMat);
+    ember1.position.set(0, 0.34, 0);
+    const ember2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), emberMat);
+    ember2.position.set(0.16, 0.54, 0.1);
+    camp.add(ember1, ember2);
+    const log1 = cyl(0.09, 1.2, MAT.timberDark, 0, 0.24, 0, 6); log1.rotation.z = 0.9;
+    const log2 = cyl(0.09, 1.2, MAT.timberDark, 0, 0.24, 0, 6); log2.rotation.x = 0.9;
+    camp.add(log1, log2);
+    const campFire = new THREE.PointLight(0xff9a4a, 16, 24); // child → group.visible gates it
+    campFire.position.set(0, 1.2, 0);
+    camp.add(campFire);
+    camp.position.set(0, 0, 9);
+    camp.visible = false;
+    scene.add(camp);
+
+    // small farm patch near the centre (tilled base + crop rows)
+    const farm = new THREE.Group();
+    farm.add(box(5.0, 0.12, 4.0, MAT.cropDark, 0, 0.06, 0));
+    for (let r = 0; r < 4; r++) farm.add(box(4.4, 0.2, 0.4, MAT.crop, 0, 0.18, -1.35 + r * 0.9));
+    farm.position.set(-11, 0, 6);
+    farm.visible = false;
+    scene.add(farm);
+
+    // simple watchtower just inside the south gate (thin box + small roof cone)
+    const tower = new THREE.Group();
+    tower.add(box(1.3, 4.4, 1.3, MAT.timber, 0, 2.2, 0));
+    tower.add(box(1.7, 0.3, 1.7, MAT.timberDark, 0, 4.4, 0));
+    tower.add(pyramid(1.9, 1.2, 1.9, MAT.roofBrown, 0, 5.15, 0));
+    tower.add(glowCube(0.3, 0, 3.4, 0.68));
+    {
+      const [g0x, g0z] = gates[0]!; // south gate (+z); step inward toward centre
+      tower.position.set(g0x, 0, g0z - 5);
+    }
+    tower.visible = false;
+    scene.add(tower);
+
+    // highlighted starter shelter beside the hearth (gold roof marks it "first")
+    const shelter = new THREE.Group();
+    shelter.add(box(2.0, 1.1, 1.6, MAT.plaster, 0, 0.55, 0));
+    shelter.add(pyramid(2.3, 0.9, 1.9, lam(C.roofGold), 0, 1.45, 0));
+    shelter.add(box(0.4, 0.6, 0.08, MAT.timberDark, 0, 0.3, 0.82));
+    shelter.position.set(3, 0, 10);
+    shelter.rotation.y = -0.5;
+    shelter.visible = false;
+    scene.add(shelter);
+
+    buildLandmarks = { camp, farm, tower, shelter };
+    return buildLandmarks;
+  }
+  function setBuildStage(unlocked: string[]) {
+    try {
+      const set = Array.isArray(unlocked) ? unlocked : [];
+      const has = (id: string) => set.includes(id);
+      const L = ensureBuildLandmarks();
+      // the hearth is present the moment the build system drives the scene
+      L.camp.visible = true;
+      L.farm.visible = has('farm');
+      L.tower.visible = has('watchtower');
+      L.shelter.visible = has('shelter');
+      // headline cue: the wall is down for a fresh Camp, and goes up on 'wall'.
+      // clinic / storehouse / council_hall are intentional no-ops for V1.
+      const wallUp = has('wall');
+      for (const part of wallParts) part.visible = wallUp;
+    } catch {
+      /* purely cosmetic overlay — never throw into the caller */
+    }
+  }
+
   const handle: VillageHandle = {
     setTimeOfDay: (tod) => {
       target = PRESETS[tod];
@@ -1750,6 +1848,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     sayTo,
     waveAt,
     setBuildMode,
+    setBuildStage,
     buyHouse,
     flashDistrict,
     getMapData,

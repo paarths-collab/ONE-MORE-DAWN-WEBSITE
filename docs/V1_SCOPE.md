@@ -6,16 +6,16 @@
 
 ## The core V1 promise (one sentence)
 
-**Your subreddit is a dying city, everyone gets one meaningful action a day, and the community's votes and pledges decide whether it survives to the next dawn.**
+**Your subreddit starts as an empty camp; everyone gets one meaningful action a day, and the community builds it — dawn by dawn — from campfire to surviving city, or watches it fall.**
 
 ## The 60-second first-user experience
 
-1. Open the game post → the 3D town loads; this subreddit **is** the city.
+1. Open the game post → the 3D town loads; this subreddit **is** the city. A brand-new city is only a **camp** — no wall, no farm, everything still to build.
 2. A first-run panel: **pick your role** (and optionally name your survivor) → **Enter the City**.
-3. See the city's live vitals (food, power, medicine, morale, threat, defense) and the day.
-4. Take **one daily action** (Grow Food / Repair Power / Treat the Sick / Guard the Wall) — it counts toward tomorrow's dawn.
+3. See the city's live vitals (food, power, medicine, morale, threat, defense), the day, and the **build stage** (Camp → Settlement → … → Surviving City).
+4. Take **one daily action** — Grow Food / Repair / Treat / Guard, or **add labor to the next building**. It counts toward tomorrow's dawn.
 5. **Vote** on today's crisis, **pledge** to save The Marked, and see the **raid countdown**.
-6. Understand the hook: *come back at dawn to see what the community's choices did.*
+6. Understand the hook: *come back at dawn to see what the community built and what the choices did.*
 
 ---
 
@@ -27,6 +27,7 @@
 | Onboarding — role + name | 6 roles; optional survivor name (see exclusions for "look") |
 | City vitals | FOOD, POWER, MEDICINE, MORALE, THREAT, DEFENSE (+ souls) |
 | Daily actions | Grow Food, Repair Power, Treat the Sick, Guard the Wall (energy-gated, once-each/day) |
+| Build from zero (shared unlocks) | Every city starts as a **Camp** and grows through community labor: a daily **Add Labor** action fills a shared progress bar; at dawn, buildings unlock in order (Shelter → Farm → Clinic → Watchtower → Storehouse → Wall → Council Hall), each applying a modest effect and appearing in the 3D town. **Community-built, not individually owned** — no free placement. |
 | Crisis voting | One vote per day, visible tradeoffs |
 | Council strategy voting | Back a plan |
 | The Marked pledge | One-tap, one-per-day, low/no energy |
@@ -54,6 +55,8 @@ These were reviewed and are **not fully wired into the live 3D client**, so they
 
 ## 🔭 Post-V1 (revisit after launch)
 
+- **Free-placement city building** (drag/drop, individually-owned houses, custom layouts) — V1 uses **shared ordered unlocks** only; freeform building is post-V1.
+- Deeper building trees, per-building upgrade levels, and richer construction visuals.
 - Live scavenge/mission flow wired into the 3D town.
 - Replace placeholder tones with Kenney CC0 audio (or a richer sound set); optional ambient/music.
 - Avatar look editor (skin/hair/outfit) and rendering the player's avatar in-world.

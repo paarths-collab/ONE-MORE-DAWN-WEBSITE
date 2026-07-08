@@ -34,7 +34,14 @@ Devvit chain. Accepted as known platform risk; no blind `--force` fix.
 
 ## 3. Features intentionally cut/hidden (not risks, but noted)
 
-Per `docs/V1_SCOPE.md`: scavenge/expedition minigame, sound/mute, avatar look
-editor, and law/trait UI are **not in V1** and are not shown as playable in the
-live client. The client smoke test (`tools/client-smoke.mjs`) asserts that no
-playable scavenge action and no sound/mute control appear in live mode.
+Per `docs/V1_SCOPE.md`: scavenge/expedition minigame, avatar look editor, and
+law/trait UI are **not in V1** and are not shown as playable in the live client.
+The client smoke test (`tools/client-smoke.mjs`) asserts that no playable
+scavenge action appears in live mode.
+
+## 4. Minimal placeholder sound
+
+V1 includes only local, procedurally-generated placeholder SFX in
+`public/assets/sfx/` plus a persistent global mute toggle. This is intentionally
+small and fail-silent; it is not a rich synthesized sound system or music layer.
+Attribution and replacement guidance live in `docs/ATTRIBUTION.md`.

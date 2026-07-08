@@ -31,6 +31,7 @@ import type {
 import { hashString } from '../../shared/rng';
 import { clampAvatar, isValidAvatar } from '../../shared/avatar';
 import { validateAction, validateRoleChange } from '../game/actionRules';
+import { buildStatus } from '../game/building';
 import { buildDrama } from '../game/drama';
 import { pickMarked } from '../game/marked';
 import { buildPledgeInfo, isPledgeKind, type PledgerEntry } from '../game/pledges';
@@ -366,6 +367,11 @@ api.get('/init', async (c) => {
       label: BALANCE.traits[city.trait].label,
       blurb: BALANCE.traits[city.trait].blurb,
     },
+    build: buildStatus(
+      city,
+      dayActions['build_city'] ?? 0,
+      (yourActionsToday['build_city'] ?? 0) > 0,
+    ),
     marked,
     pledge,
     drama,

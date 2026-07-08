@@ -305,6 +305,30 @@ async function liveSmoke(url) {
     await cdp.waitFor('document.body.innerText.includes("26/40") || document.body.innerText.includes("26")', 'pledge update');
     await cdp.clickSelectorContaining('.act', 'GUARD');
     await cdp.waitFor('[...document.querySelectorAll(".act")].some((b) => (b.textContent || "").includes("GUARD") && (b.textContent || "").includes("×1 today"))', 'action update');
+
+    // BUILD FROM ZERO — the community-progress panel lives in the CITY tab.
+    // Runs last: ADD LABOR fires a live mutation whose re-fetch would race the
+    // vote/pledge/action flow above if placed earlier.
+    await cdp.clickButton('CITY');
+    await cdp.waitFor('!!document.querySelector(".build-panel")', 'build panel renders');
+    const buildPanel = await cdp.eval(`(() => {
+      const cta = document.querySelector('.bp-cta');
+      return {
+        hasPanel: !!document.querySelector('.build-panel'),
+        hasBar: !!document.querySelector('.build-panel .bp-bar'),
+        nextName: (document.querySelector('.bp-nm')?.textContent || ''),
+        bodyHasFarm: document.body.innerText.includes('Farm'),
+        ctaIsButton: !!cta && cta.tagName === 'BUTTON',
+        ctaEnabled: !!cta && !cta.disabled,
+      };
+    })()`);
+    assert(buildPanel.hasPanel, 'CITY tab should show the build panel.');
+    assert(buildPanel.hasBar, 'Build panel should render a progress bar.');
+    assert(buildPanel.bodyHasFarm && buildPanel.nextName.includes('Farm'), 'Build panel should name the next building (Farm).');
+    assert(buildPanel.ctaIsButton, 'ADD LABOR CTA must be a real button.');
+    assert(buildPanel.ctaEnabled, 'ADD LABOR CTA should be enabled when energy remains and not built today.');
+    await cdp.clickSelectorContaining('.bp-cta', 'ADD LABOR');
+    await cdp.waitFor('!!document.querySelector(".build-panel")', 'build panel survives ADD LABOR');
   } finally {
     await close();
   }
@@ -340,8 +364,42 @@ async function fallenSmoke(url) {
   }
 }
 
+async function campSmoke(url) {
+  const { cdp, close } = await openPage(url);
+  try {
+    await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("THE LAST CITY")', 'camp city boot');
+    await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'camp loader exit');
+    await cdp.clickButton('CITY');
+    await cdp.waitFor('!!document.querySelector(".build-panel")', 'camp build panel renders');
+    const camp = await cdp.eval(`(() => {
+      const text = document.body.innerText;
+      const panel = document.querySelector('.build-panel');
+      return {
+        stage: document.querySelector('.bp-stage')?.textContent || '',
+        nextName: document.querySelector('.bp-nm')?.textContent || '',
+        built: document.querySelector('.bp-built')?.textContent || '',
+        meta: document.querySelector('.bp-meta')?.textContent || '',
+        cta: document.querySelector('.bp-cta')?.textContent || '',
+        hasBar: !!panel?.querySelector('.bp-bar'),
+        playableScavenge: [...document.querySelectorAll('button')].some((b) => /SCAVENGE|pick a route/i.test((b.textContent || '').replace(/\\s+/g, ' '))),
+        text,
+      };
+    })()`);
+    assert(camp.stage.includes('Camp'), 'Brand-new mock city should show Camp stage.');
+    assert(camp.nextName.includes('Shelter'), 'Brand-new mock city should name Shelter as the first unlock.');
+    assert(camp.built.includes('nothing yet'), 'Brand-new mock city should not claim any buildings are built.');
+    assert(camp.meta.includes('0/24'), 'Brand-new mock city should show zero shared labor progress.');
+    assert(camp.cta.includes('ADD LABOR'), 'Brand-new mock city should expose the Add Labor contribution CTA.');
+    assert(camp.hasBar, 'Brand-new mock city should render the shared build progress bar.');
+    assert(!camp.playableScavenge, 'Camp smoke must not expose playable scavenge.');
+  } finally {
+    await close();
+  }
+}
+
 await withServer('mock-live core loop', 4640, {}, liveSmoke);
 await withServer('mock-live onboarding', 4641, { MOCK_ROLE_NULL: '1' }, onboardingSmoke);
 await withServer('mock-live fallen city', 4642, { MOCK_FALLEN: '1' }, fallenSmoke);
+await withServer('mock-live brand-new camp', 4643, { MOCK_CAMP: '1' }, campSmoke);
 
 console.log('client smoke passed');

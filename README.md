@@ -37,12 +37,20 @@ The client runs in three honest modes, decided by one `/api/init` call:
 
 ## The V1 gameplay loop
 
-1. **Open** the game post → the town loads; this subreddit is the city.
+1. **Open** the game post → the town loads; this subreddit is the city. A new
+   city starts as a bare **Camp** — no wall, no farm, everything still to build.
 2. **Onboard** — pick one of 6 roles (Scout, Engineer, Medic, Farmer, Guard,
    Speaker) and optionally name your survivor.
-3. **Read the city** — live vitals: FOOD, POWER, MEDICINE, MORALE, THREAT, DEFENSE.
+3. **Read the city** — live vitals (FOOD, POWER, MEDICINE, MORALE, THREAT,
+   DEFENSE) and the **build stage** (Camp → Settlement → Village → Fortified Town
+   → Surviving City).
 4. **Act** — spend energy on a daily action (Grow Food / Repair Power / Treat the
-   Sick / Guard the Wall). It counts toward tomorrow's dawn.
+   Sick / Guard the Wall) **or add labor to the next building**. It counts toward
+   tomorrow's dawn.
+4b. **Build it together** — a shared progress bar fills from everyone's labor; at
+   dawn the next building unlocks (Shelter → Farm → Clinic → Watchtower →
+   Storehouse → Wall → Council Hall) and appears in the town. The city is
+   **community-built, not individually owned** — no free placement in V1.
 5. **Decide together** — vote on the day's **crisis**, back a **council** plan,
    and **pledge** to save **The Marked**.
 6. **Brace** — watch the **raid countdown**; raids resolve at dawn.
