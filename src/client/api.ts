@@ -6,11 +6,17 @@ import type {
   ActionRequest,
   ActionResponse,
   ActionType,
+  AvatarConfig,
+  AvatarRequest,
+  AvatarResponse,
   InitResponse,
   LeaderboardResponse,
   PledgeKind,
   PledgeRequest,
   PledgeResponse,
+  Role,
+  RoleRequest,
+  RoleResponse,
   StrategyPlanId,
   StrategyRequest,
   StrategyResponse,
@@ -87,6 +93,16 @@ export const postPledge = (kind: PledgeKind): Promise<PledgeResponse> => {
 export const postStrategy = (planId: StrategyPlanId): Promise<StrategyResponse> => {
   const body: StrategyRequest = { planId };
   return request<StrategyResponse>('/api/strategy', body);
+};
+
+export const postRole = (role: Role): Promise<RoleResponse> => {
+  const body: RoleRequest = { role };
+  return request<RoleResponse>('/api/role', body);
+};
+
+export const postAvatar = (avatar: AvatarConfig): Promise<AvatarResponse> => {
+  const body: AvatarRequest = { avatar };
+  return request<AvatarResponse>('/api/avatar', body);
 };
 
 export const getWorld = (): Promise<WorldResponse> => request<WorldResponse>('/api/world');

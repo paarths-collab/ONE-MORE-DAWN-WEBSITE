@@ -120,21 +120,30 @@ const LEADERBOARD = {
   scouts: [{ username: 'quiet_marrow', score: 7 }],
   factions: { builders: { rep: 12, standing: 2 }, wardens: { rep: 20, standing: 1 }, seekers: { rep: 4, standing: 4 }, hearth: { rep: 9, standing: 3 } },
 };
+// Fixture variants for the two live-only edge states (set alongside MOCK_API):
+//   MOCK_ROLE_NULL=1 → brand-new player (role null) → onboarding overlay
+//   MOCK_FALLEN=1    → city.status 'fallen'          → fallen terminal screen
+const PLAYER_V = { ...PLAYER, role: process.env.MOCK_ROLE_NULL ? null : PLAYER.role, avatar: null };
+const CITY_V = { ...CITY, status: process.env.MOCK_FALLEN ? 'fallen' : CITY.status };
+const INIT_V = { ...INIT, player: PLAYER_V, city: CITY_V };
+const readBody = (req) => new Promise((r) => { let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => { try { r(JSON.parse(b || '{}')); } catch { r({}); } }); });
 const mockApi = () => ({
   name: 'mock-devvit-api',
   configureServer(server) {
     const send = (res, obj) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(obj)); };
     // Root middleware matching only exact /api/<name> paths (a `.use('/api')`
     // mount would also swallow the client's own /api.ts module → app never loads).
-    server.middlewares.use((req, res, next) => {
+    server.middlewares.use(async (req, res, next) => {
       const path = (req.url ?? '').split('?')[0];
-      if (path === '/api/init') return send(res, INIT);
+      if (path === '/api/init') return send(res, INIT_V);
       if (path === '/api/world') return send(res, WORLD);
       if (path === '/api/leaderboard') return send(res, LEADERBOARD);
-      if (path === '/api/action') return send(res, { type: 'action', player: { ...PLAYER, energyUsedToday: 2 }, effectiveEnergy: 3, yourActionsToday: { grow_food: 1, guard_wall: 1 }, unlockedTitle: null });
+      if (path === '/api/action') return send(res, { type: 'action', player: { ...PLAYER_V, energyUsedToday: 2 }, effectiveEnergy: 3, yourActionsToday: { grow_food: 1, guard_wall: 1 }, unlockedTitle: null });
       if (path === '/api/vote') return send(res, { type: 'vote', crisisVotes: { a: 13, b: 7, c: 5 }, yourCrisisVote: 'a' });
-      if (path === '/api/pledge') return send(res, { type: 'pledge', marked: { ...MARKED, pledged: 26 }, pledge: { ...PLEDGE, usedToday: true }, player: PLAYER });
+      if (path === '/api/pledge') return send(res, { type: 'pledge', marked: { ...MARKED, pledged: 26 }, pledge: { ...PLEDGE, usedToday: true }, player: PLAYER_V });
       if (path === '/api/strategy') return send(res, { type: 'strategy', strategyVotes: { prepare_raid: 10, stockpile_food: 6, repair_power: 4 }, yourStrategyVote: 'prepare_raid' });
+      if (path === '/api/role') { const b = await readBody(req); return send(res, { type: 'role', player: { ...PLAYER_V, role: b.role ?? 'guard', roleChangedDay: 6 } }); }
+      if (path === '/api/avatar') { const b = await readBody(req); return send(res, { type: 'avatar', player: { ...PLAYER_V, avatar: b.avatar ?? null } }); }
       return next();
     });
   },

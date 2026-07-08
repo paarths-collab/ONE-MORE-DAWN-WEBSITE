@@ -9,7 +9,7 @@ import {
   type VillageHandle,
   type VillageHooks,
 } from './scene';
-import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postPledge, postStrategy, postVote } from './api';
+import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postAvatar, postPledge, postRole, postStrategy, postVote } from './api';
 import { isLocalHarnessHost, raidNoteFromEvents, worldUnavailableMessage } from './liveUi';
 import type {
   ActionType,
@@ -21,6 +21,7 @@ import type {
   PledgeInfo,
   PledgeKind,
   ResourceDelta,
+  Role,
   Standing,
   StrategyPlanId,
   VoteTally,
@@ -192,6 +193,16 @@ const STRATEGY_IDS: StrategyPlanId[] = ['stockpile_food', 'repair_power', 'prepa
 const PLEDGE_KINDS: PledgeKind[] = ['stand_vigil', 'share_rations', 'run_messages', 'back_council'];
 const ACTION_IDS: ActionType[] = ['grow_food', 'repair_power', 'treat_sick', 'guard_wall'];
 const MARKED_ICONS: Record<Marked['kind'], string> = { person: '🧒', place: '🏚️', symbol: '🕯️' };
+
+// First-run onboarding role catalog — icon/label/blurb, exact copy per spec.
+const ROLE_CATALOG: { id: Role; icon: string; label: string; blurb: string }[] = [
+  { id: 'scout', icon: '🧭', label: 'SCOUT', blurb: 'Runs the ruins for loot — best on expeditions.' },
+  { id: 'engineer', icon: '🔧', label: 'ENGINEER', blurb: '+50% when you Repair Power.' },
+  { id: 'medic', icon: '⛑️', label: 'MEDIC', blurb: '+50% when you Treat the Sick.' },
+  { id: 'farmer', icon: '🌾', label: 'FARMER', blurb: '+50% when you Grow Food.' },
+  { id: 'guard', icon: '🛡️', label: 'GUARD', blurb: '+50% when you Guard the Wall.' },
+  { id: 'speaker', icon: '📣', label: 'SPEAKER', blurb: 'Every action you take also lifts morale.' },
+];
 
 // Everything the LIVE tab needs when the real backend is talking. null = demo.
 type LiveData = {
@@ -1618,6 +1629,101 @@ function Loader({ pct, done }: { pct: number; done: boolean }) {
   );
 }
 
+// First-run ROLE + survivor-name onboarding (live mode only). Brand-new players
+// (init.player.role === null) pick a role and, optionally, name their survivor
+// before entering the city. The ✕ dismisses for the session (soft escape for a
+// returning-but-roleless edge case) without setting a role server-side.
+function Onboarding({
+  busy,
+  onEnter,
+  onDismiss,
+}: {
+  busy: boolean;
+  onEnter: (role: Role, name: string) => void;
+  onDismiss: () => void;
+}) {
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [name, setName] = useState('');
+  const selectedLabel = ROLE_CATALOG.find((r) => r.id === selectedRole)?.label ?? '';
+  return (
+    <div className="hud onboard on">
+      <div className="onboard-sheet card-bit">
+        <button type="button" className="p-x" onClick={onDismiss} aria-label="Dismiss onboarding">
+          ✕
+        </button>
+        <div className="ob-title">CHOOSE YOUR ROLE</div>
+        <div className="ob-sub">Your role shapes what you're best at. You can change it later.</div>
+        <div className="ob-roles">
+          {ROLE_CATALOG.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className={selectedRole === r.id ? 'ob-role on' : 'ob-role'}
+              aria-pressed={selectedRole === r.id}
+              onClick={() => setSelectedRole(r.id)}
+            >
+              <span className="ob-ic">{r.icon}</span>
+              <span className="ob-nm">{r.label}</span>
+              <span className="ob-bl">{r.blurb}</span>
+            </button>
+          ))}
+        </div>
+        <input
+          className="ob-name"
+          placeholder="name your survivor (optional)"
+          maxLength={24}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <button
+          type="button"
+          className="ob-go"
+          disabled={!selectedRole || busy}
+          onClick={() => {
+            if (selectedRole) onEnter(selectedRole, name);
+          }}
+        >
+          ENTER THE CITY
+        </button>
+        {selectedLabel && <div className="mini-cap">{busy ? 'entering the city…' : `you'll join as a ${selectedLabel.toLowerCase()}`}</div>}
+      </div>
+    </div>
+  );
+}
+
+// Fallen-city terminal state (live mode only, city.status === 'fallen'). A dim
+// scrim over the (still visible) 3D town; every action surface is suppressed and
+// the LIVE handlers are no-ops while it shows. Only a mod reset clears it.
+function FallenScreen({
+  epitaph,
+  survivalDays,
+  population,
+  cycle,
+  day,
+}: {
+  epitaph: string;
+  survivalDays: number;
+  population: number;
+  cycle: number;
+  day: number;
+}) {
+  return (
+    <div className="hud fallen on">
+      <div className="fallen-sheet card-bit">
+        <div className="fl-skull">💀</div>
+        <div className="fl-title">THE CITY HAS FALLEN</div>
+        <div className="fl-epitaph">{epitaph}</div>
+        <div className="fl-stats">
+          <span>Survived {survivalDays} dawns</span>
+          <span>{population} souls remained</span>
+          <span>Cycle {cycle}, Day {day}</span>
+        </div>
+        <div className="fl-note">Only a moderator's reset can begin a new cycle.</div>
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   const [pct, setPct] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -1688,7 +1794,15 @@ export function App() {
   const [worldCities, setWorldCities] = useState<WorldCity[] | null>(null);
   const [worldNote, setWorldNote] = useState<string | null>(null);
   const [liveLb, setLiveLb] = useState<LeaderboardEntry[] | null>(null);
+  // First-run onboarding (live only): a brand-new player has no role yet.
+  const [needsOnboard, setNeedsOnboard] = useState(false);
+  const [onboardOpen, setOnboardOpen] = useState(false);
+  const [onboardBusy, setOnboardBusy] = useState(false);
+  // Fallen-city terminal state (live only): city.status === 'fallen'.
+  const [cityFallen, setCityFallen] = useState(false);
+  const [liveTimelineHeadline, setLiveTimelineHeadline] = useState<string | null>(null);
   const handleRef = useRef<VillageHandle | null>(null);
+  const cityFallenRef = useRef(false); // fallen state, readable inside handlers/timers
   const modeRef = useRef<Mode>('connecting'); // current mode, readable inside timers
   const mutatingRef = useRef(false); // a POST is in flight — pause polls + block double-taps
   const liveDayRef = useRef(0); // last server day seen (dawn diffing)
@@ -1821,6 +1935,17 @@ export function App() {
       setLiveCycle(city.cycle);
       setLiveRaidLikely(init.forecast.raidLikely);
       setLiveRaidNote(raidNoteFromEvents(init.timelinePreview?.events, init.forecast.raidLikely));
+      setLiveTimelineHeadline(init.timelinePreview?.headline ?? null);
+      // fallen-city terminal state — mirror to a ref so handlers/timers can read it
+      const fallen = city.status === 'fallen';
+      cityFallenRef.current = fallen;
+      setCityFallen(fallen);
+      // first-run onboarding: a brand-new player has no role yet. Open on first
+      // load (never re-open after they've dismissed/entered this session).
+      if (first && init.player.role === null) {
+        setNeedsOnboard(true);
+        setOnboardOpen(true);
+      }
       raidDaysRef.current = init.raidInDays;
       setRaidDays(init.raidInDays);
       // events feed: seed from the drama feed, then append only unseen lines
@@ -1967,7 +2092,7 @@ export function App() {
 
   const onLiveVote = useCallback(
     (optionId: string) => {
-      if (mutatingRef.current) return;
+      if (cityFallenRef.current || mutatingRef.current) return;
       mutatingRef.current = true;
       postVote(optionId, liveCrisisIdRef.current)
         .then((res) => {
@@ -1985,7 +2110,7 @@ export function App() {
 
   const onLivePledge = useCallback(
     (kind: PledgeKind) => {
-      if (mutatingRef.current || !PLEDGE_KINDS.includes(kind)) return;
+      if (cityFallenRef.current || mutatingRef.current || !PLEDGE_KINDS.includes(kind)) return;
       mutatingRef.current = true;
       postPledge(kind)
         .then((res) => {
@@ -2005,7 +2130,7 @@ export function App() {
   const onLiveStrategy = useCallback(
     (planId: string) => {
       const plan = STRATEGY_IDS.find((p) => p === planId);
-      if (!plan || mutatingRef.current) return;
+      if (cityFallenRef.current || !plan || mutatingRef.current) return;
       mutatingRef.current = true;
       postStrategy(plan)
         .then((res) => {
@@ -2020,6 +2145,41 @@ export function App() {
     },
     [pushNotif, toastFailure],
   );
+
+  // First-run onboarding submit: set the role, optionally name the survivor,
+  // then refresh from the server. 400/401 keeps the overlay open with a toast.
+  const onEnterCity = useCallback(
+    (role: Role, name: string) => {
+      if (onboardBusy || mutatingRef.current) return;
+      const trimmed = name.trim();
+      const letters = (trimmed.match(/\p{L}/gu) ?? []).length;
+      setOnboardBusy(true);
+      mutatingRef.current = true;
+      const roleLabel = ROLE_CATALOG.find((r) => r.id === role)?.label ?? role;
+      postRole(role)
+        .then(async () => {
+          if (letters >= 2) {
+            await postAvatar({ name: trimmed, gender: 'nonbinary', skin: 0, hair: 0, hairStyle: 0, outfit: 0 });
+          }
+          pushNotif('🫡', `role set — ${roleLabel}`, 'good');
+          setOnboardOpen(false);
+          setNeedsOnboard(false);
+          // pull fresh player-derived state from the server
+          const init = await getInit();
+          applyInit(init, false);
+        })
+        .catch((err) => toastFailure(err, 'could not set your role — try again'))
+        .finally(() => {
+          setOnboardBusy(false);
+          mutatingRef.current = false;
+        });
+    },
+    [onboardBusy, applyInit, pushNotif, toastFailure],
+  );
+  const dismissOnboard = useCallback(() => {
+    setOnboardOpen(false);
+    setNeedsOnboard(false);
+  }, []);
 
   const onReady = useCallback((h: VillageHandle) => {
     handleRef.current = h;
@@ -2254,6 +2414,7 @@ export function App() {
   const runAction = useCallback(
     (id: string) => {
       if (modeRef.current === 'live') {
+        if (cityFallenRef.current) return;
         const act = ACTION_IDS.find((a) => a === id);
         if (!act || mutatingRef.current) return;
         mutatingRef.current = true;
@@ -2545,6 +2706,10 @@ export function App() {
       mapTab: () => setDashTab('map'),
       world: () => setMapView('world'),
       stats: () => setStatsOpen((o) => !o),
+      onboard: () => {
+        setNeedsOnboard(true);
+        setOnboardOpen(true);
+      },
     };
     return () => {
       delete (window as unknown as Record<string, unknown>).__omdDemo;
@@ -2609,6 +2774,15 @@ export function App() {
   // pledged/pledgedToday the LiveTab reads for the bar come from live state too.
   const shownPledged = isLive && liveMarked ? liveMarked.pledged : pledged;
   const shownPledgedToday = isLive && livePledge ? livePledge.usedToday : pledgedToday;
+
+  // Fallen-city terminal state (live only): while it shows, all action surfaces
+  // are suppressed and the epitaph is the freshest timeline headline (falling
+  // back to the newest event line, then a default).
+  const showFallen = isLive && cityFallen;
+  const fallenEpitaph = liveTimelineHeadline ?? events[0]?.text ?? 'The lights went out before dawn.';
+  const showOnboard = isLive && needsOnboard && onboardOpen && !showFallen;
+  // Actions are dead while fallen: hide the hotbar, build dock, and dawn teaser.
+  const showActionSurfaces = !showFallen;
 
   return (
     <>
@@ -2694,29 +2868,43 @@ export function App() {
       ) : (
         <BuildingChip meta={selected} levels={levels} food={vitals.FOOD} onUpgrade={onUpgrade} live={isLive} />
       )}
-      {!isLive && <BuildDock buildMode={buildMode} onToggle={toggleBuild} toastText={toastText} toastOn={toastOn} />}
+      {!isLive && showActionSurfaces && <BuildDock buildMode={buildMode} onToggle={toggleBuild} toastText={toastText} toastOn={toastOn} />}
       <RaidBanner phase={raidPhase} />
       {mode === 'offline' && <OfflineNotice message={apiError} />}
-      <Hotbar
-        used={used}
-        onAction={runAction}
-        scouting={scouting}
-        scavOpen={scavOpen}
-        onToggleScav={() => setScavOpen((o) => !o)}
-        onScavenge={runScavenge}
-        live={isLive}
-        energyLeft={energyLeft}
-        actionCounts={liveActions}
-      />
-      <DawnReportTeaser
-        report={dawnReport}
-        show={dawnTeaserOpen && !dawnOpen}
-        onDismiss={() => setDawnTeaserOpen(false)}
-        onOpen={() => {
-          setDawnTeaserOpen(false);
-          setDawnOpen(true);
-        }}
-      />
+      {showActionSurfaces && (
+        <Hotbar
+          used={used}
+          onAction={runAction}
+          scouting={scouting}
+          scavOpen={scavOpen}
+          onToggleScav={() => setScavOpen((o) => !o)}
+          onScavenge={runScavenge}
+          live={isLive}
+          energyLeft={energyLeft}
+          actionCounts={liveActions}
+        />
+      )}
+      {showActionSurfaces && (
+        <DawnReportTeaser
+          report={dawnReport}
+          show={dawnTeaserOpen && !dawnOpen}
+          onDismiss={() => setDawnTeaserOpen(false)}
+          onOpen={() => {
+            setDawnTeaserOpen(false);
+            setDawnOpen(true);
+          }}
+        />
+      )}
+      {showOnboard && <Onboarding busy={onboardBusy} onEnter={onEnterCity} onDismiss={dismissOnboard} />}
+      {showFallen && (
+        <FallenScreen
+          epitaph={fallenEpitaph}
+          survivalDays={liveStanding?.survivalDays ?? 0}
+          population={population}
+          cycle={liveCycle}
+          day={day}
+        />
+      )}
       <DawnReportModal report={dawnReport} open={dawnOpen} onClose={() => setDawnOpen(false)} />
       {buildMode ? (
         <div className="hud build-hint card-bit">🔨 tap open ground to raise a hut · tap BUILD to cancel</div>
