@@ -129,6 +129,7 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .raid-ic { font-size: 16px; flex: none; }
 .raid-count { font-family: var(--pixel); font-size: 9px; letter-spacing: 1px; color: #e08a7a; }
 .raid-note { font-family: var(--mono); font-size: 9px; color: var(--mut); margin-top: 3px; }
+.raid-detail { margin-top: 6px; font-family: var(--mono); font-size: 8.5px; line-height: 1.35; color: #ffb3a8; }
 .raid.soon { border-color: #c85040; animation: raidPulse 1.6s ease-in-out infinite; }
 @keyframes raidPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(200, 80, 64, 0.35); }
@@ -248,6 +249,10 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .wm-compass text { font-size: 2.5px; }
 .wm-cap { font-family: var(--pixel); font-size: 3.2px; fill: #8b8270; letter-spacing: 1px; }
 .wm-info { font-family: var(--mono); font-size: 9.5px; color: var(--ink); background: rgba(255, 255, 255, 0.03); border: 1px solid #241f1a; border-radius: 8px; padding: 7px 9px; margin-top: 8px; line-height: 1.4; }
+.wm-empty { padding: 14px; color: var(--ink); background: rgba(18, 14, 11, 0.88); }
+.wm-empty-k { font-family: var(--pixel); font-size: 8px; letter-spacing: 1.5px; color: var(--gold); margin-bottom: 8px; }
+.wm-empty-t { font: 700 12px/1.35 var(--mono); margin-bottom: 5px; }
+.wm-empty-b { font: 600 9px/1.45 var(--mono); color: var(--mut); }
 
 /* ---- map-view TOWN|WORLD toggle ---- */
 .map-seg { display: flex; gap: 0; border: 1px solid #2f2828; border-radius: 10px; overflow: hidden; margin-bottom: 10px; background: rgba(255, 255, 255, 0.02); }
@@ -278,6 +283,35 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
 .st .me td { color: var(--gold); }
 .st .held { color: #57c06a; }
 .st .breach { color: #ff5b4d; }
+.raid-ledger { display: flex; flex-direction: column; gap: 4px; color: var(--ink); background: rgba(255, 255, 255, 0.03); border: 1px solid #241f1a; border-radius: 10px; padding: 9px 10px; }
+.raid-ledger.danger { border-color: #8d3c30; background: rgba(200, 80, 64, 0.12); }
+.raid-ledger b { font: 700 11px var(--mono); color: var(--ink); }
+.raid-ledger span { font: 600 9.5px/1.45 var(--mono); color: var(--mut); }
+.raid-ledger.danger span { color: #ffb3a8; }
+.dawn-report .stats-sheet { color: var(--ink); background: rgba(18, 14, 11, 0.96); }
+.dawn-report .stats-sheet h2 { margin-bottom: 14px; padding-right: 34px; }
+.dr-lines { display: flex; flex-direction: column; gap: 7px; }
+.dr-line { color: var(--ink); font: 600 13px/1.45 var(--mono); letter-spacing: 0; }
+.dr-title { display: inline-flex; align-items: center; gap: 9px; margin-top: 16px; color: var(--gold); font: 700 10px var(--mono); }
+.dr-title span { font-family: var(--pixel); font-size: 8px; letter-spacing: 1.5px; color: var(--mut); }
+
+/* ---- non-blocking dawn report notice ---- */
+.dawn-teaser { left: 14px; top: 108px; width: min(300px, calc(100vw - 28px)); padding: 12px 14px; color: var(--ink); z-index: 7; pointer-events: auto; }
+.dawn-teaser .p-x { position: absolute; top: 8px; right: 8px; }
+.dt-k { font-family: var(--pixel); font-size: 8px; letter-spacing: 1.5px; color: var(--mut); padding-right: 30px; }
+.dt-t { margin-top: 3px; font-family: var(--pixel); font-size: 12px; letter-spacing: 1px; color: var(--gold); }
+.dt-s { margin-top: 7px; font: 600 10px/1.45 var(--mono); color: var(--ink); padding-right: 42px; }
+.dt-open { position: absolute; right: 12px; bottom: 12px; font-family: var(--pixel); font-size: 8px; letter-spacing: 1px; color: #0c0a0a; background: linear-gradient(180deg, #f5d76e, #c99a2e); border: 1px solid #7a6120; border-radius: 8px; padding: 6px 8px; cursor: pointer; }
+.dt-open:active { transform: translateY(1px); }
+
+/* ---- live API failure guard ---- */
+.offline { position: fixed; inset: 0; z-index: 30; display: block; pointer-events: auto; }
+.offline-sheet { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(460px, calc(100vw - 32px)); padding: 22px; color: var(--ink); background: rgba(18, 14, 11, 0.96); }
+.offline-k { font-family: var(--pixel); font-size: 9px; letter-spacing: 2px; color: var(--gold); margin-bottom: 10px; }
+.offline-sheet h2 { font-family: var(--pixel); font-size: 14px; letter-spacing: 1.2px; color: var(--ink); line-height: 1.45; margin-bottom: 10px; }
+.offline-sheet p { font: 600 12px/1.55 var(--mono); color: var(--mut); margin-bottom: 16px; }
+.offline-sheet button { font-family: var(--pixel); font-size: 9px; letter-spacing: 1.5px; color: #0c0a0a; background: linear-gradient(180deg, #f5d76e, #c99a2e); border: 1px solid #7a6120; border-radius: 10px; padding: 9px 13px; cursor: pointer; }
+.offline-sheet button:active { transform: translateY(1px); }
 
 /* ---- attribution: top-left under the title (the left flank is free since the SCENE sidebar was removed; bottom-left is taken by the building/villager chip) ---- */
 .attrib { top: 70px; left: 18px; font-size: 8px; color: var(--mut); opacity: 0.6; pointer-events: none; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); max-width: 220px; }
@@ -296,6 +330,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
 
 /* ---- dawn-actions hotbar (bottom-center, above hint) ---- */
 .hotbar { bottom: 52px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+.hotbar.live { bottom: 50px; }
 .act { display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; backdrop-filter: blur(4px); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); padding: 8px 12px; cursor: pointer; min-width: 76px; transition: border-color 0.15s; }
 .act .ai { font-size: 18px; line-height: 1; }
 .act .al { font-family: var(--pixel); font-size: 7.5px; letter-spacing: 1px; color: var(--gold); }
@@ -343,7 +378,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
 @media (max-width: 640px) {
   .title .sub { display: none; }
   .pill { padding: 5px 7px; font-size: 8px; gap: 4px; }
-  .hint { font-size: 9.5px; max-width: calc(100vw - 24px); }
+  .hint { display: none; }
   .day { top: 58px; padding: 6px 12px; }
   .day .dn { font-size: 11px; }
   .dock { bottom: 64px; }
@@ -358,6 +393,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .dash { top: auto; bottom: 112px; right: 14px; width: min(250px, calc(100vw - 28px)); max-height: 55vh; }
   .notifs { top: 118px; }
   .hotbar { bottom: 118px; gap: 5px; }
+  .hotbar.live { bottom: 96px; }
   .act { min-width: 60px; padding: 6px 8px; }
   .act .al { font-size: 6.5px; }
   .act .af { font-size: 7px; }
@@ -368,6 +404,15 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .lb-stats { font-size: 7.5px; }
   .map-seg-btn { font-size: 8px; }
   .mini-cap { font-size: 8px; }
+  .dr-line { font-size: 12px; line-height: 1.45; }
+  .dawn-report .stats-sheet h2 { font-size: 11px; }
+  .dawn-teaser { top: 112px; left: 10px; width: min(260px, calc(100vw - 20px)); padding: 10px 12px; }
+  .dt-t { font-size: 10px; }
+  .dt-s { font-size: 9px; max-height: 42px; overflow: hidden; }
+  .poi-label { display: none; }
+  .offline-sheet { padding: 18px; }
+  .offline-sheet h2 { font-size: 12px; }
+  .offline-sheet p { font-size: 11px; }
   .wm-info { font-size: 8px; }
   .attrib { display: none; }
 }
@@ -413,6 +458,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .notifs { top: 44px; }
   .notif { font-size: 7px; padding: 5px 9px; }
   .hotbar { bottom: 6px; left: 46%; }
+  .hotbar.live { bottom: 6px; }
   .act { min-width: 54px; padding: 6px 8px; }
   .act .ai { font-size: 14px; }
   .act .al { display: none; }

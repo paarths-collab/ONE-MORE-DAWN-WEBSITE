@@ -10,6 +10,7 @@ import {
   type VillageHooks,
 } from './scene';
 import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postPledge, postStrategy, postVote } from './api';
+import { isLocalHarnessHost, raidNoteFromEvents, worldUnavailableMessage } from './liveUi';
 import type {
   ActionType,
   Crisis,
@@ -155,9 +156,9 @@ const MARKED_GOAL = 40;
 
 // ---------- LIVE mode (real backend via src/client/api.ts) ----------
 // 'connecting' while the first /api/init is in flight; 'live' when the real
-// game answers; 'demo' (the standalone harness / logged-out) keeps every local
-// simulation exactly as before.
-type Mode = 'connecting' | 'live' | 'demo';
+// game answers; 'demo' is only for the standalone dev harness. Production API
+// failures must stop on an explicit offline/login state, not a fake city.
+type Mode = 'connecting' | 'live' | 'demo' | 'offline';
 
 // Server vitals caps (src/shared/balance.ts: food store 300, medicine 120,
 // power/morale/threat/defense 0..100). Demo keeps the old local maxes.
@@ -211,6 +212,7 @@ type LiveData = {
   myPlan: string | null;
   onPlan: (id: string) => void;
   raidLikely: boolean;
+  raidNote: string | null;
   hasDawnReport: boolean;
   onOpenDawn: () => void;
 };
@@ -615,10 +617,13 @@ function LiveTab({
         <div className="raid-body">
           <div className="raid-count">{raidSoon ? 'RAID AT NEXT DAWN' : `RAID IN ${raidDays} DAWNS`}</div>
           <div className="raid-note">
-            {liveData?.raidLikely
+            {liveData?.raidNote ?? (liveData?.raidLikely
               ? '⚠ the forecast says raiders move at dawn — guard the wall'
-              : 'guard the wall — every point of defense counts'}
+              : 'guard the wall — every point of defense counts')}
           </div>
+          {liveData?.raidLikely && (
+            <div className="raid-detail">At dawn, the Red Signal can cost food, power, morale, and souls. Guard Wall softens every loss.</div>
+          )}
         </div>
       </div>
 
@@ -789,14 +794,17 @@ type WmCity = { id: string; name: string; status: WorldStatus; x: number; y: num
 function WorldMap({
   youStatus,
   liveCities,
+  liveMode,
   note,
 }: {
   youStatus: WorldStatus;
   liveCities: WorldCity[] | null;
+  liveMode: boolean;
   note: string | null;
 }) {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   let cities: WmCity[];
+  const unavailable = liveMode && liveCities === null;
   if (liveCities) {
     // your city → the center slot; the top 5 others (already ranked) → the
     // remaining slots. Fewer than 6 cities just leaves slots empty.
@@ -815,6 +823,17 @@ function WorldMap({
     cities = WORLD_CITIES.map((c) => (c.id === 'you' ? { ...c, status: youStatus } : c));
   }
   const sel = cities.find((c) => c.id === selectedCity) ?? null;
+  if (unavailable) {
+    return (
+      <div className="wm wm-unavailable">
+        <div className="wm-empty card-bit">
+          <div className="wm-empty-k">{note ? 'WORLD SIGNAL LOST' : 'SCANNING WORLD'}</div>
+          <div className="wm-empty-t">{note ? 'The known world is unavailable.' : 'Contacting the world registry.'}</div>
+          <div className="wm-empty-b">{note ?? 'Real subreddit-cities will appear here when the registry answers.'}</div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="wm">
       <svg className="wm-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -912,6 +931,7 @@ function CityDashboard({
   worldYouStatus,
   worldCities,
   worldNote,
+  worldLive,
   pois,
   levels,
   vitals,
@@ -935,6 +955,7 @@ function CityDashboard({
   worldYouStatus: WorldStatus;
   worldCities: WorldCity[] | null;
   worldNote: string | null;
+  worldLive: boolean;
   pois: PoiInfo[];
   levels: Record<string, number>;
   vitals: Vitals;
@@ -986,7 +1007,7 @@ function CityDashboard({
             {mapView === 'town' ? (
               <MiniMap mapData={mapData} view={view} onFocusDistrict={onFocusDistrict} onFocusPoint={onFocusPoint} />
             ) : (
-              <WorldMap youStatus={worldYouStatus} liveCities={worldCities} note={worldNote} />
+              <WorldMap youStatus={worldYouStatus} liveCities={worldCities} liveMode={worldLive} note={worldNote} />
             )}
           </>
         )}
@@ -1054,11 +1075,13 @@ function BuildingChip({
   levels,
   food,
   onUpgrade,
+  live,
 }: {
   meta: BuildingMeta | null;
   levels: Record<string, number>;
   food: number;
   onUpgrade: (name: string) => void;
+  live: boolean;
 }) {
   const [shown, setShown] = useState<BuildingMeta | null>(meta);
   useEffect(() => {
@@ -1071,17 +1094,19 @@ function BuildingChip({
       <div className="nm">{shown?.name ?? ''}</div>
       <div className="lv">LEVEL {level}</div>
       <div className="bl">{shown?.blurb ?? ''}</div>
-      <button
-        type="button"
-        className="up"
-        disabled={!canAfford}
-        title={canAfford ? undefined : 'not enough food'}
-        onClick={() => {
-          if (shown) onUpgrade(shown.name);
-        }}
-      >
-        ⬆ UPGRADE — 🍞 {UPGRADE_COST}
-      </button>
+      {!live && (
+        <button
+          type="button"
+          className="up"
+          disabled={!canAfford}
+          title={canAfford ? undefined : 'not enough food'}
+          onClick={() => {
+            if (shown) onUpgrade(shown.name);
+          }}
+        >
+          ⬆ UPGRADE — 🍞 {UPGRADE_COST}
+        </button>
+      )}
     </div>
   );
 }
@@ -1184,7 +1209,7 @@ function Hotbar({
           ))}
         </div>
       )}
-      <div className="hud hotbar">
+      <div className={live ? 'hud hotbar live' : 'hud hotbar'}>
         {live && (
           <span className="pill card-bit" title="energy left today">
             ⚡ <b>{energyLeft}</b>
@@ -1217,6 +1242,34 @@ function Hotbar({
         )}
       </div>
     </>
+  );
+}
+
+function DawnReportTeaser({
+  report,
+  show,
+  onOpen,
+  onDismiss,
+}: {
+  report: DawnReport | null;
+  show: boolean;
+  onOpen: () => void;
+  onDismiss: () => void;
+}) {
+  if (!report || !show) return null;
+  const summary = report.citySummary[0] ?? 'A new dawn report is ready.';
+  return (
+    <div className="hud dawn-teaser card-bit">
+      <button type="button" className="p-x" onClick={onDismiss} aria-label="Dismiss dawn report notice">
+        ✕
+      </button>
+      <div className="dt-k">DAWN REPORT</div>
+      <div className="dt-t">DAY {report.day}</div>
+      <div className="dt-s">{summary}</div>
+      <button type="button" className="dt-open" onClick={onOpen}>
+        VIEW
+      </button>
+    </div>
   );
 }
 
@@ -1256,6 +1309,8 @@ function StatsModal({
   youStatus,
   vitalMaxes,
   lb,
+  liveRaidLikely,
+  liveRaidNote,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1269,6 +1324,8 @@ function StatsModal({
   youStatus: WorldStatus;
   vitalMaxes: Record<VitKey, number>;
   lb: LeaderboardEntry[] | null;
+  liveRaidLikely: boolean;
+  liveRaidNote: string | null;
 }) {
   const ranked = Object.entries(contribs)
     .sort((a, b) => b[1].score - a[1].score)
@@ -1411,6 +1468,12 @@ function StatsModal({
           </table>
         )}
 
+        <div className="st-sec">RED SIGNAL</div>
+        <div className={liveRaidLikely ? 'raid-ledger danger' : 'raid-ledger'}>
+          <b>{liveRaidLikely ? 'Raid pressure is active' : 'No raid forecast right now'}</b>
+          <span>{liveRaidNote ?? 'Threat, defense, and Guard Wall actions decide the next Red Signal.'}</span>
+        </div>
+
         <div className="st-sec">RAID LOG</div>
         <table className="st">
           <thead>
@@ -1482,9 +1545,9 @@ function DawnReportModal({
   open: boolean;
   onClose: () => void;
 }) {
-  if (!report) return null;
+  if (!report || !open) return null;
   return (
-    <div className={open ? 'hud stats-modal on' : 'hud stats-modal'}>
+    <div className="hud stats-modal dawn-report on">
       <div className="stats-back" onClick={onClose} />
       <div className="stats-sheet card-bit">
         <button type="button" className="st-close" onClick={onClose} aria-label="Close dawn report">
@@ -1495,15 +1558,48 @@ function DawnReportModal({
         {report.citySummary.length === 0 ? (
           <div className="mini-cap">a quiet night — nothing to report</div>
         ) : (
-          report.citySummary.map((line, i) => <div key={i}>{line}</div>)
+          <div className="dr-lines">
+            {report.citySummary.map((line, i) => (
+              <div key={i} className="dr-line">
+                {line}
+              </div>
+            ))}
+          </div>
         )}
         <div className="st-sec">YOUR PART</div>
         {report.yourImpact.length === 0 ? (
           <div className="mini-cap">You rested. The city carried on without you — today, change that.</div>
         ) : (
-          report.yourImpact.map((line, i) => <div key={i}>{line}</div>)
+          <div className="dr-lines">
+            {report.yourImpact.map((line, i) => (
+              <div key={i} className="dr-line">
+                {line}
+              </div>
+            ))}
+          </div>
         )}
-        {report.title && <div className="st-sec">TITLE: {report.title}</div>}
+        {report.title && (
+          <div className="dr-title">
+            <span>TITLE</span>
+            {report.title}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OfflineNotice({ message }: { message: string | null }) {
+  return (
+    <div className="hud offline on">
+      <div className="stats-back" />
+      <div className="offline-sheet card-bit">
+        <div className="offline-k">CITY LINK LOST</div>
+        <h2>Reddit did not return the live city.</h2>
+        <p>{message ?? 'Open the game from a Reddit post and make sure you are logged in.'}</p>
+        <button type="button" onClick={() => window.location.reload()}>
+          ↻ RETRY
+        </button>
       </div>
     </div>
   );
@@ -1572,6 +1668,7 @@ export function App() {
   const [events, setEvents] = useState<LiveEvent[]>(() => [2, 1, 0].map((i) => ({ ...DRAMA[i]!, key: i })));
   // ---- LIVE mode (real backend) state ----
   const [mode, setMode] = useState<Mode>('connecting');
+  const [apiError, setApiError] = useState<string | null>(null);
   const [liveCrisis, setLiveCrisis] = useState<Crisis | null>(null);
   const [liveCrisisVotes, setLiveCrisisVotes] = useState<VoteTally>({});
   const [liveMyVote, setLiveMyVote] = useState<string | null>(null);
@@ -1584,8 +1681,10 @@ export function App() {
   const [liveStanding, setLiveStanding] = useState<Standing | null>(null);
   const [liveCycle, setLiveCycle] = useState(1);
   const [liveRaidLikely, setLiveRaidLikely] = useState(false);
+  const [liveRaidNote, setLiveRaidNote] = useState<string | null>(null);
   const [dawnReport, setDawnReport] = useState<DawnReport | null>(null);
   const [dawnOpen, setDawnOpen] = useState(false);
+  const [dawnTeaserOpen, setDawnTeaserOpen] = useState(false);
   const [worldCities, setWorldCities] = useState<WorldCity[] | null>(null);
   const [worldNote, setWorldNote] = useState<string | null>(null);
   const [liveLb, setLiveLb] = useState<LeaderboardEntry[] | null>(null);
@@ -1721,6 +1820,7 @@ export function App() {
       setLiveStanding(init.standing);
       setLiveCycle(city.cycle);
       setLiveRaidLikely(init.forecast.raidLikely);
+      setLiveRaidNote(raidNoteFromEvents(init.timelinePreview?.events, init.forecast.raidLikely));
       raidDaysRef.current = init.raidInDays;
       setRaidDays(init.raidInDays);
       // events feed: seed from the drama feed, then append only unseen lines
@@ -1736,7 +1836,7 @@ export function App() {
       }
       if (init.dawnReport) {
         setDawnReport(init.dawnReport);
-        if ((first && init.firstVisitToday) || dayIncreased) setDawnOpen(true);
+        if ((first && init.firstVisitToday) || dayIncreased) setDawnTeaserOpen(true);
       }
       if (dayIncreased) {
         pushNotif('🌅', `dawn breaks — day ${city.day}`);
@@ -1754,33 +1854,52 @@ export function App() {
   );
 
   // Boot: one real /api/init decides the mode. Success = LIVE (the shared city
-  // is truth, local sims stay off). Any failure — network, 401, 404 from the
-  // standalone harness on :4630 — = DEMO, exactly the self-running town.
+  // is truth, local sims stay off). Dev harness failures can still show DEMO;
+  // production failures stop on an explicit offline/login state.
   useEffect(() => {
     let cancelled = false;
     getInit()
       .then((init) => {
         if (cancelled) return;
+        setApiError(null);
         setMode('live');
         modeRef.current = 'live';
         applyInit(init, true);
       })
-      .catch(() => {
-        if (!cancelled) setMode('demo');
+      .catch((err) => {
+        if (cancelled) return;
+        const message = err instanceof ApiFailure ? err.message : 'The city API could not be reached.';
+        const localHarness = isLocalHarnessHost(window.location.hostname);
+        if (localHarness) {
+          setApiError(null);
+          setMode('demo');
+          modeRef.current = 'demo';
+          pushNotif('⚠️', 'dev demo mode — live API unavailable', 'bad');
+        } else {
+          setApiError(message);
+          setMode('offline');
+          modeRef.current = 'offline';
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [applyInit]);
+  }, [applyInit, pushNotif]);
 
   // WORLD map (live): real cities from /api/world; any failure or an
   // ineligible sub falls back to the fictional charts with a caption.
   const refreshWorld = useCallback(() => {
     getWorld()
       .then((w) => {
-        if (!w.eligible || w.cities.length === 0) {
+        const unavailable = worldUnavailableMessage({
+          eligible: w.eligible,
+          subscribers: w.subscribers,
+          minSubscribers: w.minSubscribers,
+          cityCount: w.cities.length,
+        });
+        if (unavailable) {
           setWorldCities(null);
-          setWorldNote('world charts unavailable — showing the old maps');
+          setWorldNote(unavailable);
         } else {
           setWorldCities(w.cities);
           setWorldNote(null);
@@ -1788,7 +1907,7 @@ export function App() {
       })
       .catch(() => {
         setWorldCities(null);
-        setWorldNote('world charts unavailable — showing the old maps');
+        setWorldNote('The world registry could not be reached. Your city is still playable.');
       });
   }, []);
 
@@ -2448,7 +2567,9 @@ export function App() {
     ? (liveStanding?.rankLabel ?? `cycle ${liveCycle} · the last city`)
     : mode === 'demo'
       ? '3D town · demo mode'
-      : '3D town';
+      : mode === 'offline'
+        ? 'live city unavailable'
+        : 'connecting to the city';
   const vitalMaxes = isLive ? LIVE_VITAL_MAX : VITAL_MAX;
   const energyLeft = Math.max(0, liveEnergy.effective - liveEnergy.used);
   const liveLeaderboard = isLive ? liveLb : null;
@@ -2479,6 +2600,7 @@ export function App() {
           myPlan: liveMyPlan,
           onPlan: onLiveStrategy,
           raidLikely: liveRaidLikely,
+          raidNote: liveRaidNote,
           hasDawnReport: dawnReport !== null,
           onOpenDawn: () => setDawnOpen(true),
         }
@@ -2517,6 +2639,7 @@ export function App() {
         worldYouStatus={worldYouStatus}
         worldCities={worldCities}
         worldNote={worldNote}
+        worldLive={isLive}
         pois={pois}
         levels={levels}
         vitals={vitals}
@@ -2563,14 +2686,17 @@ export function App() {
         youStatus={worldYouStatus}
         vitalMaxes={vitalMaxes}
         lb={liveLeaderboard}
+        liveRaidLikely={liveRaidLikely}
+        liveRaidNote={liveRaidNote}
       />
       {villager ? (
         <VillagerChip name={villager} hiCooldown={hiCooldown} onWave={onWaveAt} onSayHi={onSayHi} onClose={clearVillager} />
       ) : (
-        <BuildingChip meta={selected} levels={levels} food={vitals.FOOD} onUpgrade={onUpgrade} />
+        <BuildingChip meta={selected} levels={levels} food={vitals.FOOD} onUpgrade={onUpgrade} live={isLive} />
       )}
-      <BuildDock buildMode={buildMode} onToggle={toggleBuild} toastText={toastText} toastOn={toastOn} />
+      {!isLive && <BuildDock buildMode={buildMode} onToggle={toggleBuild} toastText={toastText} toastOn={toastOn} />}
       <RaidBanner phase={raidPhase} />
+      {mode === 'offline' && <OfflineNotice message={apiError} />}
       <Hotbar
         used={used}
         onAction={runAction}
@@ -2581,6 +2707,15 @@ export function App() {
         live={isLive}
         energyLeft={energyLeft}
         actionCounts={liveActions}
+      />
+      <DawnReportTeaser
+        report={dawnReport}
+        show={dawnTeaserOpen && !dawnOpen}
+        onDismiss={() => setDawnTeaserOpen(false)}
+        onOpen={() => {
+          setDawnTeaserOpen(false);
+          setDawnOpen(true);
+        }}
       />
       <DawnReportModal report={dawnReport} open={dawnOpen} onClose={() => setDawnOpen(false)} />
       {buildMode ? (
