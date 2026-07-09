@@ -354,10 +354,13 @@ async function liveSmoke(url) {
         sections: secs,
         hasStage: !!sheet?.querySelector('.db-stage'),
         hasFeed: !!sheet?.querySelector('.db-feed'),
+        neigh: sheet?.querySelector('.db-neigh')?.textContent || '',
         structureRows: sheet?.querySelectorAll('table.st tbody tr').length || 0,
       };
     })()`);
     assert(board.title.includes('CITY DASHBOARD'), 'DASH fab should open the CITY DASHBOARD.');
+    assert(/\d+ souls? (has|have) built here/.test(board.neigh), `Dashboard should show the neighborhood counter, saw "${board.neigh}".`);
+    assert(board.neigh.includes('24'), `Neighborhood counter should reflect the house total (24), saw "${board.neigh}".`);
     assert(board.sections.includes('SETTLEMENT'), 'Dashboard should show the SETTLEMENT section.');
     assert(board.sections.some((s) => s.includes('INVENTORY')), 'Dashboard should show the resource INVENTORY.');
     assert(board.sections.includes('UPDATES'), 'Dashboard should show the UPDATES feed.');
@@ -429,6 +432,13 @@ async function campSmoke(url) {
     assert(camp.cta.includes('ADD LABOR'), 'Brand-new mock city should expose the Add Labor contribution CTA.');
     assert(camp.hasBar, 'Brand-new mock city should render the shared build progress bar.');
     assert(!camp.playableScavenge, 'Camp smoke must not expose playable scavenge.');
+
+    // One-redditor-one-house: a brand-new Camp has no contributors yet, so the
+    // neighborhood counter reads zero (the town starts from scratch).
+    await cdp.eval(`document.querySelector('.board-fab')?.click()`);
+    await cdp.waitFor('!!document.querySelector(".stats-modal.on .db-neigh")', 'camp dashboard neighborhood line');
+    const neigh = await cdp.eval(`document.querySelector('.stats-modal.on .db-neigh')?.textContent || ''`);
+    assert(/\b0 souls have built here/.test(neigh), `Brand-new Camp should show zero souls built, saw "${neigh}".`);
   } finally {
     await close();
   }

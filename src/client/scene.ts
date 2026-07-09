@@ -15,6 +15,13 @@ export type BuildingMeta = { name: string; level: number; blurb: string };
 export type TimeOfDay = 'night' | 'dawn' | 'day' | 'dusk';
 export type CompanionKind = 'horse' | 'flamingo' | 'parrot' | 'stork';
 export type PoiInfo = { name: string; icon: string; level: number; blurb: string };
+// One-redditor-one-house summary (structurally matches shared HouseSummary).
+export type SceneHouses = {
+  total: number;
+  founder: { username: string } | null;
+  yours: { index: number; tier: number; isFounder: boolean } | null;
+  named: { username: string; index: number; tier: number }[];
+};
 
 /** Snapshot the React HUD reads (via getMapData) to draw its live minimap. */
 export type MapData = {
@@ -66,6 +73,7 @@ export type VillageHandle = {
    * toggles `.visible` on landmarks created once, and never throws.
    */
   setBuildStage: (unlocked: string[]) => void;
+  setHouses: (houses: SceneHouses | null) => void;
   /**
    * Build a house for a named owner at a random free spot (roadside preferred)
    * and float a temporary owner tag over it. Returns the tile + compass quarter,
@@ -1844,17 +1852,93 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       const wallUp = has('wall');
       for (const part of wallParts) part.visible = wallUp;
 
-      // GROW-IN: the town starts as a bare Camp and fills outward as the
-      // community raises buildings. 7 buildings total; reveal that fraction of
-      // the pre-placed houses and labeled districts (nearest the camp first).
-      const { houses, districts } = ensureGrowOrder();
+      // Districts (civic amenities) reveal with the shared build stage. Houses
+      // are driven separately, by contributor count — see setHouses().
+      const { districts } = ensureGrowOrder();
       const frac = Math.min(1, set.length / 7);
-      const nHouses = Math.round(houses.length * frac);
-      houses.forEach((g, i) => (g.visible = i < nHouses));
       const nDist = Math.round(districts.length * frac);
       districts.forEach((g, i) => (g.visible = i < nDist));
     } catch {
       /* purely cosmetic overlay — never throw into the caller */
+    }
+  }
+
+  // ---------- one-redditor-one-house overlay (setHouses) ----------
+  // Houses reveal by CONTRIBUTOR COUNT (not build stage): index 0 is the founding
+  // house, your house is highlighted, top contributors get name labels, and tier
+  // scales the notable houses. Idempotent — decor is cleared + re-applied each call.
+  const houseDecor: THREE.Object3D[] = [];
+  const TIER_SCALE = [1, 1, 1.16, 1.32, 1.5]; // by tier 0..4
+  const clearHouseDecor = () => {
+    for (const o of houseDecor) {
+      o.parent?.remove(o);
+      o.traverse((c) => {
+        const mesh = c as THREE.Mesh;
+        mesh.geometry?.dispose?.();
+        const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
+        if (Array.isArray(mat)) mat.forEach((m) => m.dispose?.());
+        else mat?.dispose?.();
+      });
+      (o as unknown as CSS2DObject).element?.remove();
+    }
+    houseDecor.length = 0;
+  };
+  const labelHouse = (g: THREE.Group, text: string, y: number) => {
+    const el = document.createElement('div');
+    el.className = 'h-owner on';
+    el.textContent = text;
+    const tag = new CSS2DObject(el);
+    tag.position.set(0, y, 0);
+    g.add(tag);
+    houseDecor.push(tag);
+  };
+  const ringHouse = (g: THREE.Group) => {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(1.7, 2.0, 24),
+      new THREE.MeshBasicMaterial({ color: C.roofGold, transparent: true, opacity: 0.85, side: THREE.DoubleSide, fog: false }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.06;
+    g.add(ring);
+    houseDecor.push(ring);
+  };
+  function setHouses(summary: SceneHouses | null) {
+    try {
+      const { houses } = ensureGrowOrder();
+      const total = Math.max(0, Math.min(houses.length, Math.round(summary?.total ?? 0)));
+      houses.forEach((g, i) => {
+        g.visible = i < total;
+        g.scale.setScalar(1);
+      });
+      clearHouseDecor();
+      if (!summary || total === 0) return;
+      const scaleFor = (t: number) => TIER_SCALE[Math.max(0, Math.min(4, Math.round(t)))] ?? 1;
+      const yours = summary.yours;
+      // founding house — nearest the camp centre (index 0)
+      const founder = houses[0];
+      if (founder) {
+        founder.scale.setScalar(1.5);
+        ringHouse(founder);
+        const label = yours && yours.index === 0 ? '🏛 u/you (founder)' : `🏛 u/${summary.founder?.username ?? 'founder'}`;
+        labelHouse(founder, label, 3.0);
+      }
+      // your house (if not the founder)
+      if (yours && yours.index > 0 && yours.index < total) {
+        const g = houses[yours.index]!;
+        g.scale.setScalar(scaleFor(yours.tier));
+        ringHouse(g);
+        labelHouse(g, 'u/you', 2.7);
+      }
+      // named top contributors
+      for (const n of summary.named ?? []) {
+        if (n.index <= 0 || n.index >= total) continue;
+        if (yours && n.index === yours.index) continue; // already labelled as yours
+        const g = houses[n.index]!;
+        g.scale.setScalar(scaleFor(n.tier));
+        labelHouse(g, `u/${n.username}`, 2.6);
+      }
+    } catch {
+      /* cosmetic overlay — never throw into the caller */
     }
   }
 
@@ -1884,6 +1968,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     waveAt,
     setBuildMode,
     setBuildStage,
+    setHouses,
     buyHouse,
     flashDistrict,
     getMapData,

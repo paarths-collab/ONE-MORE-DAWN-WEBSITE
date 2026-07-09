@@ -105,6 +105,12 @@ const INIT = {
     next: { id: 'farm', name: 'Farm', description: 'Worked beds — food grows faster.', progressRequired: 30, effect: '+3 food/day' },
     progress: 12, progressRequired: 30, contributorsToday: 8, youBuiltToday: false,
   },
+  houses: {
+    total: 24, cap: 240,
+    founder: { username: 'ashen_fox' },
+    yours: { index: 2, tier: 3, isFounder: false },
+    named: [{ username: 'ashen_fox', index: 0, tier: 4 }, { username: 'saltcedar', index: 1, tier: 3 }],
+  },
 };
 const WORLD = {
   type: 'world', totalCities: 6, yourRank: 2, eligible: true, subscribers: 1200, minSubscribers: 500,
@@ -141,11 +147,12 @@ const CITY_V = {
   status: process.env.MOCK_FALLEN ? 'fallen' : CITY.status,
   ...(process.env.MOCK_CAMP ? { cityLevel: 0, buildProgress: 0, unlockedBuildings: [] } : {}),
 };
+const CAMP_HOUSES = { total: 0, cap: 240, founder: null, yours: null, named: [] };
 const INIT_V = {
   ...INIT,
   player: PLAYER_V,
   city: CITY_V,
-  ...(process.env.MOCK_CAMP ? { build: CAMP_BUILD, yourActionsToday: {} } : {}),
+  ...(process.env.MOCK_CAMP ? { build: CAMP_BUILD, houses: CAMP_HOUSES, yourActionsToday: {} } : {}),
 };
 const readBody = (req) => new Promise((r) => { let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => { try { r(JSON.parse(b || '{}')); } catch { r({}); } }); });
 const mockApi = () => ({

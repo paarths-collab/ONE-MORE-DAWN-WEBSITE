@@ -86,6 +86,8 @@ menu.post('/reset', async (c) => {
     KEYS.players,
     KEYS.lbContribution,
     KEYS.lbScouts,
+    KEYS.housesIndex,
+    KEYS.housesMeta,
     KEYS.markedOutcomes,
   ];
   for (let d = 1; d <= lastDay + 1; d++) {

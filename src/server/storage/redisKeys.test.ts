@@ -21,6 +21,8 @@ describe('redis keys', () => {
     expect(KEYS.missionToken('tok-1')).toBe('mission:token:tok-1');
     expect(KEYS.lbContribution).toBe('lb:contribution');
     expect(KEYS.lbScouts).toBe('lb:scouts');
+    expect(KEYS.housesIndex).toBe('houses:index');
+    expect(KEYS.housesMeta).toBe('houses:meta');
     expect(KEYS.timeline).toBe('timeline');
     expect(KEYS.cityHistory).toBe('city:history');
     expect(KEYS.resolverLock).toBe('resolver:lock');

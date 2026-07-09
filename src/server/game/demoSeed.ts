@@ -101,7 +101,10 @@ export async function seedDemoCity(store: Store, { cycle, worldSeed, nowMs }: Se
       return store.savePlayer(p);
     }),
   );
-  await Promise.all(DEMO_CITIZENS.map((d) => store.addContribution(d.id, d.contribution)));
+  for (const d of DEMO_CITIZENS) {
+    await store.registerHouse(d.id);
+    await store.addContribution(d.id, d.contribution);
+  }
 
   // 2) Yesterday's action-takers (day 4) — scales the Marked goal + dawn report.
   const yesterdayActors = DEMO_CITIZENS.filter((d) => d.active);

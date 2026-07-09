@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { context, redis, reddit } from '@devvit/web/server';
 import { BALANCE } from '../../shared/balance';
 import { getCrisis } from '../../shared/crises';
+import { HOUSE_CAP, NAMED_HOUSE_LIMIT, tierForContribution } from '../../shared/houses';
 import type {
   ActionRequest,
   ActionResponse,
@@ -12,6 +13,7 @@ import type {
   DawnReport,
   FactionId,
   Forecast,
+  HouseSummary,
   InitResponse,
   LeaderboardEntry,
   LeaderboardResponse,
@@ -109,6 +111,50 @@ export const redisLike: RedisLike = {
 };
 
 export const getStore = () => new Store(redisLike);
+
+const emptyHouseSummary = (): HouseSummary => ({
+  total: 0,
+  cap: HOUSE_CAP,
+  founder: null,
+  yours: null,
+  named: [],
+});
+
+export const buildHouseSummary = async (store: Store, userId: string): Promise<HouseSummary> => {
+  try {
+    const [rawTotal, founderId, myIndexRaw, myScoreRaw, top] = await Promise.all([
+      store.getHouseCount(),
+      store.getFounderId(),
+      store.getHouseIndex(userId),
+      store.getContributionScore(userId),
+      store.topContributors(NAMED_HOUSE_LIMIT),
+    ]);
+    if (!Number.isFinite(rawTotal) || rawTotal <= 0) return emptyHouseSummary();
+    const total = Math.floor(rawTotal);
+    const founderProfile = founderId ? await store.getPlayer(founderId) : undefined;
+    const founder = founderId ? { username: founderProfile?.username ?? 'a survivor' } : null;
+    const myIndex = myIndexRaw !== null && Number.isFinite(myIndexRaw) && myIndexRaw >= 0
+      ? Math.floor(myIndexRaw)
+      : null;
+    const myScore = Number.isFinite(myScoreRaw) ? myScoreRaw ?? 0 : 0;
+    const yours = myIndex === null
+      ? null
+      : { index: myIndex, tier: tierForContribution(myScore), isFounder: myIndex === 0 };
+
+    const namedRaw = await Promise.all(top.map(async (t) => {
+      const [idxRaw, p] = await Promise.all([
+        store.getHouseIndex(t.userId),
+        store.getPlayer(t.userId),
+      ]);
+      if (idxRaw === null || !Number.isFinite(idxRaw) || idxRaw < 0 || !p) return null;
+      return { username: p.username, index: Math.floor(idxRaw), tier: tierForContribution(t.score) };
+    }));
+    const named = namedRaw.filter((h): h is NonNullable<typeof h> => h !== null);
+    return { total, cap: HOUSE_CAP, founder, yours, named };
+  } catch {
+    return emptyHouseSummary();
+  }
+};
 
 /** Malformed JSON must be a 400 at the route, never an unhandled 500. */
 export const parseBody = async <T>(c: {
@@ -292,6 +338,7 @@ api.get('/init', async (c) => {
   const pledge = buildPledgeInfo(pledgers, user.userId);
   const drama = buildDrama(city, timeline, dayActions, dayMissions, marked, factionInfluence);
   const standing = buildStanding(city, contributionRank);
+  const houses = await buildHouseSummary(store, user.userId);
 
   // World of Cities (Plan 2): keep this sub's global-registry record fresh.
   // Cheap on the common path (one cached-meta read for sub-gate subs; one
@@ -372,6 +419,7 @@ api.get('/init', async (c) => {
       dayActions['build_city'] ?? 0,
       (yourActionsToday['build_city'] ?? 0) > 0,
     ),
+    houses,
     marked,
     pledge,
     drama,
@@ -471,6 +519,7 @@ api.post('/action', async (c) => {
   // rides along when the action maps to a faction.
   const faction = BALANCE.factionPerAction[body.action];
   await Promise.all([
+    store.registerHouse(user.userId),
     store.recordAction(city.day, user.userId, body.action),
     store.addContribution(user.userId, BALANCE.contributionPerAction),
     ...(faction
@@ -539,6 +588,7 @@ api.post('/vote', async (c) => {
   if (!(await execOrConflict(tx))) {
     return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
   }
+  await store.registerHouse(user.userId);
 
   return c.json<VoteResponse>({
     type: 'vote',
@@ -577,6 +627,7 @@ api.post('/strategy', async (c) => {
   if (!(await execOrConflict(tx))) {
     return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
   }
+  await store.registerHouse(user.userId);
 
   return c.json<StrategyResponse>({
     type: 'strategy',
@@ -635,6 +686,7 @@ api.post('/pledge', async (c) => {
     totalContribution: fresh.totalContribution + BALANCE.contributionPerPledge,
   };
   await Promise.all([
+    store.registerHouse(user.userId),
     store.savePlayer(updated),
     store.addContribution(user.userId, BALANCE.contributionPerPledge),
   ]);

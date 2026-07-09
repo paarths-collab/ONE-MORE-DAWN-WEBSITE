@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BALANCE } from '../../shared/balance';
+import { tierForContribution } from '../../shared/houses';
 import { generateMap, rollCrateContents } from '../../shared/mapgen';
 import { deriveLayoutSeed, hashString } from '../../shared/rng';
 import type { CityState, Marked, PlayerProfile } from '../../shared/types';
@@ -222,6 +223,31 @@ describe('brand-new player front door', () => {
     expect(loaded.player.lastActiveDay).toBe(2);
     // Persisted with the advanced day.
     expect((await store.getPlayer('t2_ret'))?.lastActiveDay).toBe(2);
+  });
+});
+
+describe('one redditor one house integration', () => {
+  it('keeps house order stable while tiers come from contribution scores', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    await store.savePlayer(freshPlayer('t2_founder', 'founder', 1));
+    await store.savePlayer(freshPlayer('t2_neighbor', 'neighbor', 1));
+
+    expect(await store.registerHouse('t2_founder')).toEqual({ index: 0, isNew: true });
+    await store.addContribution('t2_founder', 40);
+    expect(await store.registerHouse('t2_neighbor')).toEqual({ index: 1, isNew: true });
+    await store.addContribution('t2_neighbor', 6);
+
+    expect(await store.getFounderId()).toBe('t2_founder');
+    expect(await store.getHouseCount()).toBe(2);
+    expect(await store.getHouseIndex('t2_founder')).toBe(0);
+    expect(await store.getHouseIndex('t2_neighbor')).toBe(1);
+
+    const top = await store.topContributors(2);
+    expect(top.map((t) => [t.userId, tierForContribution(t.score)])).toEqual([
+      ['t2_founder', 4],
+      ['t2_neighbor', 2],
+    ]);
   });
 });
 

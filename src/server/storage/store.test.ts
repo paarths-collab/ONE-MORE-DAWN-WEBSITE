@@ -42,6 +42,12 @@ export const makeFakeRedis = (): FakeRedis => {
     bump(k);
     return 0;
   };
+  const hIncrByImpl = (k: string, f: string, by: number): number => {
+    const next = Number(hash(k).get(f) ?? '0') + by;
+    hash(k).set(f, String(next));
+    bump(k);
+    return next;
+  };
   const incrByImpl = (k: string, by: number): number => {
     const next = Number(strings.get(k) ?? '0') + by;
     strings.set(k, String(next));
@@ -57,12 +63,7 @@ export const makeFakeRedis = (): FakeRedis => {
     async hGet(k, f) { return hash(k).get(f); },
     async hSet(k, fv) { return hSetImpl(k, fv); },
     async hGetAll(k) { return Object.fromEntries(hash(k)); },
-    async hIncrBy(k, f, by) {
-      const next = Number(hash(k).get(f) ?? '0') + by;
-      hash(k).set(f, String(next));
-      bump(k);
-      return next;
-    },
+    async hIncrBy(k, f, by) { return hIncrByImpl(k, f, by); },
     async hDel(k, fields) { for (const f of fields) hash(k).delete(f); bump(k); },
     async zIncrBy(k, m, by) {
       const next = (zset(k).get(m) ?? 0) + by;
@@ -86,6 +87,7 @@ export const makeFakeRedis = (): FakeRedis => {
       const tx: LockTx = {
         async multi() { return undefined; },
         async hSet(k, fv) { queued.push(() => hSetImpl(k, fv)); return undefined; },
+        async hIncrBy(k, f, by) { queued.push(() => hIncrByImpl(k, f, by)); return undefined; },
         async incrBy(k, by) { queued.push(() => incrByImpl(k, by)); return undefined; },
         async unwatch() { snapshot.clear(); return undefined; },
         async exec() {

@@ -314,6 +314,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
 .db-stage { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .db-stage b { font-family: var(--pixel); font-size: 12px; letter-spacing: 1px; color: var(--gold); }
 .db-stage span { font: 600 9.5px var(--mono); color: var(--mut); }
+.db-neigh { font: 700 10px var(--mono); color: var(--gold); margin-bottom: 10px; }
 .db-next { background: rgba(255, 255, 255, 0.03); border: 1px solid #241f1a; border-radius: 10px; padding: 9px 10px; margin-bottom: 10px; }
 .db-next-h { display: flex; justify-content: space-between; gap: 8px; font: 700 10.5px var(--mono); color: var(--ink); }
 .db-bar { height: 8px; background: #241f1a; border-radius: 5px; overflow: hidden; margin: 6px 0; }

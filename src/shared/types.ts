@@ -1,3 +1,5 @@
+import type { HouseTier } from './houses';
+
 // ---------- Core enums ----------
 
 export type Role = 'scout' | 'engineer' | 'medic' | 'farmer' | 'guard' | 'speaker';
@@ -196,6 +198,14 @@ export type Forecast = {
 
 export type VoteTally = Record<string, number>; // optionId/planId -> count
 
+export interface HouseSummary {
+  total: number;                 // unique contributors this cycle (== houses raised)
+  cap: number;                   // HOUSE_CAP
+  founder: { username: string } | null;                 // index-0 contributor
+  yours: { index: number; tier: HouseTier; isFounder: boolean } | null; // null until you contribute
+  named: { username: string; index: number; tier: HouseTier }[];        // top contributors, for labels
+}
+
 export type InitResponse = {
   type: 'init';
   postId: string;
@@ -221,6 +231,7 @@ export type InitResponse = {
   forecast: Forecast;
   trait: { id: CityTraitId; label: string; blurb: string };
   build: BuildStatus;
+  houses: HouseSummary;
   // ---- Reddit-native hook layer (Plan 1) ----
   marked: Marked;
   pledge: PledgeInfo;
