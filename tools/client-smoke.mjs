@@ -444,9 +444,46 @@ async function campSmoke(url) {
   }
 }
 
+async function portraitSmoke(url) {
+  const { cdp, close } = await openPage(url);
+  try {
+    await cdp.call('Emulation.setDeviceMetricsOverride', {
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 2,
+      mobile: true,
+      screenOrientation: { type: 'portraitPrimary', angle: 0 },
+    });
+    await cdp.call('Page.reload', { ignoreCache: true });
+    await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("THE LAST CITY")', 'portrait city boot');
+    await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'portrait loader exit');
+    const portrait = await cdp.eval(`(() => {
+      const gate = document.querySelector('.rotate-gate');
+      const gateStyle = gate ? getComputedStyle(gate) : null;
+      const fab = document.querySelector('.dash-fab');
+      const fabStyle = fab ? getComputedStyle(fab) : null;
+      return {
+        gateDisplay: gateStyle?.display || 'missing',
+        gatePointer: gateStyle?.pointerEvents || 'missing',
+        gatePosition: gateStyle?.position || 'missing',
+        fabPointer: fabStyle?.pointerEvents || 'missing',
+        overflowX: document.body.scrollWidth > document.documentElement.clientWidth,
+      };
+    })()`);
+    assert(portrait.gateDisplay !== 'none' && portrait.gateDisplay !== 'missing', 'Portrait advisory should be visible on phone-sized portrait viewports.');
+    assert(portrait.gatePointer === 'none', `Portrait advisory must not trap taps, got pointer-events:${portrait.gatePointer}.`);
+    assert(portrait.gatePosition === 'fixed', 'Portrait advisory should remain visible without taking layout space.');
+    assert(portrait.fabPointer === 'auto', `CITY fab should remain tappable in portrait, got pointer-events:${portrait.fabPointer}.`);
+    assert(!portrait.overflowX, 'Portrait viewport should not overflow horizontally.');
+  } finally {
+    await close();
+  }
+}
+
 await withServer('mock-live core loop', 4640, {}, liveSmoke);
 await withServer('mock-live onboarding', 4641, { MOCK_ROLE_NULL: '1' }, onboardingSmoke);
 await withServer('mock-live fallen city', 4642, { MOCK_FALLEN: '1' }, fallenSmoke);
 await withServer('mock-live brand-new camp', 4643, { MOCK_CAMP: '1' }, campSmoke);
+await withServer('mock-live portrait fallback', 4644, {}, portraitSmoke);
 
 console.log('client smoke passed');

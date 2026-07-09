@@ -39,6 +39,15 @@ const safeParse = <T>(raw: string | undefined, fallback: T): T => {
 export class Store {
   constructor(private readonly redis: RedisLike) {}
 
+  private async normalizedHouseRows(): Promise<{ userId: string; index: number }[]> {
+    const raw = await this.redis.hGetAll(KEYS.housesIndex);
+    const rows = Object.entries(raw)
+      .map(([userId, value]) => ({ userId, rawIndex: Number(value) }))
+      .filter((row) => Number.isFinite(row.rawIndex) && row.rawIndex >= 0)
+      .sort((a, b) => a.rawIndex - b.rawIndex || a.userId.localeCompare(b.userId));
+    return rows.map((row, index) => ({ userId: row.userId, index }));
+  }
+
   // ----- city -----
   async getCityState(): Promise<CityState | undefined> {
     const raw = await this.redis.get(KEYS.cityState);
@@ -342,27 +351,33 @@ export class Store {
    *  who already has a house keeps their original index. Returns their join index. */
   async registerHouse(userId: string): Promise<{ index: number; isNew: boolean }> {
     const existing = await this.redis.hGet(KEYS.housesIndex, userId);
-    if (existing !== undefined) return { index: Number(existing), isNew: false };
-    // hIncrBy is atomic -> distinct index per new user. Per-user action locks
-    // prevent the same user racing itself, so no double-register.
+    const existingIndex = Number(existing);
+    if (existing !== undefined && Number.isFinite(existingIndex) && existingIndex >= 0) {
+      return { index: (await this.getHouseIndex(userId)) ?? existingIndex, isNew: false };
+    }
+    // hIncrBy is atomic -> distinct index per new user. Read paths compact the
+    // hash order, so a stale/corrupt seq or rare same-user race cannot inflate
+    // the visible house total.
     const seq = await this.redis.hIncrBy(KEYS.housesMeta, 'seq', 1); // 1-based
     const index = seq - 1;
     await this.redis.hSet(KEYS.housesIndex, { [userId]: String(index) });
     if (index === 0) await this.redis.hSet(KEYS.housesMeta, { founder: userId });
-    return { index, isNew: true };
+    return { index: (await this.getHouseIndex(userId)) ?? index, isNew: true };
   }
 
   async getHouseCount(): Promise<number> {
-    return Number((await this.redis.hGet(KEYS.housesMeta, 'seq')) ?? 0);
+    return (await this.normalizedHouseRows()).length;
   }
 
   async getHouseIndex(userId: string): Promise<number | null> {
-    const v = await this.redis.hGet(KEYS.housesIndex, userId);
-    return v === undefined ? null : Number(v);
+    const row = (await this.normalizedHouseRows()).find((h) => h.userId === userId);
+    return row?.index ?? null;
   }
 
   async getFounderId(): Promise<string | null> {
-    return (await this.redis.hGet(KEYS.housesMeta, 'founder')) ?? null;
+    const founder = await this.redis.hGet(KEYS.housesMeta, 'founder');
+    if (founder && (await this.getHouseIndex(founder)) !== null) return founder;
+    return (await this.normalizedHouseRows())[0]?.userId ?? null;
   }
 
   // ----- timeline + history -----

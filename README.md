@@ -49,8 +49,10 @@ The client runs in three honest modes, decided by one `/api/init` call:
    tomorrow's dawn.
 4b. **Build it together** — a shared progress bar fills from everyone's labor; at
    dawn the next building unlocks (Shelter → Farm → Clinic → Watchtower →
-   Storehouse → Wall → Council Hall) and appears in the town. The city is
-   **community-built, not individually owned** — no free placement in V1.
+   Storehouse → Wall → Council Hall) and appears in the town. Those shared
+   **amenities** are community-built (no free placement), while **every
+   contributor raises their own house** — the first contributor founds the city
+   and the town fills one redditor at a time.
 5. **Decide together** — vote on the day's **crisis**, back a **council** plan,
    and **pledge** to save **The Marked**.
 6. **Brace** — watch the **raid countdown**; raids resolve at dawn.

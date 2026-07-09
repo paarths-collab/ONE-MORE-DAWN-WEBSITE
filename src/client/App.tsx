@@ -3213,8 +3213,8 @@ export function App() {
 
   return (
     <>
-      {/* On a phone in portrait the 3D town has no room — prompt to rotate.
-          CSS-only: shows only at (orientation: portrait) and phone width. */}
+      {/* Portrait phones get an advisory, never a blocking gate. Reddit webviews
+          can report sticky orientation states, so the game must stay usable. */}
       <div className="rotate-gate">
         <div className="rg-card">
           <div className="rg-i">📱</div>

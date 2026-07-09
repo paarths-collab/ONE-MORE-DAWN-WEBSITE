@@ -40,6 +40,7 @@
 | Demo/judge seed | Mod menu action "seed demo state" |
 | Live / demo / offline modes | Honest state: demo only on localhost; production API failure → explicit offline + retry |
 | Minimal sound + mute | Local SFX cues on key events + a global mute toggle persisted in localStorage; fail-silent. Ships with procedurally-generated placeholder tones — swap in Kenney CC0 files anytime (see `docs/ATTRIBUTION.md`). |
+| One redditor, one house | Each unique contributor raises one automatic personal house in first-contribution order; the first contributor is the founder. |
 
 ## ❌ Not in V1 (cut or hidden — do not advertise)
 
@@ -55,7 +56,7 @@ These were reviewed and are **not fully wired into the live 3D client**, so they
 
 ## 🔭 Post-V1 (revisit after launch)
 
-- **Free-placement city building** (drag/drop, individually-owned houses, custom layouts) — V1 uses **shared ordered unlocks** only; freeform building is post-V1.
+- **Free-placement city building** (drag/drop/custom layouts) — V1 uses **shared ordered unlocks** plus one automatic house per contributor; freeform placement is post-V1.
 - Deeper building trees, per-building upgrade levels, and richer construction visuals.
 - Live scavenge/mission flow wired into the 3D town.
 - Replace placeholder tones with Kenney CC0 audio (or a richer sound set); optional ambient/music.
