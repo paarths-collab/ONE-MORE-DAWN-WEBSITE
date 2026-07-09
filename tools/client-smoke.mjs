@@ -329,6 +329,29 @@ async function liveSmoke(url) {
     assert(buildPanel.ctaEnabled, 'ADD LABOR CTA should be enabled when energy remains and not built today.');
     await cdp.clickSelectorContaining('.bp-cta', 'ADD LABOR');
     await cdp.waitFor('!!document.querySelector(".build-panel")', 'build panel survives ADD LABOR');
+
+    // CITY DASHBOARD — the consolidated overview: settlement inventory,
+    // resources, and the updates feed. Opened via the 📋 DASH fab.
+    await cdp.eval(`document.querySelector('.board-fab')?.click()`);
+    await cdp.waitFor('!!document.querySelector(".stats-modal.on")', 'city dashboard opens');
+    const board = await cdp.eval(`(() => {
+      const sheet = document.querySelector('.stats-modal.on .stats-sheet');
+      const secs = [...(sheet?.querySelectorAll('.st-sec') || [])].map((s) => (s.textContent || '').trim());
+      return {
+        title: sheet?.querySelector('h2')?.textContent || '',
+        sections: secs,
+        hasStage: !!sheet?.querySelector('.db-stage'),
+        hasFeed: !!sheet?.querySelector('.db-feed'),
+        structureRows: sheet?.querySelectorAll('table.st tbody tr').length || 0,
+      };
+    })()`);
+    assert(board.title.includes('CITY DASHBOARD'), 'DASH fab should open the CITY DASHBOARD.');
+    assert(board.sections.includes('SETTLEMENT'), 'Dashboard should show the SETTLEMENT section.');
+    assert(board.sections.some((s) => s.includes('INVENTORY')), 'Dashboard should show the resource INVENTORY.');
+    assert(board.sections.includes('UPDATES'), 'Dashboard should show the UPDATES feed.');
+    assert(board.hasStage && board.hasFeed, 'Dashboard should render the settlement stage and updates feed.');
+    assert(board.structureRows >= 7, 'Dashboard should list every buildable structure.');
+    await cdp.eval(`document.querySelector('.board-fab')?.click()`); // close for a clean end state
   } finally {
     await close();
   }

@@ -279,6 +279,7 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 /* ---- STATS fab + full-screen ledger modal ---- */
 .stats-fab { top: 84px; right: 96px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1.5px; color: var(--gold); padding: 10px 14px; border-radius: 12px; cursor: pointer; }
 .mute-fab { top: 84px; right: 182px; font-size: 13px; line-height: 1; padding: 9px 11px; border-radius: 12px; cursor: pointer; }
+.board-fab { top: 84px; right: 232px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1.5px; color: var(--gold); padding: 10px 14px; border-radius: 12px; cursor: pointer; }
 .stats-modal { position: fixed; inset: 0; z-index: 20; display: none; }
 .stats-modal.on { display: block; }
 .stats-back { position: absolute; inset: 0; background: rgba(5, 4, 3, 0.7); backdrop-filter: blur(3px); cursor: pointer; }
@@ -305,6 +306,18 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
 .raid-ledger b { font: 700 11px var(--mono); color: var(--ink); }
 .raid-ledger span { font: 600 9.5px/1.45 var(--mono); color: var(--mut); }
 .raid-ledger.danger span { color: #ffb3a8; }
+/* CITY DASHBOARD — settlement head, next-building bar, and updates feed */
+.db-stage { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.db-stage b { font-family: var(--pixel); font-size: 12px; letter-spacing: 1px; color: var(--gold); }
+.db-stage span { font: 600 9.5px var(--mono); color: var(--mut); }
+.db-next { background: rgba(255, 255, 255, 0.03); border: 1px solid #241f1a; border-radius: 10px; padding: 9px 10px; margin-bottom: 10px; }
+.db-next-h { display: flex; justify-content: space-between; gap: 8px; font: 700 10.5px var(--mono); color: var(--ink); }
+.db-bar { height: 8px; background: #241f1a; border-radius: 5px; overflow: hidden; margin: 6px 0; }
+.db-bar i { display: block; height: 100%; background: var(--gold); border-radius: 5px; }
+.db-next-fx { font: 600 9.5px var(--mono); color: var(--mut); }
+.db-feed { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.db-feed-row { display: flex; gap: 8px; align-items: baseline; font: 600 10.5px/1.4 var(--mono); color: var(--ink); }
+.db-feed-i { flex: none; }
 .dawn-report .stats-sheet { color: var(--ink); background: rgba(18, 14, 11, 0.96); }
 .dawn-report .stats-sheet h2 { margin-bottom: 14px; padding-right: 34px; }
 .dr-lines { display: flex; flex-direction: column; gap: 7px; }
@@ -439,6 +452,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .dash-fab { top: auto; bottom: 64px; right: 84px; }
   .stats-fab { top: auto; bottom: 64px; right: 170px; padding: 8px 10px; font-size: 9px; }
   .mute-fab { top: auto; bottom: 64px; right: 236px; padding: 7px 9px; font-size: 12px; }
+  .board-fab { top: auto; bottom: 100px; right: 14px; padding: 8px 10px; font-size: 9px; }
   .stats-sheet { width: calc(100vw - 16px); max-height: 88vh; padding: 14px; }
   table.st { font-size: 9px; }
   .st th { font-size: 6px; }
@@ -492,6 +506,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .dash-fab { top: 54px; right: 10px; padding: 8px 10px; font-size: 9px; }
   .stats-fab { top: 54px; right: 96px; padding: 8px 10px; font-size: 9px; }
   .mute-fab { top: 54px; right: 172px; padding: 7px 9px; font-size: 12px; }
+  .board-fab { top: 54px; right: 222px; padding: 8px 10px; font-size: 9px; }
   .stats-sheet { max-height: 92vh; width: min(600px, calc(100vw - 24px)); padding: 12px 14px; }
   table.st { font-size: 8.5px; }
   .dash { top: 0; bottom: 0; right: 0; width: 240px; height: 100%; max-height: none; border-radius: 16px 0 0 16px; }

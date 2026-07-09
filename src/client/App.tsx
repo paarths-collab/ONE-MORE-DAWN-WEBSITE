@@ -1696,6 +1696,171 @@ function DawnReportModal({
   );
 }
 
+// CITY DASHBOARD — one consolidated overview the community can open any time:
+// the SETTLEMENT (build stage + every structure and whether it's raised),
+// the resource INVENTORY, and a unified UPDATES feed (raid status + chronicle).
+// Reuses the stats-modal chrome. All data is read-only; no new backend.
+function GameDashboard({
+  open,
+  onClose,
+  day,
+  build,
+  vitals,
+  vitalMaxes,
+  population,
+  events,
+  raidDays,
+  raidLikely,
+  raidNote,
+}: {
+  open: boolean;
+  onClose: () => void;
+  day: number;
+  build: BuildStatus | null;
+  vitals: Vitals;
+  vitalMaxes: Record<VitKey, number>;
+  population: number;
+  events: LiveEvent[];
+  raidDays: number;
+  raidLikely: boolean;
+  raidNote: string | null;
+}) {
+  const unlocked = new Set(build?.unlocked ?? []);
+  const nextId = build?.next?.id ?? null;
+  const builtCount = build?.unlocked.length ?? 0;
+  const raidHead = raidLikely
+    ? 'Raid pressure is active'
+    : raidDays <= 1
+      ? 'Raiders move at the next dawn'
+      : `Next raid in ~${raidDays} dawns`;
+  return (
+    <div className={open ? 'hud stats-modal on' : 'hud stats-modal'}>
+      <div className="stats-back" onClick={onClose} />
+      <div className="stats-sheet card-bit">
+        <button type="button" className="st-close" onClick={onClose} aria-label="Close dashboard">
+          ✕
+        </button>
+        <h2>CITY DASHBOARD — DAY {day}</h2>
+
+        <div className="st-sec">SETTLEMENT</div>
+        {build ? (
+          <>
+            <div className="db-stage">
+              <b>{build.stageLabel}</b>
+              <span>
+                stage {build.stage + 1}/5 · {builtCount}/{BUILD_SEQUENCE.length} built
+              </span>
+            </div>
+            {build.next ? (
+              <div className="db-next">
+                <div className="db-next-h">
+                  <span>Next: {build.next.name}</span>
+                  <span>
+                    {build.progress}/{build.progressRequired} labor
+                  </span>
+                </div>
+                <div className="db-bar">
+                  <i style={{ width: `${Math.min(100, (build.progress / Math.max(1, build.progressRequired)) * 100)}%` }} />
+                </div>
+                <div className="db-next-fx">
+                  {build.next.effect} · {build.contributorsToday} contributed today
+                </div>
+              </div>
+            ) : (
+              <div className="mini-cap">Surviving City — every structure raised.</div>
+            )}
+            <table className="st">
+              <thead>
+                <tr>
+                  <th>STRUCTURE</th>
+                  <th>EFFECT</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {BUILD_SEQUENCE.map((b) => {
+                  const isBuilt = unlocked.has(b.id);
+                  const isNext = b.id === nextId;
+                  const tone = isBuilt ? 'good' : isNext ? 'low' : 'critical';
+                  const label = isBuilt ? 'built' : isNext ? 'building' : 'locked';
+                  return (
+                    <tr key={b.id}>
+                      <td>{b.name}</td>
+                      <td>{b.effect}</td>
+                      <td>
+                        <span className={'st-tag ' + tone}>{label}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
+        ) : (
+          <div className="mini-cap">the camp is still waking…</div>
+        )}
+
+        <div className="st-sec">INVENTORY — RESOURCES</div>
+        <table className="st">
+          <thead>
+            <tr>
+              <th>RESOURCE</th>
+              <th>HELD</th>
+              <th>CAP</th>
+              <th>STATE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {VITAL_DEFS.map((r) => {
+              const max = vitalMaxes[r.k];
+              const v = vitals[r.k];
+              const pct = Math.round((v / max) * 100);
+              const eff = r.danger ? 100 - pct : pct; // THREAT: high is bad
+              const tone = eff >= 50 ? 'good' : eff >= 25 ? 'low' : 'critical';
+              return (
+                <tr key={r.k}>
+                  <td>
+                    {r.icon} {r.k}
+                  </td>
+                  <td>{v}</td>
+                  <td>{max}</td>
+                  <td>
+                    <span className={'st-tag ' + tone}>{tone}</span>
+                  </td>
+                </tr>
+              );
+            })}
+            <tr>
+              <td>👥 SOULS</td>
+              <td>{population}</td>
+              <td>—</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="st-sec">UPDATES</div>
+        <div className={raidLikely ? 'raid-ledger danger' : 'raid-ledger'}>
+          <b>{raidHead}</b>
+          <span>{raidNote ?? 'Threat, defense, and Guard Wall actions decide the next raid.'}</span>
+        </div>
+        <div className="db-feed">
+          {events.length === 0 ? (
+            <div className="mini-cap">no news yet — the city is quiet</div>
+          ) : (
+            events.map((e) => (
+              <div key={e.key} className="db-feed-row">
+                <span className="db-feed-i">{e.icon}</span>
+                <span>{e.text}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OfflineNotice({ message }: { message: string | null }) {
   return (
     <div className="hud offline on">
@@ -1845,6 +2010,7 @@ export function App() {
   const [raidPhase, setRaidPhase] = useState<RaidPhase>('idle');
   const [raidLog, setRaidLog] = useState<RaidLogEntry[]>([]); // resolved raids, newest first
   const [statsOpen, setStatsOpen] = useState(false); // 📊 full-screen city ledger
+  const [boardOpen, setBoardOpen] = useState(false); // 📋 consolidated city dashboard
   const [talk, setTalk] = useState<TalkMsg[]>(() => [
     { who: 'u/saltcedar', text: 'watch fires lit, see you at dawn 🔥', key: 1 },
     { who: 'u/ashen_fox', text: "gm city, who's on wall duty?", key: 0 },
@@ -3051,6 +3217,14 @@ export function App() {
       />
       <button
         type="button"
+        className="hud board-fab card-bit"
+        onClick={() => setBoardOpen((o) => !o)}
+        aria-expanded={boardOpen}
+      >
+        📋 DASH
+      </button>
+      <button
+        type="button"
         className="hud stats-fab card-bit"
         onClick={() => setStatsOpen((o) => !o)}
         aria-expanded={statsOpen}
@@ -3082,6 +3256,19 @@ export function App() {
         lb={liveLeaderboard}
         liveRaidLikely={liveRaidLikely}
         liveRaidNote={liveRaidNote}
+      />
+      <GameDashboard
+        open={boardOpen}
+        onClose={() => setBoardOpen(false)}
+        day={day}
+        build={build}
+        vitals={vitals}
+        vitalMaxes={vitalMaxes}
+        population={population}
+        events={events}
+        raidDays={raidDays}
+        raidLikely={liveRaidLikely}
+        raidNote={liveRaidNote}
       />
       {villager ? (
         <VillagerChip name={villager} hiCooldown={hiCooldown} onWave={onWaveAt} onSayHi={onSayHi} onClose={clearVillager} />
