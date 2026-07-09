@@ -330,6 +330,18 @@ async function liveSmoke(url) {
     await cdp.clickSelectorContaining('.bp-cta', 'ADD LABOR');
     await cdp.waitFor('!!document.querySelector(".build-panel")', 'build panel survives ADD LABOR');
 
+    // Guard the pointer-events regression: the fabs carry the .hud class
+    // (pointer-events:none) and must be re-enabled, or real clicks fall through
+    // to the 3D canvas. Programmatic .click() below bypasses this, so assert the
+    // computed style directly.
+    const fabPe = await cdp.eval(`(() => {
+      const pe = (s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).pointerEvents : 'missing'; };
+      return { board: pe('.board-fab'), stats: pe('.stats-fab'), mute: pe('.mute-fab'), city: pe('.dash-fab') };
+    })()`);
+    for (const [name, pe] of Object.entries(fabPe)) {
+      assert(pe === 'auto', `${name} fab must be clickable (pointer-events:auto), got "${pe}".`);
+    }
+
     // CITY DASHBOARD — the consolidated overview: settlement inventory,
     // resources, and the updates feed. Opened via the 📋 DASH fab.
     await cdp.eval(`document.querySelector('.board-fab')?.click()`);
