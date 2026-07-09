@@ -21,9 +21,9 @@ Narration: "Every real day is one game day. Food. Power. Morale. Threat. A crisi
 [RoleSelect → pick Scout → Dashboard → Spend Energy → Grow Food (or Repair) → toast.]
 Narration: "You pick a role, and your role starts to matter. Farmers boost food. Engineers repair faster. Every action tallies to a faction — and factions compete over what the city's law is tomorrow."
 
-**0:45 – 1:15 · Expedition mission**
-[Dashboard → Expedition → mission scene. Show: air timer counting, tap-to-move path preview, collect a crate, dodge a hazard, reach exit, MissionEnd banked haul.]
-Narration: "The expedition is a ninety-second risk-reward run into the ruins. Same map for everyone — comment sections argue about the eastern lane. Loot personalizes per player. Get out before your air runs out or you drag back half-alive."
+**0:45 – 1:15 · The Marked + raid pressure**
+[Live panel → pledge to The Marked → raid watch → city vitals changing.]
+Narration: "Anyone can help with one tap. Pledge to save tonight's Marked survivor, watch the raid clock, and decide whether the city spends today feeding people or holding the wall."
 
 **1:15 – 1:35 · Vote + Council**
 [Vote scene — cast crisis vote + council plan.]

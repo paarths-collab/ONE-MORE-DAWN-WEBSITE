@@ -44,6 +44,16 @@ const cityArb: fc.Arbitrary<CityState> = fc.record({
   ),
   activeLaw: fc.constantFrom(null, 'builders', 'wardens', 'seekers', 'hearth'),
   lawExpiresDay: fc.integer({ min: 0, max: 62 }),
+  // Build-from-zero (V1): buildings unlock in list order, so a valid unlocked
+  // set is always an in-order prefix. cityLevel/buildProgress are free-ranging;
+  // the resolver recomputes the stage and never trusts the incoming level.
+  cityLevel: fc.integer({ min: 0, max: 4 }),
+  buildProgress: fc.integer({ min: 0, max: 60 }),
+  unlockedBuildings: fc
+    .nat({ max: 7 })
+    .map((n) =>
+      ['shelter', 'farm', 'clinic', 'watchtower', 'storehouse', 'wall', 'council_hall'].slice(0, n),
+    ),
 }) as fc.Arbitrary<CityState>;
 
 const dayInputsArb: fc.Arbitrary<DayInputs> = fc.record({

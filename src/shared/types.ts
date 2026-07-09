@@ -21,7 +21,37 @@ export type AvatarConfig = {
   outfit: number; // index into OUTFITS
 };
 
-export type ActionType = 'grow_food' | 'repair_power' | 'treat_sick' | 'guard_wall';
+export type ActionType = 'grow_food' | 'repair_power' | 'treat_sick' | 'guard_wall' | 'build_city';
+
+// ---------- City progression: build from zero (V1) ----------
+
+export type BuildingId =
+  | 'shelter'
+  | 'farm'
+  | 'clinic'
+  | 'watchtower'
+  | 'storehouse'
+  | 'wall'
+  | 'council_hall';
+
+export type BuildingDef = {
+  id: BuildingId;
+  name: string;
+  description: string;
+  progressRequired: number;
+  effect: string;
+};
+
+export type BuildStatus = {
+  stage: number;
+  stageLabel: string;
+  unlocked: string[];
+  next: BuildingDef | null;
+  progress: number;
+  progressRequired: number;
+  contributorsToday: number;
+  youBuiltToday: boolean;
+};
 
 export type StrategyPlanId =
   | 'stockpile_food'
@@ -57,6 +87,10 @@ export type CityState = {
   crisisId: string;
   activeLaw: string | null; // Plan 2; null in slice
   lawExpiresDay: number; // Plan 2; 0 in slice
+  // ---- City progression (V1 "build from zero"): every new city starts at zero ----
+  cityLevel: number; // 0..4 stage index derived from unlockedBuildings.length
+  buildProgress: number; // labor accumulated toward the next unbuilt building
+  unlockedBuildings: string[]; // BuildingIds built so far, in build order
 };
 
 export type PlayerProfile = {
@@ -186,6 +220,7 @@ export type InitResponse = {
   firstVisitToday: boolean;
   forecast: Forecast;
   trait: { id: CityTraitId; label: string; blurb: string };
+  build: BuildStatus;
   // ---- Reddit-native hook layer (Plan 1) ----
   marked: Marked;
   pledge: PledgeInfo;

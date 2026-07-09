@@ -11,8 +11,11 @@ import {
 } from './scene';
 import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postAvatar, postPledge, postRole, postStrategy, postVote } from './api';
 import { isLocalHarnessHost, raidNoteFromEvents, worldUnavailableMessage } from './liveUi';
+import { isMuted, playSound, preloadSounds, toggleMuted } from './sound';
 import type {
   ActionType,
+  BuildingDef,
+  BuildStatus,
   Crisis,
   DawnReport,
   InitResponse,
@@ -139,9 +142,8 @@ const WM_HUTS_BIG: [number, number][] = [
   [1.7, 1.8],
 ];
 
-// ---------- LIVE tab demo data (copied from the game's mock fixtures in
-// src/client/game/api.ts + src/client/react/defs.ts — this prototype is not
-// wired to the server, so the numbers drift on timers instead).
+// ---------- LIVE tab demo data (copied from the local mock fixtures; live mode
+// uses the Devvit API, while demo mode lets the town drift on timers).
 
 type CrisisOptId = 'a' | 'b' | 'c';
 type PlanId = 'prepare_raid' | 'stockpile_food' | 'repair_power';
@@ -196,7 +198,7 @@ const MARKED_ICONS: Record<Marked['kind'], string> = { person: '🧒', place: '�
 
 // First-run onboarding role catalog — icon/label/blurb, exact copy per spec.
 const ROLE_CATALOG: { id: Role; icon: string; label: string; blurb: string }[] = [
-  { id: 'scout', icon: '🧭', label: 'SCOUT', blurb: 'Runs the ruins for loot — best on expeditions.' },
+  { id: 'scout', icon: '🧭', label: 'SCOUT', blurb: 'Tracks danger and helps the city read the map.' },
   { id: 'engineer', icon: '🔧', label: 'ENGINEER', blurb: '+50% when you Repair Power.' },
   { id: 'medic', icon: '⛑️', label: 'MEDIC', blurb: '+50% when you Treat the Sick.' },
   { id: 'farmer', icon: '🌾', label: 'FARMER', blurb: '+50% when you Grow Food.' },
@@ -344,6 +346,42 @@ const LB_RANKS = ['🥇', '🥈', '🥉'];
 
 const vitColor = (pct: number, danger = false): string =>
   danger ? (pct >= 70 ? '#c85040' : pct >= 40 ? '#e8c34a' : '#57c06a') : pct < 25 ? '#c85040' : pct < 50 ? '#e8c34a' : '#57c06a';
+
+// ---------- BUILD FROM ZERO (community city progression) ----------
+// The city rises from a bare camp: every player's day of labor pushes the SAME
+// shared meter, and when it fills the next building unlocks for everyone. Live
+// mode reads this from the server (InitResponse.build); demo synthesizes an
+// identical local state so the panel — and the 3D scene — still animate.
+// Sequence + thresholds mirror the server contract exactly.
+const BUILD_SEQUENCE: BuildingDef[] = [
+  { id: 'shelter', name: 'Shelter', description: 'First roofs against the cold — souls stop freezing.', progressRequired: 24, effect: 'survivors stay' },
+  { id: 'farm', name: 'Farm', description: 'Worked beds — food grows faster.', progressRequired: 30, effect: '+3 food/day' },
+  { id: 'clinic', name: 'Clinic', description: 'A ward for the sick — medicine goes further.', progressRequired: 34, effect: '+2 medicine/day' },
+  { id: 'watchtower', name: 'Watchtower', description: 'Eyes on the horizon — raiders lose the surprise.', progressRequired: 30, effect: '−threat at dawn' },
+  { id: 'storehouse', name: 'Storehouse', description: 'Dry stores — less waste, deeper reserves.', progressRequired: 28, effect: '+food capacity' },
+  { id: 'wall', name: 'Wall', description: 'Stone around the camp — the wall holds far longer.', progressRequired: 40, effect: '+defense' },
+  { id: 'council_hall', name: 'Council Hall', description: 'A place to decide together — the city endures.', progressRequired: 44, effect: 'the city endures' },
+];
+const BUILD_LABOR_STEP = 6; // labor added per contribution (matches the server)
+// 7 buildings collapse into 5 named stages (stage index 0..4).
+const DEMO_STAGE_LABELS = ['Camp', 'Settlement', 'Village', 'Town', 'City'];
+const demoStage = (built: number): number => (built >= 6 ? 4 : built >= 4 ? 3 : built >= 2 ? 2 : built);
+// Build a BuildStatus from the local demo counters so the panel renders the
+// same shape as the live server payload.
+const demoBuildStatus = (unlocked: string[], progress: number, contributorsToday: number): BuildStatus => {
+  const next = BUILD_SEQUENCE[unlocked.length] ?? null;
+  const stage = demoStage(unlocked.length);
+  return {
+    stage,
+    stageLabel: DEMO_STAGE_LABELS[stage] ?? 'City',
+    unlocked,
+    next,
+    progress,
+    progressRequired: next?.progressRequired ?? 0,
+    contributorsToday,
+    youBuiltToday: false,
+  };
+};
 
 function VillageCanvas({
   onReady,
@@ -673,7 +711,7 @@ function TopTab({ contribs, lb }: { contribs: Record<string, Contrib>; lb: Leade
           ))}
         </div>
         <div className="p-sec">CITY TOTALS</div>
-        <div className="lb-total">every action, pledge and expedition counts toward the ledger</div>
+        <div className="lb-total">every action, pledge and council stand counts toward the ledger</div>
       </>
     );
   }
@@ -928,6 +966,53 @@ function WorldMap({
 type DashTab = 'map' | 'city' | 'live' | 'top';
 type MapViewMode = 'town' | 'world';
 
+// BUILD panel (CITY tab) — the shared "build from zero" progress. Framed as
+// community effort: everyone's labor pushes one meter and unlocks buildings for
+// the whole city. Never "you built X" — always "we build this city together".
+function BuildPanel({
+  build,
+  onAddLabor,
+  ctaDisabled,
+  ctaLabel,
+}: {
+  build: BuildStatus;
+  onAddLabor: () => void;
+  ctaDisabled: boolean;
+  ctaLabel: string;
+}) {
+  const { stage, stageLabel, unlocked, next, progress, progressRequired, contributorsToday } = build;
+  const pct = progressRequired > 0 ? Math.min(100, Math.round((progress / progressRequired) * 100)) : 100;
+  return (
+    <div className="build-panel">
+      <div className="bp-head">
+        <span className="bp-stage">{stageLabel}</span>
+        <span className="bp-sub">stage {stage + 1}/5 · we build this city together</span>
+      </div>
+      {next ? (
+        <>
+          <div className="bp-next">
+            <span className="bp-nm">Next: {next.name}</span>
+            <span className="bp-desc">{next.description}</span>
+            <span className="bp-fx">{next.effect}</span>
+          </div>
+          <div className="bp-bar">
+            <i style={{ width: `${pct}%` }} />
+          </div>
+          <div className="bp-meta">
+            {progress}/{progressRequired} labor · {contributorsToday} contributed today
+          </div>
+        </>
+      ) : (
+        <div className="bp-next">The city is built. It survives.</div>
+      )}
+      <div className="bp-built">Built: {unlocked.length ? unlocked.join(' · ') : 'nothing yet — just a camp'}</div>
+      <button type="button" className="bp-cta" disabled={ctaDisabled} onClick={onAddLabor}>
+        {ctaLabel}
+      </button>
+    </div>
+  );
+}
+
 function CityDashboard({
   open,
   setOpen,
@@ -952,6 +1037,10 @@ function CityDashboard({
   live,
   contribs,
   lb,
+  build,
+  onAddLabor,
+  buildCtaDisabled,
+  buildCtaLabel,
 }: {
   open: boolean;
   setOpen: (b: boolean) => void;
@@ -976,6 +1065,10 @@ function CityDashboard({
   live: LiveState;
   contribs: Record<string, Contrib>;
   lb: LeaderboardEntry[] | null;
+  build: BuildStatus | null;
+  onAddLabor: () => void;
+  buildCtaDisabled: boolean;
+  buildCtaLabel: string;
 }) {
   return (
     <>
@@ -1029,6 +1122,9 @@ function CityDashboard({
 
         {tab === 'city' && (
           <>
+            {build && (
+              <BuildPanel build={build} onAddLabor={onAddLabor} ctaDisabled={buildCtaDisabled} ctaLabel={buildCtaLabel} />
+            )}
             <div className="p-sec">CITY VITALS</div>
             <div className="vits">
               {VITAL_DEFS.map((r) => {
@@ -1183,9 +1279,9 @@ function BuildDock({
   );
 }
 
-// DAWN ACTIONS hotbar — once each per day, plus the scavenge route picker.
+// DAWN ACTIONS hotbar — once each per day, plus the demo-only route picker.
 // Live mode: buttons post to the real API, an energy pill shows what's left,
-// and SCAVENGE is hidden (the mission minigame isn't ported to the 3D town).
+// and SCAVENGE stays hidden for V1 (the mission minigame isn't ported to town).
 function Hotbar({
   used,
   onAction,
@@ -1651,6 +1747,11 @@ function Onboarding({
         <button type="button" className="p-x" onClick={onDismiss} aria-label="Dismiss onboarding">
           ✕
         </button>
+        <div className="ob-sub" style={{ color: 'var(--ink)', marginTop: 0, marginBottom: 10 }}>
+          This subreddit is a shared city trying to survive one more dawn. Everyone gets one meaningful
+          action a day. Vote on the crisis, pledge to save The Marked, and hold the wall — then come back
+          at dawn to see what the community's choices did. The city remembers.
+        </div>
         <div className="ob-title">CHOOSE YOUR ROLE</div>
         <div className="ob-sub">Your role shapes what you're best at. You can change it later.</div>
         <div className="ob-roles">
@@ -1794,6 +1895,11 @@ export function App() {
   const [worldCities, setWorldCities] = useState<WorldCity[] | null>(null);
   const [worldNote, setWorldNote] = useState<string | null>(null);
   const [liveLb, setLiveLb] = useState<LeaderboardEntry[] | null>(null);
+  // BUILD FROM ZERO — live: server payload; demo: local counters synth a state.
+  const [liveBuild, setLiveBuild] = useState<BuildStatus | null>(null);
+  const [demoUnlocked, setDemoUnlocked] = useState<string[]>([]);
+  const [demoBuildProgress, setDemoBuildProgress] = useState(0);
+  const [demoContributors, setDemoContributors] = useState(6);
   // First-run onboarding (live only): a brand-new player has no role yet.
   const [needsOnboard, setNeedsOnboard] = useState(false);
   const [onboardOpen, setOnboardOpen] = useState(false);
@@ -1801,6 +1907,7 @@ export function App() {
   // Fallen-city terminal state (live only): city.status === 'fallen'.
   const [cityFallen, setCityFallen] = useState(false);
   const [liveTimelineHeadline, setLiveTimelineHeadline] = useState<string | null>(null);
+  const [muted, setMutedUi] = useState(isMuted()); // global SFX mute (persisted)
   const handleRef = useRef<VillageHandle | null>(null);
   const cityFallenRef = useRef(false); // fallen state, readable inside handlers/timers
   const modeRef = useRef<Mode>('connecting'); // current mode, readable inside timers
@@ -1840,6 +1947,9 @@ export function App() {
   const scoutTimerRef = useRef<number | null>(null);
   const poisRef = useRef<PoiInfo[]>([]); // district directory, readable in handlers
   const contribsRef = useRef<Record<string, Contrib>>(START_CONTRIBS); // fresh reads in timers
+  const liveBuildRef = useRef<BuildStatus | null>(null); // last server build state, readable in the add-labor handler
+  const demoUnlockedRef = useRef<string[]>([]); // demo build unlocks, readable in the handler
+  const demoBuildProgressRef = useRef(0); // demo labor toward the next building
 
   useEffect(() => {
     timeRef.current = time;
@@ -1862,6 +1972,9 @@ export function App() {
   useEffect(() => {
     mapViewRef.current = mapView;
   }, [mapView]);
+  useEffect(() => {
+    liveBuildRef.current = liveBuild;
+  }, [liveBuild]);
 
   // ---- feed helpers ----
   const pushEvent = useCallback((icon: string, text: string) => {
@@ -1934,6 +2047,7 @@ export function App() {
       setLiveStanding(init.standing);
       setLiveCycle(city.cycle);
       setLiveRaidLikely(init.forecast.raidLikely);
+      setLiveBuild(init.build ?? null); // defensive: server lane owns this field
       setLiveRaidNote(raidNoteFromEvents(init.timelinePreview?.events, init.forecast.raidLikely));
       setLiveTimelineHeadline(init.timelinePreview?.headline ?? null);
       // fallen-city terminal state — mirror to a ref so handlers/timers can read it
@@ -1961,7 +2075,10 @@ export function App() {
       }
       if (init.dawnReport) {
         setDawnReport(init.dawnReport);
-        if ((first && init.firstVisitToday) || dayIncreased) setDawnTeaserOpen(true);
+        if ((first && init.firstVisitToday) || dayIncreased) {
+          setDawnTeaserOpen(true);
+          playSound('dawn_report');
+        }
       }
       if (dayIncreased) {
         pushNotif('🌅', `dawn breaks — day ${city.day}`);
@@ -2010,6 +2127,23 @@ export function App() {
       cancelled = true;
     };
   }, [applyInit, pushNotif]);
+
+  // ---- V1 sound cues (local files, fail-silent; mute persists in localStorage) ----
+  useEffect(() => {
+    preloadSounds();
+  }, []);
+  // Boolean state → the effect only re-fires on a real transition (no repeat on poll).
+  useEffect(() => {
+    if (cityFallen) playSound('city_fallen');
+  }, [cityFallen]);
+  useEffect(() => {
+    if (liveRaidLikely) playSound('raid_warning');
+  }, [liveRaidLikely]);
+  const onToggleMute = useCallback(() => {
+    const next = toggleMuted();
+    setMutedUi(next);
+    if (!next) playSound('button_click'); // give audible feedback only when unmuting
+  }, []);
 
   // WORLD map (live): real cities from /api/world; any failure or an
   // ineligible sub falls back to the fictional charts with a caption.
@@ -2085,6 +2219,7 @@ export function App() {
   // ---- LIVE mode mutations (each guards the poll + double-taps via mutatingRef) ----
   const toastFailure = useCallback(
     (err: unknown, fallback: string) => {
+      playSound('error_soft');
       popToast(err instanceof ApiFailure ? err.message : fallback);
     },
     [popToast],
@@ -2098,6 +2233,7 @@ export function App() {
         .then((res) => {
           setLiveCrisisVotes(res.crisisVotes);
           setLiveMyVote(res.yourCrisisVote);
+          playSound('vote_cast');
           pushNotif('🗳️', 'your vote is in', 'good');
         })
         .catch((err) => toastFailure(err, 'vote failed — try again'))
@@ -2116,6 +2252,7 @@ export function App() {
         .then((res) => {
           setLiveMarked(res.marked);
           setLivePledge(res.pledge);
+          playSound('pledge');
           pushNotif('🕯️', `you pledged for ${res.marked.name}`, 'good');
           handleRef.current?.pulseMarked?.();
         })
@@ -2136,6 +2273,7 @@ export function App() {
         .then((res) => {
           setLiveStrategyVotes(res.strategyVotes);
           setLiveMyPlan(res.yourStrategyVote);
+          playSound('vote_cast');
           pushNotif('📜', 'the council heard you', 'good');
         })
         .catch((err) => toastFailure(err, 'the council is busy — try again'))
@@ -2180,6 +2318,50 @@ export function App() {
     setOnboardOpen(false);
     setNeedsOnboard(false);
   }, []);
+
+  // ADD LABOR — the shared "build from zero" contribution. Live: post the
+  // energy-gated once/day build_city action, then re-fetch to pull the fresh
+  // community progress. Demo: advance the local meter and unlock buildings on
+  // the same thresholds so the panel + scene animate without a server.
+  const onAddLabor = useCallback(() => {
+    if (modeRef.current === 'live') {
+      if (cityFallenRef.current || mutatingRef.current) return;
+      const nextName = liveBuildRef.current?.next?.name ?? 'settlement';
+      mutatingRef.current = true;
+      postAction('build_city')
+        .then(async () => {
+          playSound('action_confirm');
+          pushNotif('🔨', `you added a day's labor to the ${nextName}`, 'good');
+          const init = await getInit();
+          applyInit(init, false);
+        })
+        .catch((err) => toastFailure(err, 'could not add labor — try again'))
+        .finally(() => {
+          mutatingRef.current = false;
+        });
+      return;
+    }
+    if (modeRef.current !== 'demo') return;
+    const unlocked = demoUnlockedRef.current;
+    const nextDef = BUILD_SEQUENCE[unlocked.length];
+    if (!nextDef) return; // the city is fully built
+    playSound('action_confirm');
+    setDemoContributors((c) => c + 1);
+    const progress = demoBuildProgressRef.current + BUILD_LABOR_STEP;
+    if (progress >= nextDef.progressRequired) {
+      const nextUnlocked = [...unlocked, nextDef.id];
+      const carry = progress - nextDef.progressRequired;
+      demoUnlockedRef.current = nextUnlocked;
+      demoBuildProgressRef.current = carry;
+      setDemoUnlocked(nextUnlocked);
+      setDemoBuildProgress(carry);
+      pushNotif('🏗️', `the ${nextDef.name} is built — we raised it together`, 'good');
+    } else {
+      demoBuildProgressRef.current = progress;
+      setDemoBuildProgress(progress);
+      pushNotif('🔨', `you added a day's labor to the ${nextDef.name}`, 'good');
+    }
+  }, [applyInit, pushNotif, toastFailure]);
 
   const onReady = useCallback((h: VillageHandle) => {
     handleRef.current = h;
@@ -2251,6 +2433,16 @@ export function App() {
     if (!h) return;
     (COMPANIONS.map((c) => c.id) as CompanionKind[]).forEach((k) => h.setCompanion(k, true));
   }, [loaded]);
+
+  // BUILD stage → the 3D scene reflects which buildings the community has raised.
+  // Live: server unlocks. Demo: local unlocks. Both call the optional scene API
+  // defensively (the scene lane may not have shipped setBuildStage yet).
+  useEffect(() => {
+    if (mode === 'live' && liveBuild) handleRef.current?.setBuildStage?.(liveBuild.unlocked);
+  }, [mode, liveBuild, loaded]);
+  useEffect(() => {
+    if (mode === 'demo') handleRef.current?.setBuildStage?.(demoUnlocked);
+  }, [mode, demoUnlocked, loaded]);
 
   const visitDistrict = useCallback((name: string) => {
     handleRef.current?.focusOn(name);
@@ -2422,6 +2614,7 @@ export function App() {
           .then((res) => {
             setLiveEnergy({ effective: res.effectiveEnergy, used: res.player.energyUsedToday });
             setLiveActions(res.yourActionsToday);
+            playSound('action_confirm');
             pushNotif('✅', 'your work lands at the next dawn', 'good');
             if (res.unlockedTitle) pushNotif('🏅', `title unlocked — ${res.unlockedTitle}`, 'good');
             const liveFrags = ACTION_FLASH[id] ?? [];
@@ -2470,9 +2663,10 @@ export function App() {
     [addContrib, pushEvent, pushNotif],
   );
 
-  // SCAVENGE — one scout out at a time; loot (and risk) lands when they return.
+  // Demo-only SCAVENGE — live V1 never opens this flow.
   const runScavenge = useCallback(
     (id: RouteId) => {
+      if (modeRef.current === 'live') return;
       if (scoutingRef.current) return;
       const route = ROUTES.find((r) => r.id === id);
       if (!route) return;
@@ -2784,6 +2978,18 @@ export function App() {
   // Actions are dead while fallen: hide the hotbar, build dock, and dawn teaser.
   const showActionSurfaces = !showFallen;
 
+  // BUILD FROM ZERO — the panel's state: server truth in live, local synth in
+  // demo, nothing in offline/connecting.
+  const build: BuildStatus | null = isLive
+    ? liveBuild
+    : mode === 'demo'
+      ? demoBuildStatus(demoUnlocked, demoBuildProgress, demoContributors)
+      : null;
+  const buildYouBuiltToday = isLive ? (liveBuild?.youBuiltToday ?? false) : false;
+  const buildNoEnergy = isLive && energyLeft <= 0;
+  const buildCtaDisabled = showFallen || buildYouBuiltToday || buildNoEnergy || (build?.next == null);
+  const buildCtaLabel = buildYouBuiltToday ? '✓ built today' : '🔨 ADD LABOR';
+
   return (
     <>
       <VillageCanvas
@@ -2838,6 +3044,10 @@ export function App() {
         }}
         contribs={contribs}
         lb={liveLeaderboard}
+        build={build}
+        onAddLabor={onAddLabor}
+        buildCtaDisabled={buildCtaDisabled}
+        buildCtaLabel={buildCtaLabel}
       />
       <button
         type="button"
@@ -2846,6 +3056,16 @@ export function App() {
         aria-expanded={statsOpen}
       >
         📊 STATS
+      </button>
+      <button
+        type="button"
+        className="hud mute-fab card-bit"
+        onClick={onToggleMute}
+        aria-pressed={muted}
+        aria-label={muted ? 'Unmute sound' : 'Mute sound'}
+        title={muted ? 'Sound off' : 'Sound on'}
+      >
+        {muted ? '🔇' : '🔊'}
       </button>
       <StatsModal
         open={statsOpen}

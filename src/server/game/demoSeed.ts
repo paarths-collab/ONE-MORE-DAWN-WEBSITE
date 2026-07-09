@@ -11,6 +11,7 @@ import type {
 } from '../../shared/types';
 import type { PledgerEntry } from './pledges';
 import { freshPlayer } from './dayLogic';
+import { stageForCount } from './building';
 import type { Store } from '../storage/store';
 
 // DEMO SEED — writes a rich, self-consistent mid-run city through the same Store
@@ -71,6 +72,11 @@ export const demoCityState = (cycle: number, worldSeed: number): CityState => ({
   crisisId: 'refugee_convoy',
   activeLaw: null,
   lawExpiresDay: 0,
+  // Mid-run progression so judges land in a growing Village: Shelter + Farm
+  // already built, part-way toward the Clinic.
+  unlockedBuildings: ['shelter', 'farm'],
+  cityLevel: stageForCount(2),
+  buildProgress: 12,
 });
 
 /** Write the full demo state. Idempotent-ish: re-running overwrites the city and

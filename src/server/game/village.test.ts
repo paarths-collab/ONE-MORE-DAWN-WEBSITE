@@ -97,6 +97,7 @@ describe('buildZones', () => {
       { id: 'repair_power', name: 'Generator', count: 0 },
       { id: 'treat_sick', name: 'Clinic', count: 0 },
       { id: 'guard_wall', name: 'Watchtower', count: 1 },
+      { id: 'build_city', name: 'Construction', count: 0 },
     ]);
   });
 

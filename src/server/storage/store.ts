@@ -27,6 +27,15 @@ export type RedisLike = {
 const toCounts = (raw: Record<string, string>): Record<string, number> =>
   Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, Number(v)]));
 
+const safeParse = <T>(raw: string | undefined, fallback: T): T => {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+};
+
 export class Store {
   constructor(private readonly redis: RedisLike) {}
 
@@ -37,8 +46,18 @@ export class Store {
     // Backfill fields added after launch (same pattern as the player roleRep
     // backfill below): pre-W1 cities lack worldSeed/trait — default to the
     // neutral world so every read path sees the full shape.
-    const parsed = JSON.parse(raw) as CityState;
-    return { ...parsed, worldSeed: parsed.worldSeed ?? 0, trait: parsed.trait ?? 'standard' };
+    const parsed = safeParse<CityState | null>(raw, null);
+    if (!parsed) return undefined;
+    // Pre-progression cities lack the build-from-zero fields — default them to
+    // an empty Camp so old saves never crash and resolve identically to before.
+    return {
+      ...parsed,
+      worldSeed: parsed.worldSeed ?? 0,
+      trait: parsed.trait ?? 'standard',
+      cityLevel: parsed.cityLevel ?? 0,
+      buildProgress: parsed.buildProgress ?? 0,
+      unlockedBuildings: parsed.unlockedBuildings ?? [],
+    };
   }
 
   async setCityState(city: CityState): Promise<void> {
@@ -71,12 +90,16 @@ export class Store {
   async getPlayer(userId: string): Promise<PlayerProfile | undefined> {
     const raw = await this.redis.hGet(KEYS.players, userId);
     if (!raw) return undefined;
-    return this.revivePlayer(JSON.parse(raw) as PlayerProfile);
+    const parsed = safeParse<PlayerProfile | null>(raw, null);
+    return parsed ? this.revivePlayer(parsed) : undefined;
   }
 
   async getAllPlayers(): Promise<PlayerProfile[]> {
     const raw = await this.redis.hGetAll(KEYS.players);
-    return Object.values(raw).map((j) => this.revivePlayer(JSON.parse(j) as PlayerProfile));
+    return Object.values(raw)
+      .map((j) => safeParse<PlayerProfile | null>(j, null))
+      .filter((p): p is PlayerProfile => p !== null)
+      .map((p) => this.revivePlayer(p));
   }
 
   async savePlayer(player: PlayerProfile): Promise<void> {
@@ -87,7 +110,7 @@ export class Store {
   async recordAction(day: number, userId: string, action: ActionType): Promise<void> {
     await this.redis.hIncrBy(KEYS.dayActions(day), action, 1);
     const raw = await this.redis.hGet(KEYS.dayUserActions(day), userId);
-    const mine: Partial<Record<ActionType, number>> = raw ? JSON.parse(raw) : {};
+    const mine = safeParse<Partial<Record<ActionType, number>>>(raw, {});
     mine[action] = (mine[action] ?? 0) + 1;
     await this.redis.hSet(KEYS.dayUserActions(day), { [userId]: JSON.stringify(mine) });
   }
@@ -98,14 +121,19 @@ export class Store {
 
   async getUserActions(day: number, userId: string): Promise<Partial<Record<ActionType, number>>> {
     const raw = await this.redis.hGet(KEYS.dayUserActions(day), userId);
-    return raw ? JSON.parse(raw) : {};
+    return safeParse<Partial<Record<ActionType, number>>>(raw, {});
   }
 
   async getAllUserActions(
     day: number,
   ): Promise<Record<string, Partial<Record<ActionType, number>>>> {
     const raw = await this.redis.hGetAll(KEYS.dayUserActions(day));
-    return Object.fromEntries(Object.entries(raw).map(([userId, json]) => [userId, JSON.parse(json)]));
+    const entries: [string, Partial<Record<ActionType, number>>][] = [];
+    for (const [userId, json] of Object.entries(raw)) {
+      const parsed = safeParse<Partial<Record<ActionType, number>> | null>(json, null);
+      if (parsed) entries.push([userId, parsed]);
+    }
+    return Object.fromEntries(entries);
   }
 
   // ----- votes (crisis) -----
@@ -217,14 +245,17 @@ export class Store {
 
   async getPledger(day: number, userId: string): Promise<PledgerEntry | undefined> {
     const raw = await this.redis.hGet(KEYS.dayPledgers(day), userId);
-    return raw ? (JSON.parse(raw) as PledgerEntry) : undefined;
+    return safeParse<PledgerEntry | undefined>(raw, undefined);
   }
 
   async getPledgers(day: number): Promise<Record<string, PledgerEntry>> {
     const raw = await this.redis.hGetAll(KEYS.dayPledgers(day));
-    return Object.fromEntries(
-      Object.entries(raw).map(([userId, json]) => [userId, JSON.parse(json) as PledgerEntry]),
-    );
+    const entries: [string, PledgerEntry][] = [];
+    for (const [userId, json] of Object.entries(raw)) {
+      const parsed = safeParse<PledgerEntry | null>(json, null);
+      if (parsed) entries.push([userId, parsed]);
+    }
+    return Object.fromEntries(entries);
   }
 
   /** Dawn verdict for a resolved day — next day's `savedYesterday` reads it. */
@@ -234,14 +265,16 @@ export class Store {
 
   async getMarkedOutcome(day: number): Promise<{ name: string; saved: boolean } | null> {
     const raw = await this.redis.hGet(KEYS.markedOutcomes, String(day));
-    return raw ? (JSON.parse(raw) as { name: string; saved: boolean }) : null;
+    return safeParse<{ name: string; saved: boolean } | null>(raw, null);
   }
 
   /** Marked saved THIS cycle (markedOutcomes is deleted on mod reset), for the
    *  World of Cities registry record. */
   async countMarkedSaved(): Promise<number> {
     const raw = await this.redis.hGetAll(KEYS.markedOutcomes);
-    return Object.values(raw).filter((j) => (JSON.parse(j) as { saved: boolean }).saved).length;
+    return Object.values(raw)
+      .map((j) => safeParse<{ saved: boolean } | null>(j, null))
+      .filter((outcome) => outcome?.saved).length;
   }
 
   // ----- missions -----
@@ -308,7 +341,8 @@ export class Store {
   async getTimeline(limit: number): Promise<TimelineEntry[]> {
     const all = await this.redis.hGetAll(KEYS.timeline);
     return Object.values(all)
-      .map((raw) => JSON.parse(raw) as TimelineEntry)
+      .map((raw) => safeParse<TimelineEntry | null>(raw, null))
+      .filter((entry): entry is TimelineEntry => entry !== null)
       .sort((a, b) => b.day - a.day)
       .slice(0, limit);
   }

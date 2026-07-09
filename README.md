@@ -4,82 +4,74 @@
 > "last city." The whole community keeps it alive — one dawn at a time — but not
 > everyone agrees what kind of city it should become.
 
-Built for **Reddit's Games with a Hook Hackathon** on **Devvit Web**. The
-client is a **three.js 3D town** with a React HUD.
+Built for **Reddit's Games with a Hook Hackathon** on **Devvit Web**. The client
+is a **three.js 3D town** with a **React HUD**.
 
-## Pitch
+> **V1 scope:** this README describes what actually ships. For the frozen V1
+> feature set (and what's intentionally cut), see [`docs/V1_SCOPE.md`](docs/V1_SCOPE.md).
 
-Every subreddit gets a dying city. Each real day is one game day. Pledge to save
-tonight's **Marked** survivor, vote on the day's **crisis**, back a **council**
-plan, spend your energy on the wall or the fields — then come back at dawn to see
-what the community's choices did to the city. It's Frostpunk-style resource
+## What it is
+
+Every subreddit gets a dying city. Each real day is one game day. Choose a role,
+take one meaningful action, **vote** on the day's crisis, back a **council** plan,
+and **pledge** to save tonight's **Marked** survivor — then come back at dawn to
+see what the community's choices did to the city. Frostpunk-style resource
 pressure filtered through a subreddit's daily rhythm, resolved **async** so nobody
-has to be online at the same time.
+has to be online at once.
 
 ## The client: a living 3D town
 
 The frontend is a **three.js town** (`src/client/scene.ts`) — a low-poly city on
-a plateau with districts, villagers, companions, day/night cycles and raids —
-wrapped in a **React HUD** (`src/client/App.tsx`) for the map, city dashboard,
-live feed and leaderboard.
+a plateau with districts, villagers, companions, and a day/night cycle — wrapped
+in a **React HUD** (`src/client/App.tsx`) for the map, city dashboard, live feed,
+world map, and leaderboard.
 
-The fonts (Silkscreen + JetBrains Mono) are **self-hosted and bundled
-same-origin**, so the pixel aesthetic survives the Devvit webview CSP.
+Fonts (Silkscreen + JetBrains Mono) are **self-hosted and bundled same-origin**,
+so the pixel aesthetic survives the Devvit webview CSP.
+
+The client runs in three honest modes, decided by one `/api/init` call:
+- **live** — talking to the real shared city (production).
+- **demo** — the self-running town, only on a `localhost` dev harness.
+- **offline** — production API/auth failure shows an explicit "city link lost" +
+  retry, never a fake city.
+
+## The V1 gameplay loop
+
+1. **Open** the game post → the town loads; this subreddit is the city. A new
+   city starts as a bare **Camp** — no wall, no farm, everything still to build.
+2. **Onboard** — pick one of 6 roles (Scout, Engineer, Medic, Farmer, Guard,
+   Speaker) and optionally name your survivor.
+3. **Read the city** — live vitals (FOOD, POWER, MEDICINE, MORALE, THREAT,
+   DEFENSE) and the **build stage** (Camp → Settlement → Village → Fortified Town
+   → Surviving City).
+4. **Act** — spend energy on a daily action (Grow Food / Repair Power / Treat the
+   Sick / Guard the Wall) **or add labor to the next building**. It counts toward
+   tomorrow's dawn.
+4b. **Build it together** — a shared progress bar fills from everyone's labor; at
+   dawn the next building unlocks (Shelter → Farm → Clinic → Watchtower →
+   Storehouse → Wall → Council Hall) and appears in the town. The city is
+   **community-built, not individually owned** — no free placement in V1.
+5. **Decide together** — vote on the day's **crisis**, back a **council** plan,
+   and **pledge** to save **The Marked**.
+6. **Brace** — watch the **raid countdown**; raids resolve at dawn.
+7. **Return** — the **Dawn Report** shows what the community's choices did, and the
+   city timeline remembers it. If the city falls, a memorial marks the end.
 
 ## Why it's Reddit-native
 
-- **The subreddit is the parliament.** The community casts the daily crisis vote
-  and the council plan; the game doesn't simulate a legislature, it *uses* one.
-- **Factions form from behavior, not menus.** Repairs feed the Builders, guarding
-  the Wardens, expeditions the Seekers, healing the Hearth. The leading faction
-  sets tomorrow's law.
-- **Consequences are collective and delayed.** Food stores, threat, and the raid
-  clock all carry overnight. Come back tomorrow to see the fallout.
-- **Comments are the strategy layer.** Rally the vote, argue the plan, mourn the
-  Marked — the debate is the mechanic.
-- **No realtime needed.** Everything is async through shared Redis state — no
-  websockets, no lobbies, no sync problems. One app → many subreddit installs,
-  each its own isolated city.
-
-## How it maps to the judging criteria
-
-| Criterion | In the game |
-|---|---|
-| **Delightful UX** | 10-second hook splash + guided 3-tap tour; living pixel skyline; one-tap pledge; survivor avatar |
-| **Polish** | Self-hosted fonts, synthesized SFX + mute, animated vitals, danger ambient, mobile-clean, zero console errors |
-| **Reddit-y** | Each subreddit is a city; the community votes, pledges, and debates in comments; masked real redditors |
-| **Hook-y** | Dawn Report + raid countdown: come back at sunrise to see what your choices did |
-| **Retention** | Daily Marked objective, crisis vote, council plan, city timeline, contribution rank, raids |
-| **User contributions** | Pledges, votes, city actions, expeditions, faction influence, public strategy in comments |
-
-## Features
-
-- **Persistent per-subreddit city**, resolved once per real day via a lazy,
-  lock-guarded resolver (no cron).
-- **The Marked** — a named survivor/place the city rallies to save before dawn —
-  with free **one-tap pledges** (the lurker path: no energy cost).
-- **Crisis vote** (one per day, visible tradeoffs) and a **council strategy vote**.
-- **6 roles** (Scout, Engineer, Medic, Farmer, Guard, Speaker) with bonuses and a
-  3-day change cooldown; earned **titles** and contribution rank.
-- **3 energy/day** on city actions (Grow Food, Repair Power, Treat Sick, Guard
-  Wall) or a **Phaser expedition** into the ruins (seeded, anti-cheat).
-- **Survivor avatar** — chosen name, pronouns, and a pixel look.
-- **Dawn Report** — yesterday's city summary + your personal impact.
-- **Live drama feed**, **city vitals** with change-flash, and a **World of Cities**
-  map ranking participating subreddits.
-- **Factions & laws** (Builders / Wardens / Seekers / Hearth).
-- **Synthesized SFX + mute**, a **living skyline** that shifts with city mood, and
-  a **danger ambient** that reddens as a raid nears.
-- **Mod tools**: create post, force-resolve, reset, and a rich **seed-demo** that
-  spins up a judge-ready mid-run city.
+- **The subreddit is the parliament** — the community casts the daily crisis vote
+  and council plan; the game *uses* a real community instead of simulating one.
+- **Consequences are collective and delayed** — food, threat, and the raid clock
+  carry overnight; come back tomorrow for the fallout.
+- **No realtime needed** — everything is async through shared Redis state. One app
+  → many subreddit installs, each its own isolated city.
 
 ## Stack
 
 | Layer | Tech |
 |---|---|
 | Platform | Devvit Web (`@devvit/web` 0.13) |
-| UI | **React 18** + TypeScript + Vite 8 (self-hosted fonts) |
-| Mini-game | Phaser 4.2 (expedition only) |
+| UI | three.js 0.171 + **React 18** + TypeScript + Vite (self-hosted fonts) |
 | Server | Hono 4 (serverless request/response) |
 | State | Devvit Redis (hashes + sorted sets; `redis.global` for the World map) |
 
@@ -89,25 +81,23 @@ same-origin**, so the pixel aesthetic survives the Devvit webview CSP.
 src/
   shared/     types · balance · crises · rng · mapgen · avatar (client + server)
   server/
+    core/     moderator (auth guard) · post
     game/     resolver · dayLogic · lazyResolve · missionRules · marked ·
               pledges · drama · standing · village · world · demoSeed
     routes/   api (init/role/avatar/action/vote/strategy/pledge/world/…) ·
               mission · menu · triggers
     storage/  store · redisKeys · worldRegistry
   client/
-    game/     api.ts (fetch wrapper + mock mode)
-    react/
-      App.tsx           shell, routing, onboarding gates, mutation handlers
-      screens/          Home · Crisis · Feed · World · You · Rules · moments ·
-                        onboarding · avatarKit · CitySky
-      mission/          Phaser expedition overlay
-      kit/              Toast · sound · MuteButton · useFetch
-      pixel.css         the pixel command-console design system
-
+    App.tsx       React HUD: onboarding, dashboard, live/demo/offline, modals
+    scene.ts      the three.js town (scene, districts, villagers, camera)
+    api.ts        typed same-origin fetch helpers for /api/*
+    liveUi.ts     pure live-mode helpers (+ liveUi.test.ts)
+    game.tsx      entry (self-hosted fonts) · game.html · styles.css
 docs/
-  game/               scenario bible · matrix · ux-capabilities · asset-manifest
+  V1_SCOPE.md         the frozen V1 feature set
+  audit/              v1-readiness-audit · private-subreddit smoke · dependency risk
+  game/               scenario bible · matrix
   submission/         devpost · video-script
-  superpowers/        specs + implementation plans
 ```
 
 ## Development
@@ -116,33 +106,63 @@ docs/
 npm ci
 npm run type-check    # tsc --build
 npm run lint          # eslint
-npm test              # vitest (416 tests)
+npm test              # vitest (519 tests)
 npm run build         # vite build → dist/{client,server}
+npm run test:client   # local mock-live browser smoke
 ```
 
-Review the whole UI in a plain browser (mock mode auto-engages on localhost):
+Review the built client in a plain browser (boots in **demo mode** — no backend):
 
 ```bash
 npm run build && node tools/preview-server.mjs   # → http://localhost:4519
-# ?newuser=1 → first-run onboarding · ?worldlocked=1 → sub-500 World view
 ```
 
-## Playtest & deploy
+Iterate on the client source with the standalone dev harness (port 4630):
+
+```bash
+node node_modules/vite/bin/vite.js --config vite.dev3d.config.mjs   # demo mode
+MOCK_API=1 node node_modules/vite/bin/vite.js --config vite.dev3d.config.mjs   # mocked "live"
+# MOCK_API + MOCK_ROLE_NULL=1 → onboarding · MOCK_FALLEN=1 → fallen-city screen
+```
+
+## Playtest & deploy (human-only)
 
 Requires a Reddit account, Devvit developer access, and a private test subreddit
-you moderate.
+you moderate. **These steps authenticate as you — run them yourself; do not
+automate them.**
 
 ```bash
 npm run login         # auth the Devvit CLI (browser popup)
-npx devvit init       # register the app on your account
-npm run dev           # devvit playtest
-npm run deploy        # type-check + lint + devvit upload
+npx devvit init       # register the app on your account (one-time)
+npm run dev           # devvit playtest on your test subreddit
+npm run deploy        # type-check + lint + test + build, then devvit upload
 npm run launch        # deploy + devvit publish (submission)
 ```
 
-To see the full experience instantly on a post, run the **"One More Dawn: seed
-demo state"** mod menu action — it loads a Day-5 city mid-raid with citizens,
-pledges, live votes, and a 3-day chronicle.
+Before publishing, run the human smoke test in
+[`docs/audit/private-subreddit-v1-smoke.md`](docs/audit/private-subreddit-v1-smoke.md).
+To see a full city instantly on a post, run the **"One More Dawn: seed demo
+state"** mod menu action.
+
+## Known V1 limitations
+
+Deliberately cut or hidden for a small, honest V1 (see `docs/V1_SCOPE.md`):
+
+- **No scavenge/expedition minigame in the live client** — the backend exists but
+  isn't wired into the 3D town; the action is hidden in live.
+- **Minimal sound + mute** — local SFX cues on key events (action, vote, pledge,
+  raid warning, dawn report, fallen city) + a global mute toggle persisted in
+  localStorage; fail-silent, never blocks gameplay. Sounds ship as
+  procedurally-generated placeholder tones (`tools/gen-sfx.mjs`, no external
+  assets); swap in Kenney CC0 files anytime — see [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md).
+- **Avatar is name-only** — you name your survivor; a full look editor and
+  in-world avatar rendering are post-V1.
+- **City trait and active law** are computed server-side but not yet surfaced in
+  the UI.
+- **Live raids are forecast/report-driven** — the animated raid cinematic runs in
+  demo mode only.
+- **`npm audit`** reports transitive vulnerabilities through the Devvit toolchain —
+  see [`docs/audit/dependency-risk-note.md`](docs/audit/dependency-risk-note.md).
 
 ## CI
 

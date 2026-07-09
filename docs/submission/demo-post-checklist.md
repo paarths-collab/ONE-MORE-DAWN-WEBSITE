@@ -21,7 +21,7 @@ and feed reflect real people, not just the seed:
 - [ ] pledge to save The Marked
 - [ ] cast the crisis vote
 - [ ] back a council plan
-- [ ] take a city action or run one expedition
+- [ ] take a city action
 - [ ] leave one strategy comment ("save food or prep for the raid?")
 - [ ] return after a force-resolve / the next dawn to see the Dawn Report
 

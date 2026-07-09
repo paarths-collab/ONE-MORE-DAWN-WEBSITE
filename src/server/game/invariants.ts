@@ -1,5 +1,6 @@
 import { BALANCE } from '../../shared/balance';
 import type { CityState, CityTraitId, FactionId } from '../../shared/types';
+import { buildingEffects } from './building';
 import type { ResolveResult } from './resolver';
 
 /**
@@ -69,9 +70,12 @@ export const checkCityInvariants = (city: CityState): string[] => {
   checkNum(v, 'worldSeed', city.worldSeed, 0);
   checkNum(v, 'lawExpiresDay', city.lawExpiresDay, 0);
 
-  // stock vitals (bounded by store caps; population only non-negative)
+  // stock vitals (bounded by store caps; population only non-negative). A built
+  // Storehouse raises the food cap (V1 build-from-zero) — the invariant tracks
+  // it so a legitimately-stocked storehouse city is not flagged.
+  const foodMax = FOOD_MAX + buildingEffects(city.unlockedBuildings ?? []).foodCapBonus;
   checkNum(v, 'population', city.population, 0);
-  checkNum(v, 'food', city.food, 0, FOOD_MAX);
+  checkNum(v, 'food', city.food, 0, foodMax);
   checkNum(v, 'medicine', city.medicine, 0, MEDICINE_MAX);
 
   // percentage vitals

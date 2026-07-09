@@ -104,6 +104,7 @@ const city: CityState = {
   population: 120, food: 60, power: 55, medicine: 20,
   morale: 60, threat: 30, defense: 40,
   crisisId: 'first_light', activeLaw: null, lawExpiresDay: 0,
+  cityLevel: 0, buildProgress: 0, unlockedBuildings: [],
 };
 
 const player: PlayerProfile = {
@@ -139,11 +140,48 @@ describe('Store', () => {
     expect(loaded?.trait).toBe('frozen');
   });
 
+  it('backfills build-from-zero fields when reading pre-progression city JSON', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    // Simulate a city stored before city progression shipped.
+    const { cityLevel: _cl, buildProgress: _bp, unlockedBuildings: _ub, ...legacy } = city;
+    await redis.set('city:state', JSON.stringify(legacy));
+    const loaded = await store.getCityState();
+    expect(loaded?.cityLevel).toBe(0);
+    expect(loaded?.buildProgress).toBe(0);
+    expect(loaded?.unlockedBuildings).toEqual([]);
+  });
+
+  it('does not clobber stored build progression when present', async () => {
+    const store = new Store(makeFakeRedis());
+    await store.setCityState({ ...city, cityLevel: 2, buildProgress: 15, unlockedBuildings: ['shelter', 'farm'] });
+    const loaded = await store.getCityState();
+    expect(loaded?.cityLevel).toBe(2);
+    expect(loaded?.buildProgress).toBe(15);
+    expect(loaded?.unlockedBuildings).toEqual(['shelter', 'farm']);
+  });
+
+  it('returns undefined for malformed stored city JSON', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    await redis.set('city:state', '{bad');
+    expect(await store.getCityState()).toBeUndefined();
+  });
+
   it('round-trips player profiles in the players hash', async () => {
     const store = new Store(makeFakeRedis());
     expect(await store.getPlayer('t2_abc')).toBeUndefined();
     await store.savePlayer(player);
     expect(await store.getPlayer('t2_abc')).toEqual(player);
+  });
+
+  it('skips malformed stored player JSON', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    await store.savePlayer(player);
+    await redis.hSet('players', { t2_bad: '{bad' });
+    expect(await store.getPlayer('t2_bad')).toBeUndefined();
+    expect(await store.getAllPlayers()).toEqual([player]);
   });
 
   it('backfills roleRep/title when reading legacy player JSON', async () => {
@@ -267,6 +305,14 @@ describe('Store', () => {
     expect(entries.map((e) => e.day)).toEqual([2, 1]);
   });
 
+  it('skips malformed timeline entries', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    await store.appendTimeline({ day: 1, cycle: 1, headline: 'Day 1', events: [], deltas: {}, crisisId: 'first_light', winningOptionId: null });
+    await redis.hSet('timeline', { bad: '{bad' });
+    expect((await store.getTimeline(10)).map((e) => e.day)).toEqual([1]);
+  });
+
   it('returns top contributors highest-first, capped at the limit', async () => {
     const store = new Store(makeFakeRedis());
     await store.addContribution('t2_a', 30);
@@ -319,12 +365,31 @@ describe('Store', () => {
     expect(await store.getPledgers(2)).toEqual({ t2_abc: entry });
   });
 
+  it('skips malformed pledger entries', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    const entry = { kind: 'run_messages' as const, name: 'ali•••', at: 42, contribution: 30 };
+    await store.recordPledger(2, 't2_abc', entry);
+    await redis.hSet('day:2:pledgers', { t2_bad: '{bad' });
+    expect(await store.getPledger(2, 't2_bad')).toBeUndefined();
+    expect(await store.getPledgers(2)).toEqual({ t2_abc: entry });
+  });
+
   it('round-trips the marked dawn outcome by day (null when unresolved)', async () => {
     const store = new Store(makeFakeRedis());
     expect(await store.getMarkedOutcome(1)).toBeNull();
     await store.setMarkedOutcome(1, { name: 'The North Wall', saved: true });
     expect(await store.getMarkedOutcome(1)).toEqual({ name: 'The North Wall', saved: true });
     expect(await store.getMarkedOutcome(2)).toBeNull();
+  });
+
+  it('ignores malformed marked outcomes', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    await store.setMarkedOutcome(1, { name: 'The North Wall', saved: true });
+    await redis.hSet('marked:outcomes', { '2': '{bad' });
+    expect(await store.getMarkedOutcome(2)).toBeNull();
+    expect(await store.countMarkedSaved()).toBe(1);
   });
 
   it('ranks contributors 1-based; null when unranked', async () => {

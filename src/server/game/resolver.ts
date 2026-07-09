@@ -5,6 +5,7 @@ import type {
   CityState, CityTraitId, FactionId, PledgeKind, ResourceDelta, Role, StrategyPlanId, TimelineEntry,
 } from '../../shared/types';
 import { pickMarked } from './marked';
+import { applyBuildProgress, buildingEffects, stageForCount } from './building';
 
 /** Aggregates for the day being resolved. All plain data from Redis hashes. */
 export type DayInputs = {
@@ -136,6 +137,12 @@ export const newCityState = (cycle: number, worldSeed = 0): CityState => {
     crisisId: 'first_light',
     activeLaw: null,
     lawExpiresDay: 0,
+    // Build from zero (V1): every city starts as an empty Camp. Zero here means
+    // buildingEffects() is all-zero, so a new city resolves identically to the
+    // pre-progression game (all legacy numeric fixtures stay intact).
+    cityLevel: 0,
+    buildProgress: 0,
+    unlockedBuildings: [],
   };
 };
 
@@ -202,6 +209,28 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     inputs.activeUserCount * BALANCE.scaling.activePlayerThreatRise;
   let morale = city.morale + (inputs.roleCounts.speaker ?? 0) * BALANCE.speakerMoralePerAction;
   let population = city.population;
+
+  // --- 1a. building effects (V1 build-from-zero): bounded, default-no-op ---
+  // Effects use the set ALREADY built at day start, so a building completed
+  // today first pays out next dawn (natural). An empty set → all zeros, so a
+  // brand-new city resolves identically to the pre-progression game.
+  const fx = buildingEffects(city.unlockedBuildings);
+  food += fx.foodBonus;
+  defense += fx.defenseBonus;
+  morale += fx.moraleBonus;
+  medicine += fx.medicineBonus;
+
+  // Build labor accrual + unlocks. A fallen city can never build (mirrors the
+  // aliveness gate lazyResolve applies before calling resolveDay); progress and
+  // the unlocked set carry unchanged so the projection stays stable.
+  const buildLabor =
+    city.status === 'alive' ? (inputs.actions['build_city'] ?? 0) * BALANCE.build.progressPerAction : 0;
+  const built = applyBuildProgress(city.buildProgress, city.unlockedBuildings, buildLabor);
+  const nextCityLevel = stageForCount(built.unlocked.length);
+  for (const id of built.completed) {
+    const def = BALANCE.build.buildings.find((b) => b.id === id);
+    events.push(`The ${def?.name ?? id} is complete — the city grows.`);
+  }
 
   // --- 1b. one-tap pledge pressure (hook layer): each tap nudges a vital ---
   let pledgeTaps = 0;
@@ -332,7 +361,7 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     ...city,
     day: city.day + 1,
     population: Math.max(0, Math.round(population)),
-    food: Math.min(BALANCE.scaling.foodStoreCap, clampStock(food)),
+    food: Math.min(BALANCE.scaling.foodStoreCap + fx.foodCapBonus, clampStock(food)),
     power: clampPct(power),
     medicine: Math.min(BALANCE.scaling.medicineStoreCap, clampStock(medicine)),
     morale: clampPct(morale),
@@ -340,12 +369,17 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     defense: clampPct(defense),
     crisisId: city.crisisId,
     status: city.status,
+    // Build progression carries into tomorrow (unchanged for a fallen city).
+    cityLevel: nextCityLevel,
+    buildProgress: built.progress,
+    unlockedBuildings: built.unlocked,
   };
 
   // --- 4b. Red Signal raid ---
   if (next.threat >= BALANCE.raid.triggerThreshold) {
     // Each guard action today softens every raid loss (floored at 0 per-loss).
-    const dampen = (inputs.actions['guard_wall'] ?? 0) * BALANCE.raid.guardDampenPerAction;
+    // A built Wall adds a flat raidDampen on top (bounded; 0 without the wall).
+    const dampen = (inputs.actions['guard_wall'] ?? 0) * BALANCE.raid.guardDampenPerAction + fx.raidDampen;
     const foodLoss = Math.max(0, BALANCE.raid.foodLoss - dampen);
     const powerLoss = Math.max(0, BALANCE.raid.powerLoss - dampen);
     const moraleLoss = Math.max(0, BALANCE.raid.moraleLoss - dampen);

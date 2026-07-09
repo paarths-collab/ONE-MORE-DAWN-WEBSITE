@@ -1,8 +1,7 @@
 # Devpost Submission Draft — One More Dawn
 
-Copy-paste ready. Reflects the current build (Devvit Web + React, Phaser for the
-expedition mini-game). Update the video URL and playtest subreddit URL before
-submitting.
+Copy-paste ready. Reflects the current V1 build (Devvit Web + Three.js + React).
+Update the video URL and playtest subreddit URL before submitting.
 
 ---
 
@@ -15,10 +14,10 @@ A cooperative survival-strategy game where your subreddit keeps the last city al
 ## Elevator pitch (short paragraph)
 
 One More Dawn is a cooperative survival-strategy game where a subreddit
-manages the last city after collapse. Players gather resources, run
-dangerous expeditions, vote on moral crises, and compete through internal
-factions for influence over the city's laws. Everyone wants the city to
-survive — but not everyone agrees what kind of city it should become.
+manages the last city after collapse. Players gather resources, pledge to
+save the Marked, vote on moral crises, and compete through internal factions
+for influence over the city's laws. Everyone wants the city to survive — but
+not everyone agrees what kind of city it should become.
 
 ---
 
@@ -46,16 +45,15 @@ simulation.
 - A daily **crisis vote** with visible tradeoffs and a **council plan** strategy
   vote — one each per player per day, locked once cast.
 - Three **energy** points a day on city actions — Grow Food, Repair Power, Treat
-  Sick, Guard Wall — or one 90-second **expedition** into the ruins.
+  Sick, Guard Wall.
 - **Six roles** (Scout, Engineer, Medic, Farmer, Guard, Speaker) with matching
   bonuses and a 3-day change cooldown; earned **titles** and contribution rank.
-- A **survivor avatar** — chosen name, pronouns, and a pixel look — so every
-  masked redditor has a face in the city.
+- A **survivor identity** — choose a role and name your survivor so every
+  masked redditor has a place in the city.
 - The **Dawn Report** on the first visit each day: yesterday's city summary plus
   your personal impact. This is the "come back tomorrow" hook.
-- A **living skyline** that shifts with the city's mood, **vitals** that flash on
-  change, a **danger ambient** that reddens as a raid nears, and synthesized
-  **sound** with a mute toggle.
+- A **living 3D town** that shifts with the city's mood, **vitals** that flash on
+  change, and raid pressure that reddens as danger nears.
 - A **live drama feed**, a permanent **timeline**, and a **World of Cities** map
   ranking participating subreddits against each other.
 - **Factions & laws** (Builders / Wardens / Seekers / Hearth) that emerge from
@@ -68,12 +66,10 @@ simulation.
 ## How we built it
 
 - **Devvit Web** app running inside Reddit posts (`@devvit/web` 0.13).
-- **React 18 + TypeScript + Vite 8** for the whole UI — a mobile-first pixel
-  command console (`exactOptionalPropertyTypes: true`, strict throughout). We
-  chose React deliberately: this is an async community strategy *dashboard*, and
-  DOM stays crisp and battery-light where a canvas would blur and churn.
-- **Phaser 4.2** for the one place it earns its keep: the 90-second expedition
-  mini-game (seeded, anti-cheat).
+- **Three.js + React 18 + TypeScript + Vite 8** for the town and HUD — a
+  mobile-first pixel command console (`exactOptionalPropertyTypes: true`, strict
+  throughout). We chose React deliberately: this is an async community strategy
+  *dashboard*, with Three.js carrying the living town.
 - **Self-hosted fonts** (Silkscreen + JetBrains Mono via `@fontsource`), bundled
   same-origin so the pixel aesthetic survives the Devvit webview CSP.
 - **Hono 4** for server endpoints under `/api/`.
@@ -81,13 +77,10 @@ simulation.
   sorted sets for leaderboards, per-day hash keys for action/vote/pledge
   tallies, and `redis.global` for the cross-subreddit World map. No lists
   (Devvit Redis does not support them).
-- **Deterministic seeded map generation** shared between client (render) and
-  server (anti-cheat validation) via `src/shared/mapgen.ts` — same seed,
-  byte-identical map.
 - **Lazy day resolver** under an NX lock — no cron. The first request after
   midnight UTC resolves the previous day.
 - **Optimistic-concurrency** energy spend and vote lock-in via watch/multi/exec.
-- **416 tests** including a full-loop integration proof and property tests that
+- **519 tests** including a full-loop integration proof and property tests that
   drive the store and pure game logic end-to-end.
 
 ---
@@ -107,11 +100,6 @@ and the runtime is request/response only. We made the resolver the ONLY
 writer of state transitions, lazy-triggered on any request, gated by a
 short-TTL NX lock so two concurrent visitors can't fork the day.
 
-**Anti-cheat in a shared-map mini-game.** The client sends crate IDs, not
-raw loot. The server regenerates the map from the token seed and prices
-everything server-side. The mission token is consumed atomically via
-watch/multi/del to prevent parallel-request double-banking.
-
 **Crisis-picker orbit collapse.** Our first picker was a linear stride
 `(day * 7 + cycle * 13) % pool.length`. Under the no-repeat rule, it
 degenerated to a 3-crisis loop within a week — a subreddit would see the
@@ -128,9 +116,9 @@ food and power pressure.
 
 ## Accomplishments that we're proud of
 
-- A complete, polished game — not a slice — CI-green with **416 automated
-  tests**, including a full-loop end-to-end proof (role → actions → mission →
-  votes → day rollover) and property tests.
+- A focused V1 survival loop — CI-green with automated tests, including a
+  full-loop end-to-end proof (role → actions → votes → day rollover) and
+  property tests.
 - A React UI that reads like a *place*: a living skyline, a one-tap pledge, a
   Dawn Report, and a survivor you build yourself — all crisp on mobile.
 - Reddit-native hook that doesn't feel bolted on: factions form from what people
@@ -170,7 +158,7 @@ food and power pressure.
 
 ## Built With
 
-Devvit, Devvit Web, Devvit Redis, **React**, Phaser 4, TypeScript, Hono, Vite,
+Devvit, Devvit Web, Devvit Redis, **React**, Three.js, TypeScript, Hono, Vite,
 `@fontsource`, Node.js 22.
 
 ---
