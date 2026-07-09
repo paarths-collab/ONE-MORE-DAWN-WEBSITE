@@ -416,11 +416,13 @@ async function campSmoke(url) {
         meta: document.querySelector('.bp-meta')?.textContent || '',
         cta: document.querySelector('.bp-cta')?.textContent || '',
         hasBar: !!panel?.querySelector('.bp-bar'),
+        districtCount: document.querySelectorAll('.district').length,
         playableScavenge: [...document.querySelectorAll('button')].some((b) => /SCAVENGE|pick a route/i.test((b.textContent || '').replace(/\\s+/g, ' '))),
         text,
       };
     })()`);
     assert(camp.stage.includes('Camp'), 'Brand-new mock city should show Camp stage.');
+    assert(camp.districtCount === 0, `Brand-new Camp should list no districts (starts from scratch), saw ${camp.districtCount}.`);
     assert(camp.nextName.includes('Shelter'), 'Brand-new mock city should name Shelter as the first unlock.');
     assert(camp.built.includes('nothing yet'), 'Brand-new mock city should not claim any buildings are built.');
     assert(camp.meta.includes('0/24'), 'Brand-new mock city should show zero shared labor progress.');

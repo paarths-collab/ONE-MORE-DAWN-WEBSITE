@@ -603,6 +603,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   // every house center (filler loop + buyHouse + build-mode tap) so getMapData
   // can hand the React HUD a live minimap snapshot — see the three house() sites
   const houseCenters: [number, number][] = [];
+  // every pre-placed filler house group, so the build-from-zero grow-in
+  // (setBuildStage) can reveal them from the camp outward as the town is built.
+  const houseGroups: THREE.Group[] = [];
   const ROOFS = [MAT.roofSlate, MAT.roofSlateDark, MAT.roofBrown];
   function house(x: number, z: number, facing: number, big = false) {
     if (smokeSpots.length < 10 && rng() > 0.5) smokeSpots.push([x, z]);
@@ -619,6 +622,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     g.rotation.y = facing;
     scene.add(g);
     occupy(x, z, 2);
+    return g;
   }
 
   // ---------- POI districts (the labeled buildings from the reference) ----------
@@ -860,7 +864,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       // r=1 (3×3 tiles) fits the ~2-unit house footprint without swallowing the
       // roadside strip; occupy() below still reserves 5×5 so houses keep gaps.
       if (!isFree(hx, hz, 1)) continue;
-      house(hx, hz, facing, rng() > 0.8);
+      houseGroups.push(house(hx, hz, facing, rng() > 0.8));
       houseCenters.push([hx, hz]);
       placed++;
     }
@@ -1766,6 +1770,15 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     const campFire = new THREE.PointLight(0xff9a4a, 16, 24); // child → group.visible gates it
     campFire.position.set(0, 1.2, 0);
     camp.add(campFire);
+    // a few tents ring the hearth so a fresh Camp reads as a camp, not a bare fire
+    for (const [tx, tz, ry] of [[-2.6, -0.4, 0.3], [2.7, -0.9, -0.5], [-1.9, 2.3, 1.1], [2.1, 2.5, -0.8]] as const) {
+      const tent = new THREE.Group();
+      tent.add(pyramid(1.5, 1.25, 1.5, MAT.plaster, 0, 0.62, 0));
+      tent.add(box(0.34, 0.5, 0.06, MAT.timberDark, 0, 0.25, 0.76));
+      tent.position.set(tx, 0, tz);
+      tent.rotation.y = ry;
+      camp.add(tent);
+    }
     camp.position.set(0, 0, 9);
     camp.visible = false;
     scene.add(camp);
@@ -1804,12 +1817,24 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     buildLandmarks = { camp, farm, tower, shelter };
     return buildLandmarks;
   }
+  // Grow-in order: pre-placed houses and the labeled districts, each sorted by
+  // distance from the camp hearth (0,0,9) so the town fills outward from the
+  // camp as buildings are raised. Built lazily on the first setBuildStage call.
+  let growOrder: { houses: THREE.Group[]; districts: THREE.Group[] } | null = null;
+  function ensureGrowOrder() {
+    if (growOrder) return growOrder;
+    const d2 = (g: THREE.Object3D) => (g.position.x - 0) ** 2 + (g.position.z - 9) ** 2;
+    const houses = [...houseGroups].sort((a, b) => d2(a) - d2(b));
+    const districts = [...poiMap.values()].sort((a, b) => d2(a) - d2(b));
+    growOrder = { houses, districts };
+    return growOrder;
+  }
   function setBuildStage(unlocked: string[]) {
     try {
       const set = Array.isArray(unlocked) ? unlocked : [];
       const has = (id: string) => set.includes(id);
       const L = ensureBuildLandmarks();
-      // the hearth is present the moment the build system drives the scene
+      // the hearth + tents are present the moment the build system drives the scene
       L.camp.visible = true;
       L.farm.visible = has('farm');
       L.tower.visible = has('watchtower');
@@ -1818,6 +1843,16 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       // clinic / storehouse / council_hall are intentional no-ops for V1.
       const wallUp = has('wall');
       for (const part of wallParts) part.visible = wallUp;
+
+      // GROW-IN: the town starts as a bare Camp and fills outward as the
+      // community raises buildings. 7 buildings total; reveal that fraction of
+      // the pre-placed houses and labeled districts (nearest the camp first).
+      const { houses, districts } = ensureGrowOrder();
+      const frac = Math.min(1, set.length / 7);
+      const nHouses = Math.round(houses.length * frac);
+      houses.forEach((g, i) => (g.visible = i < nHouses));
+      const nDist = Math.round(districts.length * frac);
+      districts.forEach((g, i) => (g.visible = i < nDist));
     } catch {
       /* purely cosmetic overlay — never throw into the caller */
     }

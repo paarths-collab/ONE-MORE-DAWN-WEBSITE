@@ -3156,6 +3156,11 @@ export function App() {
   const buildCtaDisabled = showFallen || buildYouBuiltToday || buildNoEnergy || (build?.next == null);
   const buildCtaLabel = buildYouBuiltToday ? '✓ built today' : '🔨 ADD LABOR';
 
+  // District list mirrors the town's grow-in: a fresh Camp lists no districts;
+  // they appear as the community raises buildings (same fraction the scene uses).
+  // Offline/connecting (build === null) keeps the full directory as a fallback.
+  const gatedPois = build ? pois.slice(0, Math.round(pois.length * Math.min(1, build.unlocked.length / 7))) : pois;
+
   return (
     <>
       <VillageCanvas
@@ -3186,7 +3191,7 @@ export function App() {
         worldCities={worldCities}
         worldNote={worldNote}
         worldLive={isLive}
-        pois={pois}
+        pois={gatedPois}
         levels={levels}
         vitals={vitals}
         vitalMaxes={vitalMaxes}
@@ -3251,7 +3256,7 @@ export function App() {
         day={day}
         vitals={vitals}
         population={population}
-        pois={pois}
+        pois={gatedPois}
         levels={levels}
         contribs={contribs}
         raidLog={raidLog}
