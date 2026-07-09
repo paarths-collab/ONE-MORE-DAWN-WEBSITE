@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import {
   createVillageScene,
   MAX_VILLAGERS,
@@ -17,6 +17,7 @@ import type {
   BuildingDef,
   BuildStatus,
   Crisis,
+  HouseSummary,
   DawnReport,
   InitResponse,
   LeaderboardEntry,
@@ -30,6 +31,7 @@ import type {
   VoteTally,
   WorldCity,
 } from '../shared/types';
+import { tierForContribution } from '../shared/houses';
 
 // ONE MORE DAWN — 3D town, React edition v4: the self-running mini-game.
 // The scene runs itself (time cycles, companions on, players walk the streets).
@@ -1712,6 +1714,7 @@ function GameDashboard({
   raidDays,
   raidLikely,
   raidNote,
+  housesTotal,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1724,6 +1727,7 @@ function GameDashboard({
   raidDays: number;
   raidLikely: boolean;
   raidNote: string | null;
+  housesTotal: number;
 }) {
   const unlocked = new Set(build?.unlocked ?? []);
   const nextId = build?.next?.id ?? null;
@@ -1751,6 +1755,7 @@ function GameDashboard({
                 stage {build.stage + 1}/5 · {builtCount}/{BUILD_SEQUENCE.length} built
               </span>
             </div>
+            <div className="db-neigh">🏘 {housesTotal} {housesTotal === 1 ? 'soul has' : 'souls have'} built here</div>
             {build.next ? (
               <div className="db-next">
                 <div className="db-next-h">
@@ -2066,6 +2071,11 @@ export function App() {
   const [demoUnlocked, setDemoUnlocked] = useState<string[]>([]);
   const [demoBuildProgress, setDemoBuildProgress] = useState(0);
   const [demoContributors, setDemoContributors] = useState(6);
+  // ONE REDDITOR ONE HOUSE — live: server house summary; demo: synth from a
+  // growing contributor count + your own (demo) contribution driving your tier.
+  const [liveHouses, setLiveHouses] = useState<HouseSummary | null>(null);
+  const [demoHouseTotal, setDemoHouseTotal] = useState(0);
+  const [demoYourContribution, setDemoYourContribution] = useState(0);
   // First-run onboarding (live only): a brand-new player has no role yet.
   const [needsOnboard, setNeedsOnboard] = useState(false);
   const [onboardOpen, setOnboardOpen] = useState(false);
@@ -2214,6 +2224,7 @@ export function App() {
       setLiveCycle(city.cycle);
       setLiveRaidLikely(init.forecast.raidLikely);
       setLiveBuild(init.build ?? null); // defensive: server lane owns this field
+      setLiveHouses(init.houses ?? null); // one-redditor-one-house summary
       setLiveRaidNote(raidNoteFromEvents(init.timelinePreview?.events, init.forecast.raidLikely));
       setLiveTimelineHeadline(init.timelinePreview?.headline ?? null);
       // fallen-city terminal state — mirror to a ref so handlers/timers can read it
@@ -2610,6 +2621,44 @@ export function App() {
     if (mode === 'demo') handleRef.current?.setBuildStage?.(demoUnlocked);
   }, [mode, demoUnlocked, loaded]);
 
+  // ONE REDDITOR ONE HOUSE — houses reveal by contributor count. Demo synthesises
+  // a growing neighborhood (you are the founder) so the mechanic is visible
+  // without a backend; live uses the server house summary.
+  useEffect(() => {
+    if (mode !== 'demo') return undefined;
+    const id = window.setInterval(() => {
+      setDemoHouseTotal((n) => Math.min(120, n + 1)); // community keeps arriving
+      setDemoYourContribution((c) => Math.min(60, c + 3)); // your house climbs tiers
+    }, 3500);
+    return () => window.clearInterval(id);
+  }, [mode]);
+  const houses = useMemo<HouseSummary | null>(() => {
+    if (mode === 'live') return liveHouses;
+    if (mode !== 'demo') return null;
+    return {
+      total: demoHouseTotal,
+      cap: 240,
+      founder: demoHouseTotal >= 1 ? { username: 'you' } : null,
+      yours: demoHouseTotal >= 1 ? { index: 0, tier: tierForContribution(demoYourContribution), isFounder: true } : null,
+      named: [
+        { username: 'ashen_fox', index: 6, tier: 3 },
+        { username: 'saltcedar', index: 14, tier: 2 },
+      ],
+    };
+  }, [mode, liveHouses, demoHouseTotal, demoYourContribution]);
+  useEffect(() => {
+    handleRef.current?.setHouses?.(houses);
+  }, [houses, loaded]);
+
+  // Declutter: the floating in-world district/house banner labels are redundant
+  // (and overlap in a narrow webview) while the CITY dashboard panel is open, so
+  // fade them out then. CSS wins over the CSS2DRenderer's inline display.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('omd-hide-labels', dashOpen);
+    return () => root.classList.remove('omd-hide-labels');
+  }, [dashOpen]);
+
   const visitDistrict = useCallback((name: string) => {
     handleRef.current?.focusOn(name);
   }, []);
@@ -2927,13 +2976,14 @@ export function App() {
   // by another agent) or gifts resources into the city stores.
   const simBuyHouse = useCallback(
     (user: string) => {
-      // optional scene API — returns where the house rose, or null if full
-      const spot = handleRef.current?.buyHouse?.(user) as { x: number; z: number; quarter: string } | null | undefined;
-      if (!spot) return; // town full (or scene API absent) — skip silently
+      // A new redditor joins: their house rises through the one-house-per-person
+      // system (setHouses reveals it from the growing contributor count), so the
+      // demo town fills the same way a real city does — no ungated placements.
+      setDemoHouseTotal((n) => Math.min(120, n + 1));
       setPopulation((p) => p + 3);
       addContrib(user, { houses: 1 });
-      pushNotif('🏠', `${user} bought a house in the ${spot.quarter} quarter`, 'good');
-      pushEvent('🏠', `${user} bought a house in the ${spot.quarter} quarter`);
+      pushNotif('🏠', `${user} raised a house in the city`, 'good');
+      pushEvent('🏠', `${user} raised a house in the city`);
     },
     [addContrib, pushEvent, pushNotif],
   );
@@ -3156,8 +3206,22 @@ export function App() {
   const buildCtaDisabled = showFallen || buildYouBuiltToday || buildNoEnergy || (build?.next == null);
   const buildCtaLabel = buildYouBuiltToday ? '✓ built today' : '🔨 ADD LABOR';
 
+  // District list mirrors the town's grow-in: a fresh Camp lists no districts;
+  // they appear as the community raises buildings (same fraction the scene uses).
+  // Offline/connecting (build === null) keeps the full directory as a fallback.
+  const gatedPois = build ? pois.slice(0, Math.round(pois.length * Math.min(1, build.unlocked.length / 7))) : pois;
+
   return (
     <>
+      {/* On a phone in portrait the 3D town has no room — prompt to rotate.
+          CSS-only: shows only at (orientation: portrait) and phone width. */}
+      <div className="rotate-gate">
+        <div className="rg-card">
+          <div className="rg-i">📱</div>
+          <b>ROTATE TO LANDSCAPE</b>
+          <span>One More Dawn is a wide city — turn your phone sideways to hold the line.</span>
+        </div>
+      </div>
       <VillageCanvas
         onReady={onReady}
         onProgress={onProgress}
@@ -3186,7 +3250,7 @@ export function App() {
         worldCities={worldCities}
         worldNote={worldNote}
         worldLive={isLive}
-        pois={pois}
+        pois={gatedPois}
         levels={levels}
         vitals={vitals}
         vitalMaxes={vitalMaxes}
@@ -3251,7 +3315,7 @@ export function App() {
         day={day}
         vitals={vitals}
         population={population}
-        pois={pois}
+        pois={gatedPois}
         levels={levels}
         contribs={contribs}
         raidLog={raidLog}
@@ -3273,6 +3337,7 @@ export function App() {
         raidDays={raidDays}
         raidLikely={liveRaidLikely}
         raidNote={liveRaidNote}
+        housesTotal={houses?.total ?? 0}
       />
       {villager ? (
         <VillagerChip name={villager} hiCooldown={hiCooldown} onWave={onWaveAt} onSayHi={onSayHi} onClose={clearVillager} />

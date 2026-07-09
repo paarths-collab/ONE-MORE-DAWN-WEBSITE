@@ -8,6 +8,8 @@ export const KEYS = {
   missionToken: (tokenId: string) => `mission:token:${tokenId}`,
   lbContribution: 'lb:contribution',
   lbScouts: 'lb:scouts',
+  housesIndex: 'houses:index',
+  housesMeta: 'houses:meta',
   timeline: 'timeline',
   cityHistory: 'city:history',
   resolverLock: 'resolver:lock',

@@ -302,6 +302,10 @@ export class Store {
     }
   }
 
+  async getContributionScore(userId: string): Promise<number | undefined> {
+    return this.redis.zScore(KEYS.lbContribution, userId);
+  }
+
   /** Top-N contributors by lifetime contribution, highest score first. */
   async topContributors(limit: number): Promise<{ userId: string; score: number }[]> {
     const rows = await this.redis.zRange(KEYS.lbContribution, 0, limit - 1, {
@@ -331,6 +335,34 @@ export class Store {
     });
     const idx = rows.findIndex((r) => r.member === userId);
     return idx === -1 ? null : idx + 1;
+  }
+
+  // ----- personal houses -----
+  /** Register the caller's house on their FIRST contribution. Idempotent: a user
+   *  who already has a house keeps their original index. Returns their join index. */
+  async registerHouse(userId: string): Promise<{ index: number; isNew: boolean }> {
+    const existing = await this.redis.hGet(KEYS.housesIndex, userId);
+    if (existing !== undefined) return { index: Number(existing), isNew: false };
+    // hIncrBy is atomic -> distinct index per new user. Per-user action locks
+    // prevent the same user racing itself, so no double-register.
+    const seq = await this.redis.hIncrBy(KEYS.housesMeta, 'seq', 1); // 1-based
+    const index = seq - 1;
+    await this.redis.hSet(KEYS.housesIndex, { [userId]: String(index) });
+    if (index === 0) await this.redis.hSet(KEYS.housesMeta, { founder: userId });
+    return { index, isNew: true };
+  }
+
+  async getHouseCount(): Promise<number> {
+    return Number((await this.redis.hGet(KEYS.housesMeta, 'seq')) ?? 0);
+  }
+
+  async getHouseIndex(userId: string): Promise<number | null> {
+    const v = await this.redis.hGet(KEYS.housesIndex, userId);
+    return v === undefined ? null : Number(v);
+  }
+
+  async getFounderId(): Promise<string | null> {
+    return (await this.redis.hGet(KEYS.housesMeta, 'founder')) ?? null;
   }
 
   // ----- timeline + history -----

@@ -17,6 +17,17 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .hud * { pointer-events: auto; }
 .card-bit { background: var(--card); border: 1px solid var(--line); border-radius: 12px; backdrop-filter: blur(4px); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); }
 
+/* ---- Rotate-to-landscape gate: portrait phones only (the 3D city needs width) ---- */
+.rotate-gate { display: none; }
+@keyframes rg-turn { 0%, 38% { transform: rotate(0deg); } 58%, 100% { transform: rotate(-90deg); } }
+@media (orientation: portrait) and (max-width: 820px) {
+  .rotate-gate { display: flex; position: fixed; inset: 0; z-index: 200; align-items: center; justify-content: center; padding: 24px; background: radial-gradient(circle at 50% 38%, #1b140c, #0c0a0a 70%); pointer-events: auto; }
+  .rg-card { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; max-width: 300px; }
+  .rg-card .rg-i { font-size: 58px; line-height: 1; animation: rg-turn 2.4s ease-in-out infinite; }
+  .rg-card b { font-family: var(--pixel); font-size: 14px; letter-spacing: 2px; color: var(--gold); }
+  .rg-card span { font: 600 12px/1.55 var(--mono); color: var(--mut); }
+}
+
 .topbar { top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
 .title { padding: 9px 14px; }
 .title h1 { font-family: var(--pixel); font-size: 14px; letter-spacing: 1.5px; color: var(--gold); }
@@ -202,6 +213,9 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 /* ---- POI banner labels (CSS2DRenderer layer) ---- */
 .poi-layer { z-index: 3; }
 .poi-label { pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: var(--pixel); font-size: 8.5px; letter-spacing: 1px; color: var(--gold); background: rgba(20, 16, 13, 0.88); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; white-space: nowrap; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5); transition: border-color 0.15s, color 0.15s; }
+/* Fade the floating in-world banners while the CITY panel is open (declutter).
+   !important beats the CSS2DRenderer's inline display style. */
+.omd-hide-labels .poi-label, .omd-hide-labels .h-owner { display: none !important; }
 .poi-label .ic { font-size: 12px; }
 .poi-label:hover { border-color: var(--gold); color: #ffe9ad; }
 
@@ -314,6 +328,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
 .db-stage { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .db-stage b { font-family: var(--pixel); font-size: 12px; letter-spacing: 1px; color: var(--gold); }
 .db-stage span { font: 600 9.5px var(--mono); color: var(--mut); }
+.db-neigh { font: 700 10px var(--mono); color: var(--gold); margin-bottom: 10px; }
 .db-next { background: rgba(255, 255, 255, 0.03); border: 1px solid #241f1a; border-radius: 10px; padding: 9px 10px; margin-bottom: 10px; }
 .db-next-h { display: flex; justify-content: space-between; gap: 8px; font: 700 10.5px var(--mono); color: var(--ink); }
 .db-bar { height: 8px; background: #241f1a; border-radius: 5px; overflow: hidden; margin: 6px 0; }

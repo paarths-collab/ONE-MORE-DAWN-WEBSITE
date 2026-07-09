@@ -15,6 +15,13 @@ export type BuildingMeta = { name: string; level: number; blurb: string };
 export type TimeOfDay = 'night' | 'dawn' | 'day' | 'dusk';
 export type CompanionKind = 'horse' | 'flamingo' | 'parrot' | 'stork';
 export type PoiInfo = { name: string; icon: string; level: number; blurb: string };
+// One-redditor-one-house summary (structurally matches shared HouseSummary).
+export type SceneHouses = {
+  total: number;
+  founder: { username: string } | null;
+  yours: { index: number; tier: number; isFounder: boolean } | null;
+  named: { username: string; index: number; tier: number }[];
+};
 
 /** Snapshot the React HUD reads (via getMapData) to draw its live minimap. */
 export type MapData = {
@@ -66,6 +73,7 @@ export type VillageHandle = {
    * toggles `.visible` on landmarks created once, and never throws.
    */
   setBuildStage: (unlocked: string[]) => void;
+  setHouses: (houses: SceneHouses | null) => void;
   /**
    * Build a house for a named owner at a random free spot (roadside preferred)
    * and float a temporary owner tag over it. Returns the tile + compass quarter,
@@ -603,6 +611,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   // every house center (filler loop + buyHouse + build-mode tap) so getMapData
   // can hand the React HUD a live minimap snapshot — see the three house() sites
   const houseCenters: [number, number][] = [];
+  // every pre-placed filler house group, so the build-from-zero grow-in
+  // (setBuildStage) can reveal them from the camp outward as the town is built.
+  const houseGroups: THREE.Group[] = [];
   const ROOFS = [MAT.roofSlate, MAT.roofSlateDark, MAT.roofBrown];
   function house(x: number, z: number, facing: number, big = false) {
     if (smokeSpots.length < 10 && rng() > 0.5) smokeSpots.push([x, z]);
@@ -619,6 +630,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     g.rotation.y = facing;
     scene.add(g);
     occupy(x, z, 2);
+    return g;
   }
 
   // ---------- POI districts (the labeled buildings from the reference) ----------
@@ -860,7 +872,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       // r=1 (3×3 tiles) fits the ~2-unit house footprint without swallowing the
       // roadside strip; occupy() below still reserves 5×5 so houses keep gaps.
       if (!isFree(hx, hz, 1)) continue;
-      house(hx, hz, facing, rng() > 0.8);
+      houseGroups.push(house(hx, hz, facing, rng() > 0.8));
       houseCenters.push([hx, hz]);
       placed++;
     }
@@ -1766,6 +1778,15 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     const campFire = new THREE.PointLight(0xff9a4a, 16, 24); // child → group.visible gates it
     campFire.position.set(0, 1.2, 0);
     camp.add(campFire);
+    // a few tents ring the hearth so a fresh Camp reads as a camp, not a bare fire
+    for (const [tx, tz, ry] of [[-2.6, -0.4, 0.3], [2.7, -0.9, -0.5], [-1.9, 2.3, 1.1], [2.1, 2.5, -0.8]] as const) {
+      const tent = new THREE.Group();
+      tent.add(pyramid(1.5, 1.25, 1.5, MAT.plaster, 0, 0.62, 0));
+      tent.add(box(0.34, 0.5, 0.06, MAT.timberDark, 0, 0.25, 0.76));
+      tent.position.set(tx, 0, tz);
+      tent.rotation.y = ry;
+      camp.add(tent);
+    }
     camp.position.set(0, 0, 9);
     camp.visible = false;
     scene.add(camp);
@@ -1804,12 +1825,24 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     buildLandmarks = { camp, farm, tower, shelter };
     return buildLandmarks;
   }
+  // Grow-in order: pre-placed houses and the labeled districts, each sorted by
+  // distance from the camp hearth (0,0,9) so the town fills outward from the
+  // camp as buildings are raised. Built lazily on the first setBuildStage call.
+  let growOrder: { houses: THREE.Group[]; districts: THREE.Group[] } | null = null;
+  function ensureGrowOrder() {
+    if (growOrder) return growOrder;
+    const d2 = (g: THREE.Object3D) => (g.position.x - 0) ** 2 + (g.position.z - 9) ** 2;
+    const houses = [...houseGroups].sort((a, b) => d2(a) - d2(b));
+    const districts = [...poiMap.values()].sort((a, b) => d2(a) - d2(b));
+    growOrder = { houses, districts };
+    return growOrder;
+  }
   function setBuildStage(unlocked: string[]) {
     try {
       const set = Array.isArray(unlocked) ? unlocked : [];
       const has = (id: string) => set.includes(id);
       const L = ensureBuildLandmarks();
-      // the hearth is present the moment the build system drives the scene
+      // the hearth + tents are present the moment the build system drives the scene
       L.camp.visible = true;
       L.farm.visible = has('farm');
       L.tower.visible = has('watchtower');
@@ -1818,8 +1851,99 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       // clinic / storehouse / council_hall are intentional no-ops for V1.
       const wallUp = has('wall');
       for (const part of wallParts) part.visible = wallUp;
+
+      // Districts (civic amenities) reveal with the shared build stage. Houses
+      // are driven separately, by contributor count — see setHouses().
+      const { districts } = ensureGrowOrder();
+      const frac = Math.min(1, set.length / 7);
+      const nDist = Math.round(districts.length * frac);
+      districts.forEach((g, i) => (g.visible = i < nDist));
     } catch {
       /* purely cosmetic overlay — never throw into the caller */
+    }
+  }
+
+  // ---------- one-redditor-one-house overlay (setHouses) ----------
+  // Houses reveal by CONTRIBUTOR COUNT (not build stage): index 0 is the founding
+  // house, your house is highlighted, top contributors get name labels, and tier
+  // scales the notable houses. Idempotent — decor is cleared + re-applied each call.
+  const houseDecor: THREE.Object3D[] = [];
+  const TIER_SCALE = [1, 1, 1.16, 1.32, 1.5]; // by tier 0..4
+  const clearHouseDecor = () => {
+    for (const o of houseDecor) {
+      o.parent?.remove(o);
+      o.traverse((c) => {
+        const mesh = c as THREE.Mesh;
+        mesh.geometry?.dispose?.();
+        const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
+        if (Array.isArray(mat)) mat.forEach((m) => m.dispose?.());
+        else mat?.dispose?.();
+      });
+      (o as unknown as CSS2DObject).element?.remove();
+    }
+    houseDecor.length = 0;
+  };
+  const labelHouse = (g: THREE.Group, text: string, y: number) => {
+    const el = document.createElement('div');
+    el.className = 'h-owner on';
+    el.textContent = text;
+    const tag = new CSS2DObject(el);
+    tag.position.set(0, y, 0);
+    g.add(tag);
+    houseDecor.push(tag);
+  };
+  const ringHouse = (g: THREE.Group) => {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(1.7, 2.0, 24),
+      new THREE.MeshBasicMaterial({ color: C.roofGold, transparent: true, opacity: 0.85, side: THREE.DoubleSide, fog: false }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.06;
+    g.add(ring);
+    houseDecor.push(ring);
+  };
+  function setHouses(summary: SceneHouses | null) {
+    try {
+      const { houses } = ensureGrowOrder();
+      const total = Math.max(0, Math.min(houses.length, Math.round(summary?.total ?? 0)));
+      houses.forEach((g, i) => {
+        g.visible = i < total;
+        g.scale.setScalar(1);
+      });
+      clearHouseDecor();
+      if (!summary || total === 0) return;
+      const scaleFor = (t: number) => TIER_SCALE[Math.max(0, Math.min(4, Math.round(t)))] ?? 1;
+      const yours = summary.yours;
+      // founding house — nearest the camp centre (index 0)
+      const founder = houses[0];
+      if (founder) {
+        founder.scale.setScalar(1.5);
+        ringHouse(founder);
+        const label = yours && yours.index === 0 ? '🏛 u/you (founder)' : `🏛 u/${summary.founder?.username ?? 'founder'}`;
+        labelHouse(founder, label, 3.0);
+      }
+      // your house (if not the founder)
+      if (yours && yours.index > 0 && yours.index < total) {
+        const g = houses[yours.index]!;
+        g.scale.setScalar(scaleFor(yours.tier));
+        ringHouse(g);
+        labelHouse(g, 'u/you', 2.7);
+      }
+      // named top contributors — scale all by tier, but only label the top few so
+      // the skyline doesn't drown in username banners.
+      let labelled = 0;
+      for (const n of summary.named ?? []) {
+        if (n.index <= 0 || n.index >= total) continue;
+        if (yours && n.index === yours.index) continue; // already labelled as yours
+        const g = houses[n.index]!;
+        g.scale.setScalar(scaleFor(n.tier));
+        if (labelled < 3) {
+          labelHouse(g, `u/${n.username}`, 2.6);
+          labelled++;
+        }
+      }
+    } catch {
+      /* cosmetic overlay — never throw into the caller */
     }
   }
 
@@ -1849,6 +1973,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     waveAt,
     setBuildMode,
     setBuildStage,
+    setHouses,
     buyHouse,
     flashDistrict,
     getMapData,
