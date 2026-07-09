@@ -3215,32 +3215,36 @@ export function App() {
         buildCtaDisabled={buildCtaDisabled}
         buildCtaLabel={buildCtaLabel}
       />
-      <button
-        type="button"
-        className="hud board-fab card-bit"
-        onClick={() => setBoardOpen((o) => !o)}
-        aria-expanded={boardOpen}
-      >
-        📋 DASH
-      </button>
-      <button
-        type="button"
-        className="hud stats-fab card-bit"
-        onClick={() => setStatsOpen((o) => !o)}
-        aria-expanded={statsOpen}
-      >
-        📊 STATS
-      </button>
-      <button
-        type="button"
-        className="hud mute-fab card-bit"
-        onClick={onToggleMute}
-        aria-pressed={muted}
-        aria-label={muted ? 'Unmute sound' : 'Mute sound'}
-        title={muted ? 'Sound off' : 'Sound on'}
-      >
-        {muted ? '🔇' : '🔊'}
-      </button>
+      {/* One flex bar so the fabs never overlap; the .hud wrapper (pointer-events:
+          none) lets .hud * re-enable pointer events on the buttons inside. */}
+      <div className="hud fab-bar">
+        <button
+          type="button"
+          className="board-fab card-bit"
+          onClick={() => setBoardOpen((o) => !o)}
+          aria-expanded={boardOpen}
+        >
+          📋 DASH
+        </button>
+        <button
+          type="button"
+          className="stats-fab card-bit"
+          onClick={() => setStatsOpen((o) => !o)}
+          aria-expanded={statsOpen}
+        >
+          📊 STATS
+        </button>
+        <button
+          type="button"
+          className="mute-fab card-bit"
+          onClick={onToggleMute}
+          aria-pressed={muted}
+          aria-label={muted ? 'Unmute sound' : 'Mute sound'}
+          title={muted ? 'Sound off' : 'Sound on'}
+        >
+          {muted ? '🔇' : '🔊'}
+        </button>
+      </div>
       <StatsModal
         open={statsOpen}
         onClose={() => setStatsOpen(false)}

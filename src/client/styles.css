@@ -49,7 +49,7 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .toast.on { opacity: 1; transform: none; }
 
 /* ---- CITY dashboard (right) ---- */
-.dash-fab { top: 84px; right: 14px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1.5px; color: var(--gold); padding: 10px 14px; border-radius: 12px; cursor: pointer; }
+.dash-fab { top: 84px; right: 14px; pointer-events: auto; font-family: var(--pixel); font-size: 10px; letter-spacing: 1.5px; color: var(--gold); padding: 10px 14px; border-radius: 12px; cursor: pointer; }
 .dash { top: 128px; right: 14px; width: 250px; max-height: calc(100vh - 230px); overflow-y: auto; scrollbar-gutter: stable; border-radius: 16px; padding: 14px; opacity: 0; transform: translateX(12px); transition: opacity 0.25s, transform 0.25s; pointer-events: none !important; z-index: 6; }
 .dash.on { opacity: 1; transform: none; pointer-events: auto !important; }
 .dash.on * { pointer-events: auto; }
@@ -277,9 +277,13 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .map-seg-btn.on { color: var(--gold); background: rgba(232, 195, 74, 0.1); }
 
 /* ---- STATS fab + full-screen ledger modal ---- */
-.stats-fab { top: 84px; right: 96px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1.5px; color: var(--gold); padding: 10px 14px; border-radius: 12px; cursor: pointer; }
-.mute-fab { top: 84px; right: 182px; font-size: 13px; line-height: 1; padding: 9px 11px; border-radius: 12px; cursor: pointer; }
-.board-fab { top: 84px; right: 232px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1.5px; color: var(--gold); padding: 10px 14px; border-radius: 12px; cursor: pointer; }
+/* Flex bar holding DASH · STATS · mute, sitting left of the ▦ CITY toggle.
+   It's .hud (position:fixed, z-index:5, pointer-events:none); the buttons
+   inside are .hud * so they get pointer-events:auto and can be clicked. */
+.fab-bar { top: 84px; right: 104px; display: flex; gap: 10px; align-items: center; }
+.stats-fab { font-family: var(--pixel); font-size: 10px; letter-spacing: 1.5px; color: var(--gold); padding: 10px 14px; border-radius: 12px; cursor: pointer; }
+.mute-fab { font-size: 13px; line-height: 1; padding: 9px 11px; border-radius: 12px; cursor: pointer; }
+.board-fab { font-family: var(--pixel); font-size: 10px; letter-spacing: 1.5px; color: var(--gold); padding: 10px 14px; border-radius: 12px; cursor: pointer; }
 .stats-modal { position: fixed; inset: 0; z-index: 20; display: none; }
 .stats-modal.on { display: block; }
 .stats-back { position: absolute; inset: 0; background: rgba(5, 4, 3, 0.7); backdrop-filter: blur(3px); cursor: pointer; }
@@ -449,10 +453,14 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .dock .credits { display: none; }
   .build { width: 54px; height: 54px; font-size: 22px; }
   .chip { bottom: 64px; max-width: 260px; }
-  .dash-fab { top: auto; bottom: 64px; right: 84px; }
-  .stats-fab { top: auto; bottom: 64px; right: 170px; padding: 8px 10px; font-size: 9px; }
-  .mute-fab { top: auto; bottom: 64px; right: 236px; padding: 7px 9px; font-size: 12px; }
-  .board-fab { top: auto; bottom: 100px; right: 14px; padding: 8px 10px; font-size: 9px; }
+  /* Portrait: stack the fabs vertically down the clear right edge — the bottom
+     bar (hotbar + building chip) and the full-width topbar leave no room for a
+     horizontal row. */
+  .dash-fab { top: 140px; bottom: auto; right: 10px; }
+  .fab-bar { top: 182px; bottom: auto; right: 10px; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .stats-fab { padding: 8px 10px; font-size: 9px; }
+  .mute-fab { padding: 7px 9px; font-size: 12px; }
+  .board-fab { padding: 8px 10px; font-size: 9px; }
   .stats-sheet { width: calc(100vw - 16px); max-height: 88vh; padding: 14px; }
   table.st { font-size: 9px; }
   .st th { font-size: 6px; }
@@ -504,9 +512,10 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .day .dt { display: none; }
 
   .dash-fab { top: 54px; right: 10px; padding: 8px 10px; font-size: 9px; }
-  .stats-fab { top: 54px; right: 96px; padding: 8px 10px; font-size: 9px; }
-  .mute-fab { top: 54px; right: 172px; padding: 7px 9px; font-size: 12px; }
-  .board-fab { top: 54px; right: 222px; padding: 8px 10px; font-size: 9px; }
+  .fab-bar { top: 54px; right: 100px; gap: 8px; }
+  .stats-fab { padding: 8px 10px; font-size: 9px; }
+  .mute-fab { padding: 7px 9px; font-size: 12px; }
+  .board-fab { padding: 8px 10px; font-size: 9px; }
   .stats-sheet { max-height: 92vh; width: min(600px, calc(100vw - 24px)); padding: 12px 14px; }
   table.st { font-size: 8.5px; }
   .dash { top: 0; bottom: 0; right: 0; width: 240px; height: 100%; max-height: none; border-radius: 16px 0 0 16px; }
