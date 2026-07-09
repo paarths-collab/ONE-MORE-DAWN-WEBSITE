@@ -3213,6 +3213,15 @@ export function App() {
 
   return (
     <>
+      {/* On a phone in portrait the 3D town has no room — prompt to rotate.
+          CSS-only: shows only at (orientation: portrait) and phone width. */}
+      <div className="rotate-gate">
+        <div className="rg-card">
+          <div className="rg-i">📱</div>
+          <b>ROTATE TO LANDSCAPE</b>
+          <span>One More Dawn is a wide city — turn your phone sideways to hold the line.</span>
+        </div>
+      </div>
       <VillageCanvas
         onReady={onReady}
         onProgress={onProgress}
