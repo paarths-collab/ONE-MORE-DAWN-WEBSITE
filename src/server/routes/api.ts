@@ -57,20 +57,6 @@ import { readWorldCities, upsertWorldCity } from '../storage/worldRegistry';
 export const api = new Hono();
 
 /**
- * Devvit tx conflict semantics (verified from @devvit/redis RedisClient.js):
- * exec() is typed Promise<any[]> and never null. Success = length > 0; a
- * caught throw or an empty array means the watched key was modified.
- */
-const execOrConflict = async (tx: { exec(): Promise<unknown[]> }): Promise<boolean> => {
-  try {
-    const results = await tx.exec();
-    return results.length > 0;
-  } catch {
-    return false;
-  }
-};
-
-/**
  * Structural adapter: the Devvit client's SetOptions.expiration is a Date and
  * its ZRangeOptions.by is required, while RedisLike speaks seconds / optional
  * `by`. Delegates 1:1 otherwise — no behavior of its own.
@@ -289,7 +275,16 @@ api.get('/init', async (c) => {
     store,
     user.userId,
     city.day,
-    async () => (await reddit.getCurrentUsername()) ?? 'citizen',
+    // Fail-soft: a brand-new player has no saved profile yet, so a THROWN
+    // username RPC (not just a null return) must not 500 their first load.
+    // Username is cosmetic and correctable later — default to 'citizen'.
+    async () => {
+      try {
+        return (await reddit.getCurrentUsername()) ?? 'citizen';
+      } catch {
+        return 'citizen';
+      }
+    },
   );
 
   const [
@@ -575,17 +570,23 @@ api.post('/vote', async (c) => {
     return c.json<ApiError>({ status: 'error', message: 'Unknown option' }, 400);
   }
 
+  // Per-user optimistic lock (same pattern as /action): two DIFFERENT voters
+  // watch different lock keys and never abort each other — only a genuine
+  // same-user double-tap conflicts (the sequential re-vote is caught by the
+  // getVoterChoice check above). Replaces the old shared dayVoters-hash watch,
+  // which false-409'd every concurrent voter in the post-dawn burst.
   const votersKey = KEYS.dayVoters(city.day);
-  const tx = await redis.watch(votersKey);
+  const lock = await beginUserLock(redis, user.userId);
   const existing = await store.getVoterChoice(city.day, user.userId);
   if (existing) {
-    await tx.unwatch();
+    await lock.abort();
     return c.json<ApiError>({ status: 'error', message: 'You already voted today.' }, 409);
   }
-  await tx.multi();
-  await tx.hSet(votersKey, { [user.userId]: body.optionId });
-  await tx.hIncrBy(KEYS.dayVotes(city.day), body.optionId, 1);
-  if (!(await execOrConflict(tx))) {
+  const committed = await lock.commit(async (tx) => {
+    await tx.hSet(votersKey, { [user.userId]: body.optionId });
+    await tx.hIncrBy(KEYS.dayVotes(city.day), body.optionId, 1);
+  });
+  if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
   }
   await store.registerHouse(user.userId);
@@ -614,17 +615,19 @@ api.post('/strategy', async (c) => {
     return c.json<ApiError>({ status: 'error', message: 'Unknown plan' }, 400);
   }
 
+  // Per-user optimistic lock (see /vote): different backers never false-conflict.
   const votersKey = KEYS.dayStrategyVoters(city.day);
-  const tx = await redis.watch(votersKey);
+  const lock = await beginUserLock(redis, user.userId);
   const existing = await store.getStrategyChoice(city.day, user.userId);
   if (existing) {
-    await tx.unwatch();
+    await lock.abort();
     return c.json<ApiError>({ status: 'error', message: 'You already backed a plan today.' }, 409);
   }
-  await tx.multi();
-  await tx.hSet(votersKey, { [user.userId]: body.planId });
-  await tx.hIncrBy(KEYS.dayStrategyPlan(city.day), body.planId, 1);
-  if (!(await execOrConflict(tx))) {
+  const committed = await lock.commit(async (tx) => {
+    await tx.hSet(votersKey, { [user.userId]: body.planId });
+    await tx.hIncrBy(KEYS.dayStrategyPlan(city.day), body.planId, 1);
+  });
+  if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
   }
   await store.registerHouse(user.userId);
@@ -657,11 +660,12 @@ api.post('/pledge', async (c) => {
   const player = await store.getPlayer(user.userId);
   if (!player) return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
 
+  // Per-user optimistic lock (see /vote): different pledgers never false-conflict.
   const pledgersKey = KEYS.dayPledgers(city.day);
-  const tx = await redis.watch(pledgersKey);
+  const lock = await beginUserLock(redis, user.userId);
   const existing = await store.getPledger(city.day, user.userId);
   if (existing) {
-    await tx.unwatch();
+    await lock.abort();
     return c.json<ApiError>({ status: 'error', message: 'You already pledged today.' }, 409);
   }
   const entry: PledgerEntry = {
@@ -670,11 +674,12 @@ api.post('/pledge', async (c) => {
     at: Date.now(),
     contribution: player.totalContribution,
   };
-  await tx.multi();
-  await tx.hSet(pledgersKey, { [user.userId]: JSON.stringify(entry) });
-  await tx.hIncrBy(KEYS.dayMarked(city.day), 'pledged', BALANCE.marked.pledgePerTap);
-  await tx.hIncrBy(KEYS.dayMarked(city.day), body.kind, 1);
-  if (!(await execOrConflict(tx))) {
+  const committed = await lock.commit(async (tx) => {
+    await tx.hSet(pledgersKey, { [user.userId]: JSON.stringify(entry) });
+    await tx.hIncrBy(KEYS.dayMarked(city.day), 'pledged', BALANCE.marked.pledgePerTap);
+    await tx.hIncrBy(KEYS.dayMarked(city.day), body.kind, 1);
+  });
+  if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
   }
 

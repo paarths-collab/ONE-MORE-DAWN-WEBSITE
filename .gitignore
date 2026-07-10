@@ -1,7 +1,10 @@
 node_modules
 .DS_Store
 dist
-.envdocs/design/uploads/
+.env
+.env.*
+!.env.example
+docs/design/uploads/
 docs/design/.thumbnail
 docs/design/support.js
 .gstack/
