@@ -5,32 +5,33 @@ post-V1 follow-up.
 
 ## 1. Build warnings (Vite/Rollup output options)
 
-`npm run build` **passes** but prints two warnings:
+`npm run build` **passes** but prints one warning:
 
 ```
 Warning: Invalid output options (1 issue found)
 - For the "sourcemapFileNames". Invalid key: Expected never but received "sourcemapFileNames".
-WARN  inlineDynamicImports option is deprecated, please use codeSplitting: false instead.
 ```
 
-**Why we are not fixing them now:** these options are set **inside the
+**Why we are not fixing it now:** this option is set **inside the
 `@devvit/start` Vite plugin** (`vite.config.ts` only calls `devvit({...})` and
-sets `chunkSizeWarningLimit`; it does not set `sourcemapFileNames` or
-`inlineDynamicImports`). Overriding the plugin's Rollup output to silence the
-warnings risks changing the Devvit client/server bundle shape, which the webview
-and server runtime depend on.
+sets `chunkSizeWarningLimit`; it does not set `sourcemapFileNames`). Overriding
+the plugin's Rollup output to silence the warning risks changing the Devvit
+client/server bundle shape, which the webview and server runtime depend on. The
+Devvit `0.13.7` patch removed the former `inlineDynamicImports` warning.
 
 **Impact:** cosmetic — the build succeeds and `dist/{client,server}` is correct.
 
-**Post-V1 follow-up:** resolved by a deliberate Devvit toolchain upgrade (see
-`dependency-risk-note.md`), which is where these output options live.
+**Post-V1 follow-up:** re-check after future Devvit toolchain upgrades; this
+output option lives inside the plugin.
 
 **Decision:** accepted for V1. Does not block publish.
 
-## 2. Transitive dependency advisories
+## 2. Dependency advisories
 
-See `dependency-risk-note.md`. `npm audit` = 31 transitive advisories through the
-Devvit chain. Accepted as known platform risk; no blind `--force` fix.
+See `dependency-risk-note.md`. `npm audit --omit=dev` reports **0 production
+vulnerabilities** after the lockstep Devvit `0.13.7` patch. Full `npm audit`
+retains 5 CLI-only findings through Devvit's local interactive tooling; the only
+automated fix is a major `1.0.0` migration, deferred until after V1.
 
 ## 3. Features intentionally cut/hidden (not risks, but noted)
 

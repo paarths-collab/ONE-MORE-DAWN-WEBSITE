@@ -5,10 +5,11 @@ One lesson per bullet. Update rather than duplicate; delete if proven wrong.
 ## Environment
 - Windows 11, Git Bash for shell tasks. npm scripts with single-quoted globs
   break on Windows — use escaped double quotes (fixed in `lint` script, commit 548efe6).
-- `npm run build` emits two PRE-EXISTING rollup warnings (`sourcemapFileNames`,
-  `inlineDynamicImports`) — harmless template noise, not caused by your change.
-- `npm install` reports 31 audit advisories inherited from the upstream Devvit
-  template — out of scope, do not attempt to fix.
+- `npm run build` emits one Devvit-plugin warning (`sourcemapFileNames`) —
+  harmless template noise. Devvit `0.13.7` removed the former
+  `inlineDynamicImports` warning.
+- `npm audit --omit=dev` is clean on Devvit `0.13.7`. Full `npm audit` retains
+  5 CLI-only findings; do not force a Devvit `1.0.0` migration into V1.
 - Git warns "LF will be replaced by CRLF" on Windows — cosmetic, ignore.
 - Node v24, npm 11. Devvit CLI commands (`devvit login/upload/playtest`,
   `npm run dev`) require Reddit auth owned by the human — never run them.
