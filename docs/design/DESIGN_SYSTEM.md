@@ -126,4 +126,4 @@ recent players) to keep the payload small.
   console are new front-doors, not rewrites.
 - A `PIXEL_HUB` flag (default on) lets us fall back to the old Dashboard hub if
   the pixel view misbehaves in playtest.
-- All 169 existing tests stay green; new backend gets its own tests.
+- The existing test suite stays green; new backend gets its own tests.

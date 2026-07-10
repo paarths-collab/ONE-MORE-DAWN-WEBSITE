@@ -18,6 +18,22 @@ mock can prove.
 - [ ] `npm run dev -- <private_test_subreddit>` — playtest on your **private test subreddit**
 - [ ] (later, only after this checklist passes) `npm run deploy` → `npm run launch`
 
+## 0a. If playtest/install fails: "app account … appears to be banned"
+
+If `npm run dev -- <sub>` (or install) fails with
+`Error inviting app account with ID t2_… to be a moderator … it appears to be
+banned from the subreddit`, do **not** change any moderation state. This is
+almost always a Reddit account/subreddit **trust** block, not a repo or
+app-identity bug — the app slug is `one-more-dawn`, the app-account ID appears
+nowhere in this repo, and the mod-invite is a Devvit-platform step the code
+never performs.
+
+- [ ] Confirm the app identity is still **one-more-dawn** and the app-account ID in the error is the expected one.
+- [ ] Open the target subreddit **while logged out** — if it 404s or shows "banned", the sub itself was auto-actioned by Reddit (common for a brand-new account's brand-new private sub). That auto-action is what blocks the app-account mod invite.
+- [ ] Retry on a **different** private test subreddit owned/moderated by an **established, in-good-standing** Reddit account (avoid a brand-new account + brand-new sub).
+- [ ] Do **not** try to "unban" the app account or edit mod state to force the invite.
+- [ ] If it still fails on a trusted account + sub, contact Devvit support (r/Devvit / Devvit Discord) with the app slug `one-more-dawn`, the app-account ID, and the subreddit name — treat it as a platform/account-trust issue, not a code fix.
+
 Create a game post (mod menu **"One More Dawn: create game post"**), then run the
 checks below **inside that post's webview**.
 

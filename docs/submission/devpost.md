@@ -47,8 +47,9 @@ simulation.
   Sick, Guard Wall, or add labor toward the next shared building.
 - **One redditor, one house** — the first accepted contribution raises your
   house in first-contribution order; the first contributor is the founder.
-- **Six roles** (Scout, Engineer, Medic, Farmer, Guard, Speaker) with matching
-  bonuses and a 3-day change cooldown; earned **titles** and contribution rank.
+- **Six roles** (Scout, Engineer, Medic, Farmer, Guard, Speaker) with a 3-day
+  change cooldown; each earns its own **title** track and raises a faction's
+  voice (Speakers also lift morale), plus contribution rank.
 - A **survivor identity** — choose a role and name your survivor so every
   masked redditor has a place in the city.
 - The **Dawn Report** on the first visit each day: yesterday's city summary plus

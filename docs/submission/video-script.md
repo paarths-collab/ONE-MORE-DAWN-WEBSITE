@@ -3,8 +3,9 @@
 Target length: 2:00. Reference: judges will watch the video FIRST — this
 is the pitch, not a walkthrough.
 
-Recording: OBS screen capture at 1080p, portrait aspect where possible
-(the game is 720x1280). Record on desktop for stability; a mobile
+Recording: OBS screen capture at 1080p, landscape (the game is
+landscape-first; portrait phones show a "rotate to landscape" advisory
+but stay playable). Record on desktop for stability; a mobile
 playtest is a nice-to-have B-roll.
 
 ## Shot list
@@ -19,7 +20,7 @@ Narration: "Every real day is one game day. Food. Power. Morale. Threat. A crisi
 
 **0:25 – 0:45 · Role + Action**
 [RoleSelect → pick Scout → Dashboard → Spend Energy → Grow Food (or Repair) → toast.]
-Narration: "You pick a role, and your role starts to matter. Farmers boost food. Engineers repair faster. Every action helps one shared city survive."
+Narration: "You pick a role, earn its titles, and your faction's voice grows in the city. Every action helps one shared city survive."
 
 **0:45 – 1:15 · The Marked + raid pressure**
 [Live panel → pledge to The Marked → raid watch → city vitals changing.]
@@ -36,7 +37,7 @@ Narration: "The city remembers. What everyone did today shows up tomorrow — in
 **1:50 – 2:00 · Close**
 [Timeline scene scrolling past a few days including a raid entry in red.]
 Narration: "One more dawn. Can your community survive it?"
-[End card: game name + Reddit logo + "playable on r/OneMoreDawnDev"]
+[End card: game name + Reddit logo + "built on Reddit with Devvit" — swap in the public subreddit name once the app is live and publicly playable.]
 
 ## Alternate lines / backup B-roll
 
