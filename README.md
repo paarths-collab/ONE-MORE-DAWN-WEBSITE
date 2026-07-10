@@ -108,7 +108,7 @@ docs/
 npm ci
 npm run type-check    # tsc --build
 npm run lint          # eslint
-npm test              # vitest (519 tests)
+npm test              # vitest server/shared/client unit tests
 npm run build         # vite build → dist/{client,server}
 npm run test:client   # local mock-live browser smoke
 ```
@@ -161,6 +161,8 @@ Deliberately cut or hidden for a small, honest V1 (see `docs/V1_SCOPE.md`):
   in-world avatar rendering are post-V1.
 - **City trait and active law** are computed server-side but not yet surfaced in
   the UI.
+- **One city per subreddit** — every game post in the same subreddit reads the
+  same shared city state for this V1.
 - **Live raids are forecast/report-driven** — the animated raid cinematic runs in
   demo mode only.
 - **`npm audit`** reports transitive vulnerabilities through the Devvit toolchain —

@@ -2,11 +2,12 @@
 
 > Purpose: freeze a small, honest, publishable V1. Anything not in **Included**
 > is either cut or hidden so the shipped app never promises what it can't do.
-> Verified against `main` (2026-07-08) — see `docs/audit/v1-readiness-audit.md`.
+> Verified against the V1 release branch after the final cleanup — see
+> `docs/audit/private-subreddit-v1-smoke.md` for the human runtime gate.
 
 ## The core V1 promise (one sentence)
 
-**Your subreddit starts as an empty camp; everyone gets one meaningful action a day, and the community builds it — dawn by dawn — from campfire to surviving city, or watches it fall.**
+**Each subreddit builds one shared city: it starts as an empty camp, everyone gets one meaningful action a day, and the community builds it — dawn by dawn — from campfire to surviving city, or watches it fall.**
 
 ## The 60-second first-user experience
 

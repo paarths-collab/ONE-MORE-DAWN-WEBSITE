@@ -573,7 +573,7 @@ function LiveTab({
         </div>
       </div>
 
-      <div className="p-sec">THE COMMENTS — SAY HI</div>
+      <div className="p-sec">CITY CHATTER</div>
       <div className="talk">
         {talk.map((m) => (
           <div key={m.key} className={m.you ? 'tk you' : 'tk'}>
@@ -582,7 +582,7 @@ function LiveTab({
           </div>
         ))}
         <button type="button" className="say-hi" disabled={hiCooldown} onClick={onSayHi}>
-          {hiCooldown ? '…' : villager ? `👋 SAY HI to @${villager}` : '👋 SAY HI IN THE COMMENTS'}
+          {hiCooldown ? '…' : villager ? `👋 SAY HI to @${villager}` : '👋 SAY HI'}
         </button>
       </div>
 
@@ -1007,7 +1007,11 @@ function BuildPanel({
       ) : (
         <div className="bp-next">The city is built. It survives.</div>
       )}
-      <div className="bp-built">Built: {unlocked.length ? unlocked.join(' · ') : 'nothing yet — just a camp'}</div>
+      <div className="bp-built">
+        {unlocked.length
+          ? `Built: ${unlocked.join(' · ')}`
+          : 'Nothing stands here yet. Contribute labor to build the first Shelter.'}
+      </div>
       <button type="button" className="bp-cta" disabled={ctaDisabled} onClick={onAddLabor}>
         {ctaLabel}
       </button>
@@ -1245,7 +1249,7 @@ function VillagerChip({
         👋 WAVE
       </button>
       <button type="button" className="hi-btn" disabled={hiCooldown} onClick={onSayHi}>
-        💬 SAY HI
+        👋 SAY HI
       </button>
     </div>
   );
@@ -2124,6 +2128,7 @@ export function App() {
   const poisRef = useRef<PoiInfo[]>([]); // district directory, readable in handlers
   const contribsRef = useRef<Record<string, Contrib>>(START_CONTRIBS); // fresh reads in timers
   const liveBuildRef = useRef<BuildStatus | null>(null); // last server build state, readable in the add-labor handler
+  const liveHousesRef = useRef<HouseSummary | null>(null); // last server house summary, for first-house feedback
   const demoUnlockedRef = useRef<string[]>([]); // demo build unlocks, readable in the handler
   const demoBuildProgressRef = useRef(0); // demo labor toward the next building
 
@@ -2224,6 +2229,7 @@ export function App() {
       setLiveCycle(city.cycle);
       setLiveRaidLikely(init.forecast.raidLikely);
       setLiveBuild(init.build ?? null); // defensive: server lane owns this field
+      liveHousesRef.current = init.houses ?? null;
       setLiveHouses(init.houses ?? null); // one-redditor-one-house summary
       setLiveRaidNote(raidNoteFromEvents(init.timelinePreview?.events, init.forecast.raidLikely));
       setLiveTimelineHeadline(init.timelinePreview?.headline ?? null);
@@ -2402,23 +2408,34 @@ export function App() {
     [popToast],
   );
 
+  const refreshAfterContribution = useCallback(async () => {
+    const before = liveHousesRef.current?.yours ?? null;
+    const init = await getInit();
+    applyInit(init, false);
+    const yours = init.houses?.yours ?? null;
+    if (!before && yours) {
+      pushNotif('🏠', `Your house now stands in the city. Build order #${yours.index + 1}.`, 'good');
+    }
+  }, [applyInit, pushNotif]);
+
   const onLiveVote = useCallback(
     (optionId: string) => {
       if (cityFallenRef.current || mutatingRef.current) return;
       mutatingRef.current = true;
       postVote(optionId, liveCrisisIdRef.current)
-        .then((res) => {
+        .then(async (res) => {
           setLiveCrisisVotes(res.crisisVotes);
           setLiveMyVote(res.yourCrisisVote);
           playSound('vote_cast');
           pushNotif('🗳️', 'your vote is in', 'good');
+          await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'vote failed — try again'))
         .finally(() => {
           mutatingRef.current = false;
         });
     },
-    [pushNotif, toastFailure],
+    [pushNotif, refreshAfterContribution, toastFailure],
   );
 
   const onLivePledge = useCallback(
@@ -2426,19 +2443,20 @@ export function App() {
       if (cityFallenRef.current || mutatingRef.current || !PLEDGE_KINDS.includes(kind)) return;
       mutatingRef.current = true;
       postPledge(kind)
-        .then((res) => {
+        .then(async (res) => {
           setLiveMarked(res.marked);
           setLivePledge(res.pledge);
           playSound('pledge');
           pushNotif('🕯️', `you pledged for ${res.marked.name}`, 'good');
           handleRef.current?.pulseMarked?.();
+          await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'pledge failed — try again'))
         .finally(() => {
           mutatingRef.current = false;
         });
     },
-    [pushNotif, toastFailure],
+    [pushNotif, refreshAfterContribution, toastFailure],
   );
 
   const onLiveStrategy = useCallback(
@@ -2447,18 +2465,19 @@ export function App() {
       if (cityFallenRef.current || !plan || mutatingRef.current) return;
       mutatingRef.current = true;
       postStrategy(plan)
-        .then((res) => {
+        .then(async (res) => {
           setLiveStrategyVotes(res.strategyVotes);
           setLiveMyPlan(res.yourStrategyVote);
           playSound('vote_cast');
           pushNotif('📜', 'the council heard you', 'good');
+          await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'the council is busy — try again'))
         .finally(() => {
           mutatingRef.current = false;
         });
     },
-    [pushNotif, toastFailure],
+    [pushNotif, refreshAfterContribution, toastFailure],
   );
 
   // First-run onboarding submit: set the role, optionally name the survivor,
@@ -2509,8 +2528,7 @@ export function App() {
         .then(async () => {
           playSound('action_confirm');
           pushNotif('🔨', `you added a day's labor to the ${nextName}`, 'good');
-          const init = await getInit();
-          applyInit(init, false);
+          await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'could not add labor — try again'))
         .finally(() => {
@@ -2538,7 +2556,7 @@ export function App() {
       setDemoBuildProgress(progress);
       pushNotif('🔨', `you added a day's labor to the ${nextDef.name}`, 'good');
     }
-  }, [applyInit, pushNotif, toastFailure]);
+  }, [pushNotif, refreshAfterContribution, toastFailure]);
 
   const onReady = useCallback((h: VillageHandle) => {
     handleRef.current = h;
@@ -2740,7 +2758,7 @@ export function App() {
     setCrisisVotes((v) => ({ ...v, [id]: v[id] + 1 }));
   }, []);
 
-  // SAY HI — post to the comments, wave in the scene, get a scripted reply.
+  // SAY HI — local city chatter only: wave in the scene and get a scripted reply.
   // With a villager selected the greeting is tagged and THEY answer; otherwise
   // the old random-reply rotation plays out.
   const onSayHi = useCallback(() => {
@@ -2826,7 +2844,7 @@ export function App() {
         if (!act || mutatingRef.current) return;
         mutatingRef.current = true;
         postAction(act)
-          .then((res) => {
+          .then(async (res) => {
             setLiveEnergy({ effective: res.effectiveEnergy, used: res.player.energyUsedToday });
             setLiveActions(res.yourActionsToday);
             playSound('action_confirm');
@@ -2835,6 +2853,7 @@ export function App() {
             const liveFrags = ACTION_FLASH[id] ?? [];
             const liveHit = poisRef.current.find((p) => liveFrags.some((f) => p.name.toUpperCase().includes(f)));
             if (liveHit) handleRef.current?.flashDistrict?.(liveHit.name);
+            await refreshAfterContribution();
           })
           .catch((err) => toastFailure(err, 'the action failed — try again'))
           .finally(() => {
@@ -2875,7 +2894,7 @@ export function App() {
       const hit = poisRef.current.find((p) => frags.some((f) => p.name.toUpperCase().includes(f)));
       if (hit) handleRef.current?.flashDistrict?.(hit.name);
     },
-    [addContrib, pushEvent, pushNotif],
+    [addContrib, pushEvent, pushNotif, refreshAfterContribution, toastFailure],
   );
 
   // Demo-only SCAVENGE — live V1 never opens this flow.
