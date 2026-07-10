@@ -381,6 +381,11 @@ async function onboardingSmoke(url) {
   const { cdp, close } = await openPage(url);
   try {
     await cdp.waitFor('document.body && document.body.innerText.includes("CHOOSE YOUR ROLE")', 'onboarding overlay');
+    // First-time understanding: the intro must name the two signature hooks —
+    // the city starts as a Camp, and contributing raises your own house.
+    const intro = await cdp.eval(`document.querySelector('.onboard-sheet')?.textContent || ''`);
+    assert(/Camp/.test(intro), `Onboarding intro should say the city starts as a Camp, saw "${intro.slice(0, 220)}".`);
+    assert(/house/i.test(intro), `Onboarding intro should say your contribution raises your own house, saw "${intro.slice(0, 220)}".`);
     await cdp.clickSelectorContaining('.ob-role', 'GUARD');
     await cdp.clickButton('ENTER THE CITY');
     await cdp.waitFor('document.body && !document.body.innerText.includes("CHOOSE YOUR ROLE")', 'onboarding completion');
@@ -425,12 +430,14 @@ async function campSmoke(url) {
         cta: document.querySelector('.bp-cta')?.textContent || '',
         hasBar: !!panel?.querySelector('.bp-bar'),
         districtCount: document.querySelectorAll('.district').length,
+        districtsEmpty: document.querySelector('.districts .mini-cap')?.textContent || '',
         playableScavenge: [...document.querySelectorAll('button')].some((b) => /SCAVENGE|pick a route/i.test((b.textContent || '').replace(/\\s+/g, ' '))),
         text,
       };
     })()`);
     assert(camp.stage.includes('Camp'), 'Brand-new mock city should show Camp stage.');
     assert(camp.districtCount === 0, `Brand-new Camp should list no districts (starts from scratch), saw ${camp.districtCount}.`);
+    assert(camp.districtsEmpty.includes('No districts yet'), `Fresh Camp CITY tab should show a districts empty-state, not a bare "DISTRICTS" header, saw "${camp.districtsEmpty}".`);
     assert(camp.nextName.includes('Shelter'), 'Brand-new mock city should name Shelter as the first unlock.');
     assert(camp.built.includes('Nothing stands here yet. Contribute labor to build the first Shelter.'), 'Brand-new mock city should explain the empty Camp state.');
     assert(camp.meta.includes('0/24'), 'Brand-new mock city should show zero shared labor progress.');
