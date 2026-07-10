@@ -276,15 +276,57 @@ async function liveSmoke(url) {
     assert(boot.muteControl, 'V1 must show a global mute control.');
     assert(!boot.overflowX, 'Desktop page should not overflow horizontally.');
 
-    // Mute toggle: flips aria-pressed and persists to localStorage; audio never throws.
+    // Sound is a live V1 promise: every local cue must resolve to a non-empty
+    // same-origin WAV, and unmuting must call the media playback path.
+    const soundAssets = await cdp.eval(`Promise.all(
+      ${JSON.stringify([
+        'button_click',
+        'action_confirm',
+        'vote_cast',
+        'pledge',
+        'raid_warning',
+        'dawn_report',
+        'city_fallen',
+        'error_soft',
+      ])}.map(async (name) => {
+        const response = await fetch('assets/sfx/' + name + '.wav');
+        const bytes = await response.arrayBuffer();
+        return { name, ok: response.ok, type: response.headers.get('content-type') || '', bytes: bytes.byteLength };
+      })
+    )`);
+    for (const asset of soundAssets) {
+      assert(asset.ok && asset.bytes > 44, `Sound asset ${asset.name} must load as a non-empty WAV.`);
+    }
+    await cdp.eval(`(() => {
+      window.__omdAudioPlays = [];
+      HTMLMediaElement.prototype.play = function () {
+        window.__omdAudioPlays.push(this.currentSrc || this.src || 'unknown');
+        return Promise.resolve();
+      };
+      return true;
+    })()`);
+
+    // Mute toggle: flips aria-pressed, persists, and plays feedback when unmuted.
     const muteBefore = await cdp.eval(`document.querySelector('.mute-fab')?.getAttribute('aria-pressed')`);
     await cdp.eval(`document.querySelector('.mute-fab')?.click()`);
     await cdp.waitFor(`document.querySelector('.mute-fab')?.getAttribute('aria-pressed') !== ${JSON.stringify(muteBefore)}`, 'mute toggles state');
     const stored = await cdp.eval(`window.localStorage.getItem('omd_muted')`);
     assert(stored === '0' || stored === '1', 'mute state persists to localStorage');
-    await cdp.eval(`document.querySelector('.mute-fab')?.click()`); // restore for the rest of the run
+    await cdp.eval(`document.querySelector('.mute-fab')?.click()`); // restore + audible feedback
+    await cdp.waitFor(`window.__omdAudioPlays.some((src) => src.includes('button_click.wav'))`, 'unmute sound feedback');
 
-    for (const label of ['LIVE', 'TOP 🏆', 'MAP', 'WORLD']) {
+    // The Dawn Report teaser and full ledger are both visible commands, so
+    // exercise their open and close controls before changing dashboard tabs.
+    await cdp.clickButton('VIEW');
+    await cdp.waitFor('!!document.querySelector(".stats-modal.dawn-report.on")', 'dawn report opens');
+    await cdp.eval(`document.querySelector('button[aria-label="Close dawn report"]')?.click()`);
+    await cdp.waitFor('!document.querySelector(".stats-modal.dawn-report.on")', 'dawn report closes');
+    await cdp.eval(`document.querySelector('.stats-fab')?.click()`);
+    await cdp.waitFor('document.querySelector(".stats-modal.on h2")?.textContent.includes("CITY LEDGER")', 'stats ledger opens');
+    await cdp.eval(`document.querySelector('button[aria-label="Close stats"]')?.click()`);
+    await cdp.waitFor('!document.querySelector(".stats-modal.on")', 'stats ledger closes');
+
+    for (const label of ['CITY', 'LIVE', 'TOP 🏆', 'MAP', 'WORLD', 'TOWN']) {
       await cdp.clickButton(label);
       if (label === 'LIVE') {
         await cdp.waitFor('document.body.innerText.includes("CITY CHATTER")', 'LIVE tab labels SAY HI as city chatter');
@@ -310,6 +352,7 @@ async function liveSmoke(url) {
     await cdp.waitFor('document.body.innerText.includes("26/40") || document.body.innerText.includes("26")', 'pledge update');
     await cdp.clickSelectorContaining('.act', 'GUARD');
     await cdp.waitFor('[...document.querySelectorAll(".act")].some((b) => (b.textContent || "").includes("GUARD") && (b.textContent || "").includes("×1 today"))', 'action update');
+    await cdp.waitFor(`window.__omdAudioPlays.some((src) => src.includes('action_confirm.wav'))`, 'accepted action sound');
 
     // BUILD FROM ZERO — the community-progress panel lives in the CITY tab.
     // Runs last: ADD LABOR fires a live mutation whose re-fetch would race the
@@ -332,6 +375,10 @@ async function liveSmoke(url) {
     assert(buildPanel.bodyHasFarm && buildPanel.nextName.includes('Farm'), 'Build panel should name the next building (Farm).');
     assert(buildPanel.ctaIsButton, 'ADD LABOR CTA must be a real button.');
     assert(buildPanel.ctaEnabled, 'ADD LABOR CTA should be enabled when energy remains and not built today.');
+    const firstDistrict = await cdp.eval(`document.querySelectorAll('.district').length`);
+    assert(firstDistrict > 0, 'Settlement CITY tab should render at least one unlocked district.');
+    await cdp.eval(`document.querySelector('.district')?.click()`);
+    await cdp.waitFor('!!document.querySelector(".district.on")', 'district selection');
     await cdp.clickSelectorContaining('.bp-cta', 'ADD LABOR');
     await cdp.waitFor('!!document.querySelector(".build-panel")', 'build panel survives ADD LABOR');
 
@@ -372,6 +419,95 @@ async function liveSmoke(url) {
     assert(board.hasStage && board.hasFeed, 'Dashboard should render the settlement stage and updates feed.');
     assert(board.structureRows >= 7, 'Dashboard should list every buildable structure.');
     await cdp.eval(`document.querySelector('.board-fab')?.click()`); // close for a clean end state
+  } finally {
+    await close();
+  }
+}
+
+async function landscapeLayoutSmoke(url) {
+  const { cdp, close } = await openPage(url);
+  try {
+    await cdp.call('Emulation.setDeviceMetricsOverride', {
+      width: 844,
+      height: 390,
+      deviceScaleFactor: 2,
+      mobile: true,
+      screenOrientation: { type: 'landscapePrimary', angle: 90 },
+    });
+    await cdp.call('Page.reload', { ignoreCache: true });
+    await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("THE LAST CITY")', 'landscape city boot');
+    await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'landscape loader exit');
+    const layout = await cdp.eval(`(() => {
+      const visible = (el) => {
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+      };
+      const globals = [...document.querySelectorAll('.fab-bar button, .dash-fab')].filter(visible);
+      const drawer = [...document.querySelectorAll('.dash.on button')].filter(visible);
+      const intersections = [];
+      for (const a of globals) {
+        const ar = a.getBoundingClientRect();
+        for (const b of drawer) {
+          const br = b.getBoundingClientRect();
+          const width = Math.min(ar.right, br.right) - Math.max(ar.left, br.left);
+          const height = Math.min(ar.bottom, br.bottom) - Math.max(ar.top, br.top);
+          if (width > 2 && height > 2) {
+            intersections.push([(a.textContent || '').trim(), (b.textContent || '').trim()]);
+          }
+        }
+      }
+      return {
+        intersections,
+        overflowX: document.body.scrollWidth > document.documentElement.clientWidth,
+        actionHeights: [...document.querySelectorAll('.act')].filter(visible).map((el) => el.getBoundingClientRect().height),
+      };
+    })()`);
+    assert(layout.intersections.length === 0, `Landscape global controls must not overlap the CITY drawer: ${JSON.stringify(layout.intersections)}`);
+    assert(!layout.overflowX, 'Landscape viewport should not overflow horizontally.');
+    assert(layout.actionHeights.every((height) => height >= 44), `Landscape action buttons need 44px touch height, saw ${layout.actionHeights.join(', ')}.`);
+  } finally {
+    await close();
+  }
+}
+
+async function splashSmoke(url) {
+  const { cdp, close } = await openPage(`${url}splash.html`);
+  try {
+    await cdp.call('Emulation.setDeviceMetricsOverride', {
+      width: 390,
+      height: 520,
+      deviceScaleFactor: 2,
+      mobile: true,
+      screenOrientation: { type: 'portraitPrimary', angle: 0 },
+    });
+    await cdp.call('Page.reload', { ignoreCache: true });
+    await cdp.waitFor('document.body.innerText.includes("ONE MORE DAWN")', 'feed splash boot');
+    await cdp.waitFor('document.querySelector(".snoo")?.complete && document.querySelector(".snoo")?.naturalWidth > 0', 'feed splash survivor art');
+    const splash = await cdp.eval(`(() => {
+      const cta = document.querySelector('#start-button');
+      const rect = cta?.getBoundingClientRect();
+      const image = document.querySelector('.snoo');
+      return {
+        buttonCount: document.querySelectorAll('button').length,
+        ctaText: cta?.textContent || '',
+        ctaHeight: rect?.height || 0,
+        imageLoaded: image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+        staleLinks: /Docs|r\\/Devvit|Discord/.test(document.body.innerText),
+        sharedCity: document.body.innerText.includes('ONE SHARED CITY'),
+        overflowX: document.body.scrollWidth > document.documentElement.clientWidth,
+        overflowY: document.body.scrollHeight > document.documentElement.clientHeight,
+      };
+    })()`);
+    assert(splash.buttonCount === 1, `Feed splash should have one primary command, saw ${splash.buttonCount}.`);
+    assert(splash.ctaText.includes('ENTER THE CITY'), 'Feed splash should expose the Enter the City CTA.');
+    assert(splash.ctaHeight >= 44, `Feed splash CTA needs 44px touch height, saw ${splash.ctaHeight}.`);
+    assert(splash.imageLoaded, 'Feed splash survivor art must load from the local bundle.');
+    assert(!splash.staleLinks, 'Feed splash must not expose stock Devvit template links.');
+    assert(splash.sharedCity, 'Feed splash should state the shared-city premise.');
+    assert(!splash.overflowX && !splash.overflowY, 'Feed splash should fit a 390×520 Reddit card without scrolling.');
+    await cdp.clickButtonContaining('ENTER THE CITY');
+    await cdp.waitFor('document.body.innerText.includes("ONE MORE DAWN")', 'feed splash survives expand request');
   } finally {
     await close();
   }
@@ -513,5 +649,7 @@ await withServer('mock-live fallen city', 4642, { MOCK_FALLEN: '1' }, fallenSmok
 await withServer('mock-live brand-new camp', 4643, { MOCK_CAMP: '1' }, campSmoke);
 await withServer('mock-live portrait fallback', 4644, {}, portraitSmoke);
 await withServer('mock-live first house feedback', 4645, { MOCK_NO_HOUSE: '1' }, firstHouseSmoke);
+await withServer('mock-live landscape layout', 4646, {}, landscapeLayoutSmoke);
+await withServer('feed splash', 4647, {}, splashSmoke);
 
 console.log('client smoke passed');
