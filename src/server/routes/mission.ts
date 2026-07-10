@@ -17,6 +17,15 @@ import { getStore, parseBody } from './api';
 
 export const mission = new Hono();
 
+// Expeditions are explicitly post-V1. Keep the backend module for later work,
+// but fail closed even if a caller discovers the endpoint directly.
+mission.use('*', async (c) =>
+  c.json<ApiError>(
+    { status: 'error', message: 'Expeditions are not available in V1.' },
+    404,
+  ),
+);
+
 const MISSION_ROUTES: readonly MissionRoute[] = ['safe', 'deep', 'desperate'];
 
 /**

@@ -20,6 +20,7 @@ import type {
   Marked,
   PledgeRequest,
   PledgeResponse,
+  PlayerProfile,
   RoleRequest,
   RoleResponse,
   StrategyRequest,
@@ -39,7 +40,7 @@ import { pickMarked } from '../game/marked';
 import { buildPledgeInfo, isPledgeKind, type PledgerEntry } from '../game/pledges';
 import { buildStanding } from '../game/standing';
 import { buildVillagers, buildZones, maskName } from '../game/village';
-import { bumpRoleRep, effectiveEnergy, loadOrCreatePlayer } from '../game/dayLogic';
+import { bumpRoleRep, effectiveEnergy, freshPlayer, resetPlayerForDay } from '../game/dayLogic';
 import { runLazyResolution, utcDateString } from '../game/lazyResolve';
 import { resolveDay } from '../game/resolver';
 import { beginUserLock } from '../game/userLock';
@@ -158,6 +159,60 @@ export const requireUser = (): { userId: string } | undefined => {
   return userId ? { userId } : undefined;
 };
 
+const withFactionRep = (
+  player: PlayerProfile,
+  raw: Record<string, string>,
+  faction: FactionId,
+  by: number,
+): PlayerProfile => {
+  const reps: Record<FactionId, number> = {
+    builders: Number(raw.builders ?? 0),
+    wardens: Number(raw.wardens ?? 0),
+    seekers: Number(raw.seekers ?? 0),
+    hearth: Number(raw.hearth ?? 0),
+  };
+  reps[faction] = (Number.isFinite(reps[faction]) ? reps[faction] : 0) + by;
+  const order: FactionId[] = ['builders', 'wardens', 'seekers', 'hearth'];
+  let leader: FactionId | null = null;
+  let leaderRep = 0;
+  for (const candidate of order) {
+    if (Number.isFinite(reps[candidate]) && reps[candidate] > leaderRep) {
+      leader = candidate;
+      leaderRep = reps[candidate];
+    }
+  }
+  return { ...player, faction: leader, factionRep: leaderRep };
+};
+
+const loadInitPlayer = async (
+  store: Store,
+  userId: string,
+  cityDay: number,
+  resolveUsername: () => Promise<string>,
+): Promise<{ player: PlayerProfile; brandNew: boolean; firstVisitToday: boolean } | undefined> => {
+  let resolvedUsername: string | undefined;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const lock = await beginUserLock(redis, userId);
+    let player = await store.getPlayer(userId);
+    const brandNew = !player;
+    if (!player) {
+      resolvedUsername ??= await resolveUsername();
+      player = freshPlayer(userId, resolvedUsername, cityDay);
+    }
+    const firstVisitToday = !brandNew && player.lastActiveDay < cityDay;
+    const reset = resetPlayerForDay(player, cityDay);
+    if (!brandNew && reset === player) {
+      await lock.abort();
+      return { player, brandNew, firstVisitToday };
+    }
+    const committed = await lock.commit(async (tx) => {
+      await tx.hSet(KEYS.players, { [userId]: JSON.stringify(reset) });
+    });
+    if (committed) return { player: reset, brandNew, firstVisitToday };
+  }
+  return undefined;
+};
+
 /**
  * Per-installation world seed (W1): hash of the subreddit id, so every
  * subreddit gets its own maps, crisis sequence, and city trait. BaseContext
@@ -271,7 +326,7 @@ api.get('/init', async (c) => {
   // Only fresh players pay the Reddit username RPC — existing profiles skip it.
   // The brand-new profile is ALWAYS persisted here; skipping the save bricks
   // every first-time player at the role gate forever.
-  const { player, brandNew, firstVisitToday } = await loadOrCreatePlayer(
+  const loadedPlayer = await loadInitPlayer(
     store,
     user.userId,
     city.day,
@@ -286,6 +341,10 @@ api.get('/init', async (c) => {
       }
     },
   );
+  if (!loadedPlayer) {
+    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+  }
+  const { player, brandNew, firstVisitToday } = loadedPlayer;
 
   const [
     crisisVotes,
@@ -433,14 +492,26 @@ api.post('/role', async (c) => {
   if (!body || typeof body.role !== 'string') {
     return c.json<ApiError>({ status: 'error', message: 'Bad request' }, 400);
   }
+  const lock = await beginUserLock(redis, user.userId);
   const player = await store.getPlayer(user.userId);
-  if (!player) return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
+  if (!player) {
+    await lock.abort();
+    return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
+  }
 
   const error = validateRoleChange(player, city.day, body.role);
-  if (error) return c.json<ApiError>({ status: 'error', message: error }, 400);
+  if (error) {
+    await lock.abort();
+    return c.json<ApiError>({ status: 'error', message: error }, 400);
+  }
 
   const updated = { ...player, role: body.role, roleChangedDay: city.day };
-  await store.savePlayer(updated);
+  const committed = await lock.commit(async (tx) => {
+    await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(updated) });
+  });
+  if (!committed) {
+    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+  }
   return c.json<RoleResponse>({ type: 'role', player: updated });
 });
 
@@ -460,11 +531,20 @@ api.post('/avatar', async (c) => {
   if (!body || !isValidAvatar(body.avatar)) {
     return c.json<ApiError>({ status: 'error', message: 'Pick a name (2+ letters) and a look.' }, 400);
   }
+  const lock = await beginUserLock(redis, user.userId);
   const player = await store.getPlayer(user.userId);
-  if (!player) return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
+  if (!player) {
+    await lock.abort();
+    return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
+  }
 
   const updated = { ...player, avatar: clampAvatar(body.avatar) };
-  await store.savePlayer(updated);
+  const committed = await lock.commit(async (tx) => {
+    await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(updated) });
+  });
+  if (!committed) {
+    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+  }
   return c.json<AvatarResponse>({ type: 'avatar', player: updated });
 });
 
@@ -497,13 +577,33 @@ api.post('/action', async (c) => {
     return c.json<ApiError>({ status: 'error', message: error }, 400);
   }
 
-  const updated = {
+  const faction = BALANCE.factionPerAction[body.action];
+  const updated: PlayerProfile = {
     ...player,
     energyUsedToday: player.energyUsedToday + 1,
     totalContribution: player.totalContribution + BALANCE.contributionPerAction,
   };
+  const factionUpdated = faction
+    ? withFactionRep(
+        updated,
+        await redis.hGetAll(KEYS.playerFactions(city.cycle, user.userId)),
+        faction,
+        BALANCE.factionRepPerAction,
+      )
+    : updated;
+  // validateAction guarantees a role. Compute every whole-profile field before
+  // exec so no stale save can run after the per-user lock has been released.
+  const repped = bumpRoleRep(factionUpdated, factionUpdated.role!, BALANCE.roleRepPerAction);
+  const finalPlayer = repped.player;
   const committed = await lock.commit(async (tx) => {
-    await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(updated) });
+    await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(finalPlayer) });
+    if (faction) {
+      await tx.hIncrBy(
+        KEYS.playerFactions(city.cycle, user.userId),
+        faction,
+        BALANCE.factionRepPerAction,
+      );
+    }
   });
   if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
@@ -512,7 +612,6 @@ api.post('/action', async (c) => {
   // Non-critical bookkeeping outside the tx (contribution mirror + aggregates),
   // in parallel — none of these read each other's writes. Faction influence
   // rides along when the action maps to a faction.
-  const faction = BALANCE.factionPerAction[body.action];
   await Promise.all([
     store.registerHouse(user.userId),
     store.recordAction(city.day, user.userId, body.action),
@@ -521,21 +620,6 @@ api.post('/action', async (c) => {
       ? [store.bumpFactionInfluence(city.day, faction, BALANCE.factionRepPerAction)]
       : []),
   ]);
-
-  // Rep re-reads the saved player and its result is the response player —
-  // must stay after the tx write and outside the Promise.all.
-  let finalPlayer = updated;
-  if (faction) {
-    finalPlayer =
-      (await store.bumpPlayerFactionRep(city.cycle, user.userId, faction, BALANCE.factionRepPerAction)) ??
-      updated;
-  }
-
-  // Role reputation rides on every action. validateAction guarantees a role.
-  // Fold onto whatever bumpPlayerFactionRep persisted, then save once more.
-  const repped = bumpRoleRep(finalPlayer, finalPlayer.role!, BALANCE.roleRepPerAction);
-  finalPlayer = repped.player;
-  await store.savePlayer(finalPlayer);
 
   return c.json<ActionResponse>({
     type: 'action',
@@ -657,12 +741,14 @@ api.post('/pledge', async (c) => {
   if (!body || !isPledgeKind(body.kind)) {
     return c.json<ApiError>({ status: 'error', message: 'Bad request' }, 400);
   }
-  const player = await store.getPlayer(user.userId);
-  if (!player) return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
-
   // Per-user optimistic lock (see /vote): different pledgers never false-conflict.
   const pledgersKey = KEYS.dayPledgers(city.day);
   const lock = await beginUserLock(redis, user.userId);
+  const player = await store.getPlayer(user.userId);
+  if (!player) {
+    await lock.abort();
+    return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
+  }
   const existing = await store.getPledger(city.day, user.userId);
   if (existing) {
     await lock.abort();
@@ -674,7 +760,12 @@ api.post('/pledge', async (c) => {
     at: Date.now(),
     contribution: player.totalContribution,
   };
+  const updated = {
+    ...player,
+    totalContribution: player.totalContribution + BALANCE.contributionPerPledge,
+  };
   const committed = await lock.commit(async (tx) => {
+    await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(updated) });
     await tx.hSet(pledgersKey, { [user.userId]: JSON.stringify(entry) });
     await tx.hIncrBy(KEYS.dayMarked(city.day), 'pledged', BALANCE.marked.pledgePerTap);
     await tx.hIncrBy(KEYS.dayMarked(city.day), body.kind, 1);
@@ -684,15 +775,9 @@ api.post('/pledge', async (c) => {
   }
 
   // Public credit: pledges count toward contribution/status (never energy).
-  // Re-read after the tx so a concurrent action's energy spend isn't clobbered.
-  const fresh = (await store.getPlayer(user.userId)) ?? player;
-  const updated = {
-    ...fresh,
-    totalContribution: fresh.totalContribution + BALANCE.contributionPerPledge,
-  };
+  // The whole profile was committed inside the per-user transaction above.
   await Promise.all([
     store.registerHouse(user.userId),
-    store.savePlayer(updated),
     store.addContribution(user.userId, BALANCE.contributionPerPledge),
   ]);
 

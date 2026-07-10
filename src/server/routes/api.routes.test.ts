@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { context, redis, reddit } from '@devvit/web/server';
+import { BALANCE } from '../../shared/balance';
 import { HOUSE_CAP } from '../../shared/houses';
 import type { InitResponse, LeaderboardResponse, TimelineEntry, TimelineResponse } from '../../shared/types';
 import { api } from './api';
+import { mission } from './mission';
 import { freshPlayer } from '../game/dayLogic';
 import { KEYS } from '../storage/redisKeys';
 import { Store } from '../storage/store';
@@ -207,6 +209,61 @@ describe('GET /api/init houses', () => {
       yours: null,
       named: [],
     });
+  });
+});
+
+const deferred = () => {
+  let settle = () => {};
+  const promise = new Promise<void>((resolve) => {
+    settle = resolve;
+  });
+  return { promise, resolve: settle };
+};
+
+describe('POST /action — atomic player profile', () => {
+  it('cannot roll energy backward when an earlier request finishes bookkeeping late', async () => {
+    await openUser('t2_race', 'racer');
+    expect((await api.request('/role', postJson({ role: 'guard' }))).status).toBe(200);
+
+    const firstBookkeepingReached = deferred();
+    const releaseFirstBookkeeping = deferred();
+    const originalZIncrBy = fake.zIncrBy.bind(fake);
+    let blockFirst = true;
+    vi.spyOn(redis, 'zIncrBy').mockImplementation(async (key, member, value) => {
+      if (blockFirst && member === 't2_race') {
+        blockFirst = false;
+        firstBookkeepingReached.resolve();
+        await releaseFirstBookkeeping.promise;
+      }
+      return originalZIncrBy(key, member, value);
+    });
+
+    const first = api.request('/action', postJson({ action: 'guard_wall' }));
+    await firstBookkeepingReached.promise;
+    const second = await api.request('/action', postJson({ action: 'guard_wall' }));
+    expect(second.status).toBe(200);
+    releaseFirstBookkeeping.resolve();
+    expect((await first).status).toBe(200);
+
+    const saved = await store.getPlayer('t2_race');
+    expect(saved?.energyUsedToday).toBe(2);
+    expect(saved?.roleRep.guard).toBe(BALANCE.roleRepPerAction * 2);
+    expect(saved?.factionRep).toBe(BALANCE.factionRepPerAction * 2);
+    expect(await store.getUserActions(1, 't2_race')).toEqual({ guard_wall: 2 });
+  });
+});
+
+describe('POST /mission — V1 scope gate', () => {
+  it('rejects direct mission calls even when the hidden endpoint is discovered', async () => {
+    ctx.userId = 't2_curious';
+    for (const path of ['/start', '/complete']) {
+      const res = await mission.request(path, postJson({ route: 'deep' }));
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({
+        status: 'error',
+        message: 'Expeditions are not available in V1.',
+      });
+    }
   });
 });
 
