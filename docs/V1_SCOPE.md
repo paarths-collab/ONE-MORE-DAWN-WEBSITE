@@ -50,7 +50,7 @@ These were reviewed and are **not fully wired into the live 3D client**, so they
 | Feature | Status | V1 handling |
 |---|---|---|
 | Phaser expedition / minigame | Removed from the client (Phaser dependency deleted) | Cut; remove from all docs/copy |
-| Full scavenge gameplay | Backend exists; **not surfaced in live** (hidden) | Hidden in live; not advertised |
+| Full scavenge gameplay | Unfinished backend module retained, but its route is **disabled for V1** | Absent in live; direct calls return 404 |
 | Complex avatar creator (pronouns + pixel look) | Client captures **name only**; avatar not rendered in-world | Ship as "name your survivor" |
 | Rich law / trait management UI | `activeLaw` / `trait` are received from the server but **not rendered** | Hidden in V1 |
 | Advanced raid-aftermath cinematic (live) | Cinematic raiders exist in demo only; live is forecast/report-driven | Post-V1 |

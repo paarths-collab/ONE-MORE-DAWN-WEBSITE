@@ -1,38 +1,37 @@
 # Dependency Risk Note — V1
 
-Date: 2026-07-08 · Status: **known platform risk, does not block V1 publish.**
+Date: 2026-07-10 · Status: **production dependency audit clean; residual CLI-only risk accepted.**
 
-## What `npm audit` reports
+## Current audit result
 
-`npm audit` reports **31 vulnerabilities (4 high, 25 moderate, 2 low)**. Essentially
-all of them are **transitive**, pulled in through the **Devvit toolchain**
-(`devvit`, `@devvit/web`, `@devvit/start`) and their build/CLI dependencies —
-packages like `ws`, `tmp`, and `protobufjs`. They are not in our own application
-code paths.
+The Devvit packages move together on `0.13.7`:
 
-## Why we are NOT running `npm audit fix --force`
+- `@devvit/web` is the production dependency.
+- `@devvit/start` and `devvit` are development dependencies used to build,
+  playtest, and upload the app.
+- `npm audit --omit=dev` reports **0 vulnerabilities**.
+- Full `npm audit` reports **5 development-tool findings** (1 high, 4 low)
+  through the Devvit CLI's `inquirer` → `external-editor` → `tmp` chain.
 
-- `--force` will happily bump **major versions of Devvit packages** (pinned at
-  `0.13.6`) to satisfy a transitive advisory. That can silently break the Devvit
-  Web build, the webview contract, or the server runtime.
-- The Devvit stack is tightly coupled (`@devvit/web` + `@devvit/start` + `devvit`
-  must move together). A blind force-fix desyncs them.
-- These advisories are in **build/CLI tooling**, not in code that runs in the
-  Reddit webview or handles untrusted user input in our app.
+The V1 game server and webview do not import or execute that editor path. The
+remaining high advisory requires local CLI use with attacker-controlled temporary
+file options; it is not reachable from a Reddit player request.
 
-## Recommended path (post-V1)
+## What changed
 
-1. Wait for / pick a compatible Devvit release that moves the whole stack together.
-2. Do a **deliberate, single-PR Devvit upgrade** (`devvit` + `@devvit/web` +
-   `@devvit/start` in lockstep).
-3. Run the **full regression**: `npm run type-check`, `npm run lint`, `npm test`,
-   `npm run build`, `npm run test:client`, then a real `npm run dev` playtest.
-4. Re-run `npm audit` and re-assess.
+The lockstep patch from Devvit `0.13.6` to `0.13.7` removed the prior runtime and
+toolchain advisories involving `ws`, `protobufjs`, and `js-yaml`. The build,
+typecheck, lint, unit/integration suite, and client smoke all pass on `0.13.7`.
+
+## Why we are not running `npm audit fix --force`
+
+The remaining automated fix is Devvit `1.0.0`, a major-version upgrade. Taking a
+major platform migration immediately before the V1 private playtest would create
+more launch risk than the CLI-only advisory removes. Do not force-upgrade it as
+part of this release.
 
 ## V1 decision
 
-**Accepted as known dependency risk.** No direct exploitable path was found in our
-own application code (server routes validate input and require auth; the client
-makes only same-origin `/api` calls). The advisories live in the Devvit build/CLI
-chain. **This does not block V1 publish.** Do not force-upgrade dependencies as
-part of the V1 cut.
+**Accepted as a development-tool risk, not a production runtime risk.** Revisit
+Devvit `1.x` in a dedicated post-V1 upgrade with the full automated gate and a
+real private-subreddit regression playtest.

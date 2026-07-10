@@ -10,24 +10,25 @@
     <title>One More Dawn</title>
   </head>
   <body class="app">
-    <img class="snoo" src="/snoo.png" alt="Snoo" />
-    <div class="content">
-      <h1 class="title" id="title"></h1>
+    <main class="splash-shell">
+      <img class="snoo" src="/snoo.png" alt="A Reddit survivor carrying supplies for the city" />
+      <div class="content">
+        <p class="eyebrow">DAY ZERO · THE GATES ARE OPEN</p>
+        <h1 class="title">ONE MORE DAWN</h1>
+        <p class="offer">Build the last city together.</p>
       <p class="description">
-        You live in the last city. Spend today's energy to gather resources, vote on a crisis, and
-        help the city survive one more dawn. Tomorrow, the city changes based on what everyone did.
+          Spend today's energy, vote on the crisis, and leave your house standing in a city shared
+          by this whole subreddit.
       </p>
-    </div>
-    <div>
-      <button class="start-button" id="start-button">Enter the City</button>
-    </div>
-    <footer class="footer">
-      <div class="docs-link" tabindex="0" id="docs-link">Docs</div>
-      <span class="divider">|</span>
-      <div class="docs-link" tabindex="0" id="playtest-link">r/Devvit</div>
-      <span class="divider">|</span>
-      <div class="docs-link" tabindex="0" id="discord-link">Discord</div>
-    </footer>
+        <div class="signals" aria-label="City status preview">
+          <span><b>3</b> actions</span>
+          <span><b>1</b> vote</span>
+          <span><b>1</b> shared city</span>
+        </div>
+        <button class="start-button" id="start-button">ENTER THE CITY <span aria-hidden="true">→</span></button>
+      </div>
+    </main>
+    <footer class="footer">ONE SUBREDDIT · ONE SHARED CITY</footer>
     <script type="module" src="splash.ts" defer></script>
   </body>
 </html>

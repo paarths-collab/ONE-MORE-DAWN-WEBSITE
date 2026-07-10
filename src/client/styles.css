@@ -526,8 +526,11 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .day .dn { font-size: 10px; }
   .day .dt { display: none; }
 
-  .dash-fab { top: 54px; right: 10px; padding: 8px 10px; font-size: 9px; }
-  .fab-bar { top: 54px; right: 100px; gap: 8px; }
+  /* Keep global controls outside the 240px drawer. At phone-landscape widths
+     the old right offsets placed DASH / STATS / mute underneath the drawer's
+     MAP / CITY / LIVE / TOP controls, leaving several buttons partly covered. */
+  .dash-fab { top: 54px; right: 250px; padding: 8px 10px; font-size: 9px; }
+  .fab-bar { top: 54px; right: 340px; flex-direction: row; align-items: center; gap: 8px; }
   .stats-fab { padding: 8px 10px; font-size: 9px; }
   .mute-fab { padding: 7px 9px; font-size: 12px; }
   .board-fab { padding: 8px 10px; font-size: 9px; }
@@ -559,7 +562,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .notif { font-size: 7px; padding: 5px 9px; }
   .hotbar { bottom: 6px; left: 46%; }
   .hotbar.live { bottom: 6px; }
-  .act { min-width: 54px; padding: 6px 8px; }
+  .act { min-width: 54px; min-height: 44px; padding: 6px 8px; }
   .act .ai { font-size: 14px; }
   .act .al { display: none; }
   .act .af { display: none; }

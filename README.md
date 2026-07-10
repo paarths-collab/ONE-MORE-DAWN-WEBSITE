@@ -150,8 +150,8 @@ state"** mod menu action.
 
 Deliberately cut or hidden for a small, honest V1 (see `docs/V1_SCOPE.md`):
 
-- **No scavenge/expedition minigame in the live client** — the backend exists but
-  isn't wired into the 3D town; the action is hidden in live.
+- **No scavenge/expedition minigame in V1** — the unfinished backend module is
+  fail-closed at its route, and the action is absent from the live 3D town.
 - **Minimal sound + mute** — local SFX cues on key events (action, vote, pledge,
   raid warning, dawn report, fallen city) + a global mute toggle persisted in
   localStorage; fail-silent, never blocks gameplay. Sounds ship as
