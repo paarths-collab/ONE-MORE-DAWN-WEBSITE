@@ -13,11 +13,11 @@ A cooperative survival-strategy game where your subreddit keeps the last city al
 
 ## Elevator pitch (short paragraph)
 
-One More Dawn is a cooperative survival-strategy game where a subreddit
-manages the last city after collapse. Players gather resources, pledge to
-save the Marked, vote on moral crises, and compete through internal factions
-for influence over the city's laws. Everyone wants the city to survive — but
-not everyone agrees what kind of city it should become.
+One More Dawn is a cooperative survival-strategy game where each subreddit
+builds one shared city after collapse. Players gather resources, pledge to
+save the Marked, vote on moral crises, back a council strategy, and raise
+personal houses in first-contribution order. Everyone wants the city to survive
+— but not everyone agrees what kind of city it should become.
 
 ---
 
@@ -37,17 +37,19 @@ simulation.
 
 ## What it does
 
-- One real day is one game day. The city is per-subreddit and persistent —
-  every post shows the same city, and one app install becomes many isolated
-  cities (one per subreddit).
+- One real day is one game day. The city is per-subreddit and persistent:
+  every post in a subreddit shows that subreddit’s same shared city.
 - **The Marked** — a named survivor or landmark in danger tonight. Anyone can
   save it with **one tap** (no energy needed): the lurker path into the game.
 - A daily **crisis vote** with visible tradeoffs and a **council plan** strategy
   vote — one each per player per day, locked once cast.
 - Three **energy** points a day on city actions — Grow Food, Repair Power, Treat
-  Sick, Guard Wall.
-- **Six roles** (Scout, Engineer, Medic, Farmer, Guard, Speaker) with matching
-  bonuses and a 3-day change cooldown; earned **titles** and contribution rank.
+  Sick, Guard Wall, or add labor toward the next shared building.
+- **One redditor, one house** — the first accepted contribution raises your
+  house in first-contribution order; the first contributor is the founder.
+- **Six roles** (Scout, Engineer, Medic, Farmer, Guard, Speaker) with a 3-day
+  change cooldown; each earns its own **title** track and raises a faction's
+  voice (Speakers also lift morale), plus contribution rank.
 - A **survivor identity** — choose a role and name your survivor so every
   masked redditor has a place in the city.
 - The **Dawn Report** on the first visit each day: yesterday's city summary plus
@@ -56,8 +58,8 @@ simulation.
   change, and raid pressure that reddens as danger nears.
 - A **live drama feed**, a permanent **timeline**, and a **World of Cities** map
   ranking participating subreddits against each other.
-- **Factions & laws** (Builders / Wardens / Seekers / Hearth) that emerge from
-  what players actually do.
+- Server-side faction pressure from what players do, with richer law display
+  intentionally left for post-V1.
 - A mod-only admin menu with **force-resolve**, **reset**, and a rich
   **seed-demo** that spins up a judge-ready mid-run city.
 
@@ -80,8 +82,9 @@ simulation.
 - **Lazy day resolver** under an NX lock — no cron. The first request after
   midnight UTC resolves the previous day.
 - **Optimistic-concurrency** energy spend and vote lock-in via watch/multi/exec.
-- **519 tests** including a full-loop integration proof and property tests that
-  drive the store and pure game logic end-to-end.
+- Automated tests and browser smoke coverage for the V1 loop, including a
+  full-loop integration proof and property tests that drive the store and pure
+  game logic end-to-end.
 
 ---
 
@@ -121,9 +124,9 @@ food and power pressure.
   property tests.
 - A React UI that reads like a *place*: a living skyline, a one-tap pledge, a
   Dawn Report, and a survivor you build yourself — all crisp on mobile.
-- Reddit-native hook that doesn't feel bolted on: factions form from what people
-  actually do, laws come from the leading faction, and the whole subreddit shares
-  the consequences.
+- Reddit-native hook that doesn't feel bolted on: daily actions, votes, pledges,
+  and houses all come from real contributors, and the whole subreddit shares the
+  consequences.
 - Deterministic, replayable resolver — retries can't fork reality.
 - Ships CSP-clean: fonts self-hosted, no external requests, no inline scripts.
 
@@ -147,8 +150,7 @@ food and power pressure.
 ## What's next for One More Dawn
 
 - Comment-write integration for scout reports and council rallies — turn in-game
-  events into first-class Reddit threads (today we bridge to comments with a
-  one-tap "copy scout report").
+  events into first-class Reddit threads after V1.
 - A cohesive custom icon set to replace the remaining emoji.
 - Marked portrait art with saved/lost states.
 - City-vs-city Olympics season mode on top of the World map.

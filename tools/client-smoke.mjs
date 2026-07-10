@@ -258,6 +258,7 @@ async function liveSmoke(url) {
     await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("THE LAST CITY")', 'live city boot');
     await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'loader exit');
     const boot = await cdp.eval(`(() => ({
+      staleCommentClaim: document.body.innerText.includes('SAY HI IN THE COMMENTS'),
       blockingReport: !!document.querySelector('.stats-modal.dawn-report'),
       teaser: !!document.querySelector('.dawn-teaser'),
       buildVisible: [...document.querySelectorAll('button')].some((b) => (b.textContent || '').includes('🔨')),
@@ -266,6 +267,7 @@ async function liveSmoke(url) {
       muteControl: !!document.querySelector('.mute-fab'),
       overflowX: document.body.scrollWidth > document.documentElement.clientWidth
     }))()`);
+    assert(!boot.staleCommentClaim, 'Live V1 must not claim SAY HI posts to Reddit comments.');
     assert(!boot.blockingReport, 'Dawn Report must not block first interaction.');
     assert(boot.teaser, 'Dawn Report teaser should be visible in mock-live.');
     assert(!boot.buildVisible, 'Live mode must not show demo-only BUILD.');
@@ -284,6 +286,9 @@ async function liveSmoke(url) {
 
     for (const label of ['LIVE', 'TOP 🏆', 'MAP', 'WORLD']) {
       await cdp.clickButton(label);
+      if (label === 'LIVE') {
+        await cdp.waitFor('document.body.innerText.includes("CITY CHATTER")', 'LIVE tab labels SAY HI as city chatter');
+      }
       if (label === 'WORLD') {
         await cdp.waitFor('document.querySelectorAll(".wm-city").length >= 2', 'multiple world cities render');
         const world = await cdp.eval(`(() => ({
@@ -376,6 +381,11 @@ async function onboardingSmoke(url) {
   const { cdp, close } = await openPage(url);
   try {
     await cdp.waitFor('document.body && document.body.innerText.includes("CHOOSE YOUR ROLE")', 'onboarding overlay');
+    // First-time understanding: the intro must name the two signature hooks —
+    // the city starts as a Camp, and contributing raises your own house.
+    const intro = await cdp.eval(`document.querySelector('.onboard-sheet')?.textContent || ''`);
+    assert(/Camp/.test(intro), `Onboarding intro should say the city starts as a Camp, saw "${intro.slice(0, 220)}".`);
+    assert(/house/i.test(intro), `Onboarding intro should say your contribution raises your own house, saw "${intro.slice(0, 220)}".`);
     await cdp.clickSelectorContaining('.ob-role', 'GUARD');
     await cdp.clickButton('ENTER THE CITY');
     await cdp.waitFor('document.body && !document.body.innerText.includes("CHOOSE YOUR ROLE")', 'onboarding completion');
@@ -420,14 +430,16 @@ async function campSmoke(url) {
         cta: document.querySelector('.bp-cta')?.textContent || '',
         hasBar: !!panel?.querySelector('.bp-bar'),
         districtCount: document.querySelectorAll('.district').length,
+        districtsEmpty: document.querySelector('.districts .mini-cap')?.textContent || '',
         playableScavenge: [...document.querySelectorAll('button')].some((b) => /SCAVENGE|pick a route/i.test((b.textContent || '').replace(/\\s+/g, ' '))),
         text,
       };
     })()`);
     assert(camp.stage.includes('Camp'), 'Brand-new mock city should show Camp stage.');
     assert(camp.districtCount === 0, `Brand-new Camp should list no districts (starts from scratch), saw ${camp.districtCount}.`);
+    assert(camp.districtsEmpty.includes('No districts yet'), `Fresh Camp CITY tab should show a districts empty-state, not a bare "DISTRICTS" header, saw "${camp.districtsEmpty}".`);
     assert(camp.nextName.includes('Shelter'), 'Brand-new mock city should name Shelter as the first unlock.');
-    assert(camp.built.includes('nothing yet'), 'Brand-new mock city should not claim any buildings are built.');
+    assert(camp.built.includes('Nothing stands here yet. Contribute labor to build the first Shelter.'), 'Brand-new mock city should explain the empty Camp state.');
     assert(camp.meta.includes('0/24'), 'Brand-new mock city should show zero shared labor progress.');
     assert(camp.cta.includes('ADD LABOR'), 'Brand-new mock city should expose the Add Labor contribution CTA.');
     assert(camp.hasBar, 'Brand-new mock city should render the shared build progress bar.');
@@ -444,9 +456,62 @@ async function campSmoke(url) {
   }
 }
 
+async function portraitSmoke(url) {
+  const { cdp, close } = await openPage(url);
+  try {
+    await cdp.call('Emulation.setDeviceMetricsOverride', {
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 2,
+      mobile: true,
+      screenOrientation: { type: 'portraitPrimary', angle: 0 },
+    });
+    await cdp.call('Page.reload', { ignoreCache: true });
+    await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("THE LAST CITY")', 'portrait city boot');
+    await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'portrait loader exit');
+    const portrait = await cdp.eval(`(() => {
+      const gate = document.querySelector('.rotate-gate');
+      const gateStyle = gate ? getComputedStyle(gate) : null;
+      const fab = document.querySelector('.dash-fab');
+      const fabStyle = fab ? getComputedStyle(fab) : null;
+      return {
+        gateDisplay: gateStyle?.display || 'missing',
+        gatePointer: gateStyle?.pointerEvents || 'missing',
+        gatePosition: gateStyle?.position || 'missing',
+        fabPointer: fabStyle?.pointerEvents || 'missing',
+        overflowX: document.body.scrollWidth > document.documentElement.clientWidth,
+      };
+    })()`);
+    assert(portrait.gateDisplay !== 'none' && portrait.gateDisplay !== 'missing', 'Portrait advisory should be visible on phone-sized portrait viewports.');
+    assert(portrait.gatePointer === 'none', `Portrait advisory must not trap taps, got pointer-events:${portrait.gatePointer}.`);
+    assert(portrait.gatePosition === 'fixed', 'Portrait advisory should remain visible without taking layout space.');
+    assert(portrait.fabPointer === 'auto', `CITY fab should remain tappable in portrait, got pointer-events:${portrait.fabPointer}.`);
+    assert(!portrait.overflowX, 'Portrait viewport should not overflow horizontally.');
+  } finally {
+    await close();
+  }
+}
+
+async function firstHouseSmoke(url) {
+  const { cdp, close } = await openPage(url);
+  try {
+    await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("THE LAST CITY")', 'first-house city boot');
+    await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'first-house loader exit');
+    await cdp.clickSelectorContaining('.act', 'GUARD');
+    await cdp.waitFor('document.body.innerText.includes("Your house now stands in the city. Build order #3.")', 'first contribution house feedback');
+    await sleep(200);
+    const count = await cdp.eval(`(document.body.innerText.match(/Your house now stands in the city/g) || []).length`);
+    assert(count === 1, `First-house feedback should appear once, saw ${count}.`);
+  } finally {
+    await close();
+  }
+}
+
 await withServer('mock-live core loop', 4640, {}, liveSmoke);
 await withServer('mock-live onboarding', 4641, { MOCK_ROLE_NULL: '1' }, onboardingSmoke);
 await withServer('mock-live fallen city', 4642, { MOCK_FALLEN: '1' }, fallenSmoke);
 await withServer('mock-live brand-new camp', 4643, { MOCK_CAMP: '1' }, campSmoke);
+await withServer('mock-live portrait fallback', 4644, {}, portraitSmoke);
+await withServer('mock-live first house feedback', 4645, { MOCK_NO_HOUSE: '1' }, firstHouseSmoke);
 
 console.log('client smoke passed');

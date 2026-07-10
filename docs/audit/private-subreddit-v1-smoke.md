@@ -11,9 +11,28 @@ mock can prove.
 > These authenticate as you. Run them yourself; never script them.
 
 - [ ] `npm run login` — auth the Devvit CLI (browser popup)
-- [ ] `npx devvit init` — register the app (one-time)
-- [ ] `npm run dev` — playtest on your **private test subreddit**
+- [ ] Verify the exact Devvit app identity is **one-more-dawn** and the expected app account is selected.
+- [ ] Verify the target subreddit name before running playtest.
+- [ ] In target subreddit mod tools, verify the app account is **not banned**.
+- [ ] `npx devvit init` — register/select the app only if needed; do **not** use `--force` unless the app identity is proven wrong.
+- [ ] `npm run dev -- <private_test_subreddit>` — playtest on your **private test subreddit**
 - [ ] (later, only after this checklist passes) `npm run deploy` → `npm run launch`
+
+## 0a. If playtest/install fails: "app account … appears to be banned"
+
+If `npm run dev -- <sub>` (or install) fails with
+`Error inviting app account with ID t2_… to be a moderator … it appears to be
+banned from the subreddit`, do **not** change any moderation state. This is
+almost always a Reddit account/subreddit **trust** block, not a repo or
+app-identity bug — the app slug is `one-more-dawn`, the app-account ID appears
+nowhere in this repo, and the mod-invite is a Devvit-platform step the code
+never performs.
+
+- [ ] Confirm the app identity is still **one-more-dawn** and the app-account ID in the error is the expected one.
+- [ ] Open the target subreddit **while logged out** — if it 404s or shows "banned", the sub itself was auto-actioned by Reddit (common for a brand-new account's brand-new private sub). That auto-action is what blocks the app-account mod invite.
+- [ ] Retry on a **different** private test subreddit owned/moderated by an **established, in-good-standing** Reddit account (avoid a brand-new account + brand-new sub).
+- [ ] Do **not** try to "unban" the app account or edit mod state to force the invite.
+- [ ] If it still fails on a trusted account + sub, contact Devvit support (r/Devvit / Devvit Discord) with the app slug `one-more-dawn`, the app-account ID, and the subreddit name — treat it as a platform/account-trust issue, not a code fix.
 
 Create a game post (mod menu **"One More Dawn: create game post"**), then run the
 checks below **inside that post's webview**.
@@ -45,8 +64,9 @@ checks below **inside that post's webview**.
 
 | Check | Expected result | Pass |
 |---|---|---|
-| Open CITY tab on a fresh game post | Build panel shows **Camp**, **Next: Shelter**, `0/24 labor`, and "nothing yet — just a camp" | [ ] |
-| Tap **ADD LABOR** | Notification appears; energy decrements; contribution is shown/remembered | [ ] |
+| Open CITY tab on a fresh game post | Build panel shows **Camp**, **Next: Shelter**, `0/24 labor`, and "Nothing stands here yet. Contribute labor to build the first Shelter." | [ ] |
+| Tap **ADD LABOR** | Notification appears; energy decrements; contribution is shown/remembered; first contribution says "Your house now stands in the city." | [ ] |
+| Repeat contribution later as the same Redditor | House count/order does not duplicate for that user | [ ] |
 | Refresh / reopen the post | Build progress and your contributed-today state persist from Redis | [ ] |
 | After enough labor + force-resolve day | Next building unlocks for the whole city; stage/visuals update; no individual ownership copy appears | [ ] |
 
@@ -110,23 +130,34 @@ checks below **inside that post's webview**.
 | Check | Expected result | Pass |
 |---|---|---|
 | After acting, refresh the post | Your actions/votes/pledges persist (server truth) | [ ] |
-| Reopen later | State loads from the server, no reset | [ ] |
+| Reopen later | State loads from real Redis, no reset | [ ] |
 
 ## 14. Mobile Reddit app / webview
 
 | Check | Expected result | Pass |
 |---|---|---|
 | Open the post in the **Reddit mobile app** | HUD fits; no horizontal overflow; tabs reachable; onboarding readable | [ ] |
+| Hold the phone portrait | Rotate advisory is visible but does not block taps; CITY/DASH controls remain usable | [ ] |
 | Take one action on mobile | Works; feedback visible | [ ] |
+| Toggle mute on mobile | Sound button flips and persists; gameplay is unaffected if audio is blocked | [ ] |
 
 ## 15. Multiple posts / cities (if possible)
 
 | Check | Expected result | Pass |
 |---|---|---|
-| Create a **second** game post (same or another test sub) | It has its **own** city/day/state, independent of the first | [ ] |
-| Act in both | The two cities do not share state | [ ] |
+| Create a **second** game post in the same test sub | It shows the same subreddit city/day/state as the first post | [ ] |
+| Create or test in another private subreddit, if available | It has a separate city because each subreddit builds one shared city | [ ] |
 
-## 16. Failure behavior (optional)
+## 16. Mod menu coverage
+
+| Check | Expected result | Pass |
+|---|---|---|
+| Mod **"create game post"** | New game post opens/navigates correctly | [ ] |
+| Mod **"seed demo state"** | A populated Day-5 city loads | [ ] |
+| Mod **"force-resolve day"** | Day advances; Dawn Report appears | [ ] |
+| Mod **"reset city"** | New cycle starts; house/build/action state clears | [ ] |
+
+## 17. Failure behavior (optional)
 
 | Check | Expected result | Pass |
 |---|---|---|

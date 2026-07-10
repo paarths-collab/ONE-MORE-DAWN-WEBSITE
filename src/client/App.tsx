@@ -201,10 +201,10 @@ const MARKED_ICONS: Record<Marked['kind'], string> = { person: '🧒', place: '�
 // First-run onboarding role catalog — icon/label/blurb, exact copy per spec.
 const ROLE_CATALOG: { id: Role; icon: string; label: string; blurb: string }[] = [
   { id: 'scout', icon: '🧭', label: 'SCOUT', blurb: 'Tracks danger and helps the city read the map.' },
-  { id: 'engineer', icon: '🔧', label: 'ENGINEER', blurb: '+50% when you Repair Power.' },
-  { id: 'medic', icon: '⛑️', label: 'MEDIC', blurb: '+50% when you Treat the Sick.' },
-  { id: 'farmer', icon: '🌾', label: 'FARMER', blurb: '+50% when you Grow Food.' },
-  { id: 'guard', icon: '🛡️', label: 'GUARD', blurb: '+50% when you Guard the Wall.' },
+  { id: 'engineer', icon: '🔧', label: 'ENGINEER', blurb: 'Repair Power to raise your standing with the Builders.' },
+  { id: 'medic', icon: '⛑️', label: 'MEDIC', blurb: 'Treat the Sick to raise your standing with the Hearth.' },
+  { id: 'farmer', icon: '🌾', label: 'FARMER', blurb: 'Grow Food to feed the city and earn your title.' },
+  { id: 'guard', icon: '🛡️', label: 'GUARD', blurb: 'Guard the Wall to raise your standing with the Wardens.' },
   { id: 'speaker', icon: '📣', label: 'SPEAKER', blurb: 'Every action you take also lifts morale.' },
 ];
 
@@ -573,7 +573,7 @@ function LiveTab({
         </div>
       </div>
 
-      <div className="p-sec">THE COMMENTS — SAY HI</div>
+      <div className="p-sec">CITY CHATTER</div>
       <div className="talk">
         {talk.map((m) => (
           <div key={m.key} className={m.you ? 'tk you' : 'tk'}>
@@ -582,7 +582,7 @@ function LiveTab({
           </div>
         ))}
         <button type="button" className="say-hi" disabled={hiCooldown} onClick={onSayHi}>
-          {hiCooldown ? '…' : villager ? `👋 SAY HI to @${villager}` : '👋 SAY HI IN THE COMMENTS'}
+          {hiCooldown ? '…' : villager ? `👋 SAY HI to @${villager}` : '👋 SAY HI'}
         </button>
       </div>
 
@@ -1007,7 +1007,11 @@ function BuildPanel({
       ) : (
         <div className="bp-next">The city is built. It survives.</div>
       )}
-      <div className="bp-built">Built: {unlocked.length ? unlocked.join(' · ') : 'nothing yet — just a camp'}</div>
+      <div className="bp-built">
+        {unlocked.length
+          ? `Built: ${unlocked.join(' · ')}`
+          : 'Nothing stands here yet. Contribute labor to build the first Shelter.'}
+      </div>
       <button type="button" className="bp-cta" disabled={ctaDisabled} onClick={onAddLabor}>
         {ctaLabel}
       </button>
@@ -1155,22 +1159,26 @@ function CityDashboard({
 
             <div className="p-sec">DISTRICTS — TAP TO VISIT</div>
             <div className="districts">
-              {pois.map((p) => (
-                <button
-                  key={p.name}
-                  type="button"
-                  className={selectedName === p.name ? 'district on' : 'district'}
-                  onClick={() => onVisit(p.name)}
-                  title={p.blurb}
-                >
-                  <span className="di">{p.icon}</span>
-                  <span className="dn2">
-                    {p.name}
-                    <i>LVL {levels[p.name] ?? p.level}</i>
-                  </span>
-                  <span className="go">→</span>
-                </button>
-              ))}
+              {pois.length === 0 ? (
+                <div className="mini-cap">No districts yet — raise the first Shelter to begin.</div>
+              ) : (
+                pois.map((p) => (
+                  <button
+                    key={p.name}
+                    type="button"
+                    className={selectedName === p.name ? 'district on' : 'district'}
+                    onClick={() => onVisit(p.name)}
+                    title={p.blurb}
+                  >
+                    <span className="di">{p.icon}</span>
+                    <span className="dn2">
+                      {p.name}
+                      <i>LVL {levels[p.name] ?? p.level}</i>
+                    </span>
+                    <span className="go">→</span>
+                  </button>
+                ))
+              )}
             </div>
           </>
         )}
@@ -1245,7 +1253,7 @@ function VillagerChip({
         👋 WAVE
       </button>
       <button type="button" className="hi-btn" disabled={hiCooldown} onClick={onSayHi}>
-        💬 SAY HI
+        👋 SAY HI
       </button>
     </div>
   );
@@ -1918,9 +1926,10 @@ function Onboarding({
           ✕
         </button>
         <div className="ob-sub" style={{ color: 'var(--ink)', marginTop: 0, marginBottom: 10 }}>
-          This subreddit is a shared city trying to survive one more dawn. Everyone gets one meaningful
-          action a day. Vote on the crisis, pledge to save The Marked, and hold the wall — then come back
-          at dawn to see what the community's choices did. The city remembers.
+          This subreddit is a shared city trying to survive one more dawn. It begins as a bare Camp —
+          everyone builds it up together, and your first contribution raises your own house in it. Take
+          your daily action, vote on the crisis, pledge to save The Marked, and hold the wall — then come
+          back at dawn to see what the community's choices did. The city remembers.
         </div>
         <div className="ob-title">CHOOSE YOUR ROLE</div>
         <div className="ob-sub">Your role shapes what you're best at. You can change it later.</div>
@@ -2124,6 +2133,7 @@ export function App() {
   const poisRef = useRef<PoiInfo[]>([]); // district directory, readable in handlers
   const contribsRef = useRef<Record<string, Contrib>>(START_CONTRIBS); // fresh reads in timers
   const liveBuildRef = useRef<BuildStatus | null>(null); // last server build state, readable in the add-labor handler
+  const liveHousesRef = useRef<HouseSummary | null>(null); // last server house summary, for first-house feedback
   const demoUnlockedRef = useRef<string[]>([]); // demo build unlocks, readable in the handler
   const demoBuildProgressRef = useRef(0); // demo labor toward the next building
 
@@ -2224,6 +2234,7 @@ export function App() {
       setLiveCycle(city.cycle);
       setLiveRaidLikely(init.forecast.raidLikely);
       setLiveBuild(init.build ?? null); // defensive: server lane owns this field
+      liveHousesRef.current = init.houses ?? null;
       setLiveHouses(init.houses ?? null); // one-redditor-one-house summary
       setLiveRaidNote(raidNoteFromEvents(init.timelinePreview?.events, init.forecast.raidLikely));
       setLiveTimelineHeadline(init.timelinePreview?.headline ?? null);
@@ -2402,23 +2413,34 @@ export function App() {
     [popToast],
   );
 
+  const refreshAfterContribution = useCallback(async () => {
+    const before = liveHousesRef.current?.yours ?? null;
+    const init = await getInit();
+    applyInit(init, false);
+    const yours = init.houses?.yours ?? null;
+    if (!before && yours) {
+      pushNotif('🏠', `Your house now stands in the city. Build order #${yours.index + 1}.`, 'good');
+    }
+  }, [applyInit, pushNotif]);
+
   const onLiveVote = useCallback(
     (optionId: string) => {
       if (cityFallenRef.current || mutatingRef.current) return;
       mutatingRef.current = true;
       postVote(optionId, liveCrisisIdRef.current)
-        .then((res) => {
+        .then(async (res) => {
           setLiveCrisisVotes(res.crisisVotes);
           setLiveMyVote(res.yourCrisisVote);
           playSound('vote_cast');
           pushNotif('🗳️', 'your vote is in', 'good');
+          await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'vote failed — try again'))
         .finally(() => {
           mutatingRef.current = false;
         });
     },
-    [pushNotif, toastFailure],
+    [pushNotif, refreshAfterContribution, toastFailure],
   );
 
   const onLivePledge = useCallback(
@@ -2426,19 +2448,20 @@ export function App() {
       if (cityFallenRef.current || mutatingRef.current || !PLEDGE_KINDS.includes(kind)) return;
       mutatingRef.current = true;
       postPledge(kind)
-        .then((res) => {
+        .then(async (res) => {
           setLiveMarked(res.marked);
           setLivePledge(res.pledge);
           playSound('pledge');
           pushNotif('🕯️', `you pledged for ${res.marked.name}`, 'good');
           handleRef.current?.pulseMarked?.();
+          await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'pledge failed — try again'))
         .finally(() => {
           mutatingRef.current = false;
         });
     },
-    [pushNotif, toastFailure],
+    [pushNotif, refreshAfterContribution, toastFailure],
   );
 
   const onLiveStrategy = useCallback(
@@ -2447,18 +2470,19 @@ export function App() {
       if (cityFallenRef.current || !plan || mutatingRef.current) return;
       mutatingRef.current = true;
       postStrategy(plan)
-        .then((res) => {
+        .then(async (res) => {
           setLiveStrategyVotes(res.strategyVotes);
           setLiveMyPlan(res.yourStrategyVote);
           playSound('vote_cast');
           pushNotif('📜', 'the council heard you', 'good');
+          await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'the council is busy — try again'))
         .finally(() => {
           mutatingRef.current = false;
         });
     },
-    [pushNotif, toastFailure],
+    [pushNotif, refreshAfterContribution, toastFailure],
   );
 
   // First-run onboarding submit: set the role, optionally name the survivor,
@@ -2509,8 +2533,7 @@ export function App() {
         .then(async () => {
           playSound('action_confirm');
           pushNotif('🔨', `you added a day's labor to the ${nextName}`, 'good');
-          const init = await getInit();
-          applyInit(init, false);
+          await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'could not add labor — try again'))
         .finally(() => {
@@ -2538,7 +2561,7 @@ export function App() {
       setDemoBuildProgress(progress);
       pushNotif('🔨', `you added a day's labor to the ${nextDef.name}`, 'good');
     }
-  }, [applyInit, pushNotif, toastFailure]);
+  }, [pushNotif, refreshAfterContribution, toastFailure]);
 
   const onReady = useCallback((h: VillageHandle) => {
     handleRef.current = h;
@@ -2740,7 +2763,7 @@ export function App() {
     setCrisisVotes((v) => ({ ...v, [id]: v[id] + 1 }));
   }, []);
 
-  // SAY HI — post to the comments, wave in the scene, get a scripted reply.
+  // SAY HI — local city chatter only: wave in the scene and get a scripted reply.
   // With a villager selected the greeting is tagged and THEY answer; otherwise
   // the old random-reply rotation plays out.
   const onSayHi = useCallback(() => {
@@ -2826,7 +2849,7 @@ export function App() {
         if (!act || mutatingRef.current) return;
         mutatingRef.current = true;
         postAction(act)
-          .then((res) => {
+          .then(async (res) => {
             setLiveEnergy({ effective: res.effectiveEnergy, used: res.player.energyUsedToday });
             setLiveActions(res.yourActionsToday);
             playSound('action_confirm');
@@ -2835,6 +2858,7 @@ export function App() {
             const liveFrags = ACTION_FLASH[id] ?? [];
             const liveHit = poisRef.current.find((p) => liveFrags.some((f) => p.name.toUpperCase().includes(f)));
             if (liveHit) handleRef.current?.flashDistrict?.(liveHit.name);
+            await refreshAfterContribution();
           })
           .catch((err) => toastFailure(err, 'the action failed — try again'))
           .finally(() => {
@@ -2875,7 +2899,7 @@ export function App() {
       const hit = poisRef.current.find((p) => frags.some((f) => p.name.toUpperCase().includes(f)));
       if (hit) handleRef.current?.flashDistrict?.(hit.name);
     },
-    [addContrib, pushEvent, pushNotif],
+    [addContrib, pushEvent, pushNotif, refreshAfterContribution, toastFailure],
   );
 
   // Demo-only SCAVENGE — live V1 never opens this flow.
@@ -3213,8 +3237,8 @@ export function App() {
 
   return (
     <>
-      {/* On a phone in portrait the 3D town has no room — prompt to rotate.
-          CSS-only: shows only at (orientation: portrait) and phone width. */}
+      {/* Portrait phones get an advisory, never a blocking gate. Reddit webviews
+          can report sticky orientation states, so the game must stay usable. */}
       <div className="rotate-gate">
         <div className="rg-card">
           <div className="rg-i">📱</div>

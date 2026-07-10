@@ -5,6 +5,11 @@
 > ~7.2/10; this version is re-verified against the current `main` with `file:line`
 > citations and a fresh gate run + client boot.)
 >
+> **Superseded 2026-07-10:** any "sound absent" note and exact test counts
+> (e.g. "474 tests") below are now stale — minimal SFX + persistent mute ship
+> (`src/client/sound.ts`, `docs/ATTRIBUTION.md`) and the suite has grown since.
+> Treat "the full Vitest suite passes green in CI" as the durable claim.
+>
 > Method: read the actual code, ran the full gate suite, drove the running client
 > via the dev harness (demo) and — earlier this session — via the `MOCK_API`
 > harness (live/onboarding/fallen). **Not verifiable here:** a real Redis-backed

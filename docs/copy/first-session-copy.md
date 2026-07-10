@@ -18,11 +18,11 @@
 **Subhead:** `Your role decides what you're best at. You can change it later.`
 
 Role cards (icon · label · one-line):
-- 🧭 `SCOUT` — `First into the ruins. Sharpest on expeditions.`
-- 🔧 `ENGINEER` — `+50% when you Repair Power.`
-- ⛑️ `MEDIC` — `+50% when you Treat the Sick.`
-- 🌾 `FARMER` — `+50% when you Grow Food.`
-- 🛡️ `GUARD` — `+50% when you Guard the Wall.`
+- 🧭 `SCOUT` — `Tracks danger and helps the city read the map.`
+- 🔧 `ENGINEER` — `Repair Power to raise your standing with the Builders.`
+- ⛑️ `MEDIC` — `Treat the Sick to raise your standing with the Hearth.`
+- 🌾 `FARMER` — `Grow Food to feed the city and earn your title.`
+- 🛡️ `GUARD` — `Guard the Wall to raise your standing with the Wardens.`
 - 📣 `SPEAKER` — `Every action you take also lifts morale.`
 
 **Name field placeholder:** `Name your survivor (optional)`

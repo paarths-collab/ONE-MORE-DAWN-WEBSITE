@@ -86,6 +86,9 @@ One lesson per bullet. Update rather than duplicate; delete if proven wrong.
   'escaped' and avoid the injury penalty. Bounded to 1 run/day in a co-op
   game; accepted for the hackathon. Loot AMOUNT is now bounded server-side by
   the physical feasibility check in `evaluateMission` (minMsPerTile).
-- `/action` and `/mission/start` watch the whole `players` hash — concurrent
-  spends by DIFFERENT users can 409 (client-retriable). Accepted: that watch
-  is exactly what prevents double-spend for the same user.
+- **(Resolved)** Energy-spend and civic writes (`/action`, `/mission/start`,
+  `/vote`, `/strategy`, `/pledge`) use a per-user optimistic lock
+  (`beginUserLock`, watching `player:lock:{userId}`): DIFFERENT users never
+  false-conflict, and only a genuine same-user double-tap 409s (client-
+  retriable — the intended double-spend guard). Supersedes the earlier
+  "whole `players`-hash watch" note.

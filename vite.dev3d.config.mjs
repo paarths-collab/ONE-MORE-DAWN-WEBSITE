@@ -148,12 +148,30 @@ const CITY_V = {
   ...(process.env.MOCK_CAMP ? { cityLevel: 0, buildProgress: 0, unlockedBuildings: [] } : {}),
 };
 const CAMP_HOUSES = { total: 0, cap: 240, founder: null, yours: null, named: [] };
-const INIT_V = {
+const NO_HOUSE = { ...INIT.houses, total: 23, yours: null };
+let mockHasHouse = !process.env.MOCK_NO_HOUSE;
+let mockCrisisVotes = INIT.crisisVotes;
+let mockCrisisVote = INIT.yourCrisisVote;
+let mockStrategyVotes = INIT.strategyVotes;
+let mockStrategyVote = INIT.yourStrategyVote;
+let mockActions = INIT.yourActionsToday;
+let mockMarked = INIT.marked;
+let mockPledge = INIT.pledge;
+const currentHouses = () => (mockHasHouse ? INIT.houses : NO_HOUSE);
+const currentInit = () => ({
   ...INIT,
   player: PLAYER_V,
   city: CITY_V,
+  crisisVotes: mockCrisisVotes,
+  yourCrisisVote: mockCrisisVote,
+  strategyVotes: mockStrategyVotes,
+  yourStrategyVote: mockStrategyVote,
+  yourActionsToday: mockActions,
+  marked: mockMarked,
+  pledge: mockPledge,
+  houses: currentHouses(),
   ...(process.env.MOCK_CAMP ? { build: CAMP_BUILD, houses: CAMP_HOUSES, yourActionsToday: {} } : {}),
-};
+});
 const readBody = (req) => new Promise((r) => { let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => { try { r(JSON.parse(b || '{}')); } catch { r({}); } }); });
 const mockApi = () => ({
   name: 'mock-devvit-api',
@@ -163,19 +181,36 @@ const mockApi = () => ({
     // mount would also swallow the client's own /api.ts module → app never loads).
     server.middlewares.use(async (req, res, next) => {
       const path = (req.url ?? '').split('?')[0];
-      if (path === '/api/init') return send(res, INIT_V);
+      if (path === '/api/init') return send(res, currentInit());
       if (path === '/api/world') return send(res, WORLD);
       if (path === '/api/leaderboard') return send(res, LEADERBOARD);
       if (path === '/api/action') {
         const b = await readBody(req);
+        mockHasHouse = true;
         // build_city is energy-gated too; echo it in yourActionsToday so the
         // client's re-fetch path is exercised. Other actions keep the old shape.
         const acts = b.action === 'build_city' ? { grow_food: 1, build_city: 1 } : { grow_food: 1, guard_wall: 1 };
+        mockActions = acts;
         return send(res, { type: 'action', player: { ...PLAYER_V, energyUsedToday: 2 }, effectiveEnergy: 3, yourActionsToday: acts, unlockedTitle: null });
       }
-      if (path === '/api/vote') return send(res, { type: 'vote', crisisVotes: { a: 13, b: 7, c: 5 }, yourCrisisVote: 'a' });
-      if (path === '/api/pledge') return send(res, { type: 'pledge', marked: { ...MARKED, pledged: 26 }, pledge: { ...PLEDGE, usedToday: true }, player: PLAYER_V });
-      if (path === '/api/strategy') return send(res, { type: 'strategy', strategyVotes: { prepare_raid: 10, stockpile_food: 6, repair_power: 4 }, yourStrategyVote: 'prepare_raid' });
+      if (path === '/api/vote') {
+        mockHasHouse = true;
+        mockCrisisVotes = { a: 13, b: 7, c: 5 };
+        mockCrisisVote = 'a';
+        return send(res, { type: 'vote', crisisVotes: mockCrisisVotes, yourCrisisVote: mockCrisisVote });
+      }
+      if (path === '/api/pledge') {
+        mockHasHouse = true;
+        mockMarked = { ...MARKED, pledged: 26 };
+        mockPledge = { ...PLEDGE, usedToday: true };
+        return send(res, { type: 'pledge', marked: mockMarked, pledge: mockPledge, player: PLAYER_V });
+      }
+      if (path === '/api/strategy') {
+        mockHasHouse = true;
+        mockStrategyVotes = { prepare_raid: 10, stockpile_food: 6, repair_power: 4 };
+        mockStrategyVote = 'prepare_raid';
+        return send(res, { type: 'strategy', strategyVotes: mockStrategyVotes, yourStrategyVote: mockStrategyVote });
+      }
       if (path === '/api/role') { const b = await readBody(req); return send(res, { type: 'role', player: { ...PLAYER_V, role: b.role ?? 'guard', roleChangedDay: 6 } }); }
       if (path === '/api/avatar') { const b = await readBody(req); return send(res, { type: 'avatar', player: { ...PLAYER_V, avatar: b.avatar ?? null } }); }
       return next();

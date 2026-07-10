@@ -6,7 +6,7 @@ the post feel alive before submission.
 
 ## 1. Create the post + seed it
 
-1. `npm run launch` (or `npm run dev` for a playtest sub) and install on your
+1. After the private smoke passes, `npm run launch` (or `npm run dev` for a playtest sub) and install on your
    demo subreddit.
 2. Run the mod menu action **"One More Dawn: seed demo state"** on the post.
    This loads a Day-5 city mid-raid: 9 citizens, The Marked mid-rescue, live
@@ -22,7 +22,7 @@ and feed reflect real people, not just the seed:
 - [ ] cast the crisis vote
 - [ ] back a council plan
 - [ ] take a city action
-- [ ] leave one strategy comment ("save food or prep for the raid?")
+- [ ] optionally leave one real Reddit strategy comment ("save food or prep for the raid?")
 - [ ] return after a force-resolve / the next dawn to see the Dawn Report
 
 ## 3. Proof to capture before submitting
@@ -36,7 +36,7 @@ Fill these in from the live post right before you submit:
 | Pledges on The Marked | 20+ | _TBD_ |
 | Crisis votes | 10+ | _TBD_ |
 | Council backers | 8+ | _TBD_ |
-| Strategy comments | 5+ | _TBD_ |
+| Optional Reddit strategy comments | 0-5 | _TBD_ |
 | Dawn Report generated | yes | _TBD_ |
 | Timeline days visible | 3+ | _TBD_ |
 

@@ -4,6 +4,9 @@ import { menu } from './menu';
 import { newCityState } from '../game/resolver';
 import { Store } from '../storage/store';
 import { makeFakeRedis, type FakeRedis } from '../storage/store.test';
+import { freshPlayer } from '../game/dayLogic';
+import { KEYS } from '../storage/redisKeys';
+import type { TimelineEntry } from '../../shared/types';
 
 /**
  * Route-level authorization tests for /internal/menu/*. The Devvit runtime is
@@ -144,6 +147,39 @@ describe('/internal/menu/* authorization', () => {
     const city = await store.getCityState();
     expect(city?.cycle).toBe(3);
     expect(city?.day).toBe(1);
+  });
+
+  it('reset wipes players, timeline, houses, and day-scoped votes — not just cycle/day', async () => {
+    asModerator();
+    await store.setCityState({ ...newCityState(2), day: 4 });
+    // Populate a lived-in city so the destructive clear has something to remove.
+    await store.savePlayer(freshPlayer('t2_a', 'a', 4));
+    await store.savePlayer(freshPlayer('t2_b', 'b', 4));
+    await store.addContribution('t2_a', 10);
+    await store.registerHouse('t2_a');
+    await store.registerHouse('t2_b');
+    const past: TimelineEntry = {
+      day: 3, cycle: 2, headline: 'Day 3 passed', events: ['held'],
+      deltas: {}, crisisId: 'first_light', winningOptionId: null,
+    };
+    await store.appendTimeline(past);
+    await fake.hSet(KEYS.dayVoters(4), { t2_a: 'a' });
+    await fake.hSet(KEYS.dayVotes(4), { a: '1' });
+    // Sanity: populated before the reset.
+    expect(await store.getHouseCount()).toBe(2);
+    expect(await store.getAllPlayers()).toHaveLength(2);
+
+    const res = await menu.request('/reset', { method: 'POST' });
+    expect(res.status).toBe(200);
+
+    // The destructive payload actually ran — everything cleared to a bare Camp.
+    expect(await store.getAllPlayers()).toEqual([]);
+    expect(await store.getTimeline(10)).toEqual([]);
+    expect(await store.getHouseCount()).toBe(0);
+    expect(await store.getVoteTally(4)).toEqual({});
+    const fresh = await store.getCityState();
+    expect(fresh?.cycle).toBe(3);
+    expect(fresh?.day).toBe(1);
   });
 
   it('lets a moderator seed the demo city', async () => {

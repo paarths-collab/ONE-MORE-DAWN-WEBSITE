@@ -209,3 +209,60 @@ describe('GET /api/init houses', () => {
     });
   });
 });
+
+describe('POST /vote /strategy /pledge — per-user lock + repeat guard', () => {
+  // The three routes migrated from a shared per-day-hash watch (which false-409'd
+  // concurrent users) to beginUserLock. The primitive's cross-user no-conflict is
+  // proven in userLock.test.ts; here we assert the ROUTES still commit both users'
+  // writes and still reject a same-user repeat with the exact 409.
+  const day = async () => (await store.getCityState())?.day ?? 1;
+
+  it('tallies votes from two different users and blocks a same-user re-vote', async () => {
+    await openUser('t2_v1', 'v1');
+    expect((await api.request('/vote', postJson({ crisisId: 'first_light', optionId: 'a' }))).status).toBe(200);
+    await openUser('t2_v2', 'v2');
+    expect((await api.request('/vote', postJson({ crisisId: 'first_light', optionId: 'a' }))).status).toBe(200);
+    expect(await store.getVoteTally(await day())).toEqual({ a: 2 });
+
+    // t2_v2 votes again → rejected, tally unchanged.
+    const again = await api.request('/vote', postJson({ crisisId: 'first_light', optionId: 'a' }));
+    expect(again.status).toBe(409);
+    expect(await again.json()).toEqual({ status: 'error', message: 'You already voted today.' });
+    expect(await store.getVoteTally(await day())).toEqual({ a: 2 });
+  });
+
+  it('tallies plans from two different users and blocks a same-user re-back', async () => {
+    await openUser('t2_s1', 's1');
+    expect((await api.request('/strategy', postJson({ planId: 'prepare_raid' }))).status).toBe(200);
+    await openUser('t2_s2', 's2');
+    expect((await api.request('/strategy', postJson({ planId: 'prepare_raid' }))).status).toBe(200);
+    expect(await store.getStrategyTally(await day())).toEqual({ prepare_raid: 2 });
+
+    const again = await api.request('/strategy', postJson({ planId: 'prepare_raid' }));
+    expect(again.status).toBe(409);
+    expect(await again.json()).toEqual({ status: 'error', message: 'You already backed a plan today.' });
+  });
+
+  it('records pledges from two different users and blocks a same-user re-pledge', async () => {
+    await openUser('t2_p1', 'p1');
+    expect((await api.request('/pledge', postJson({ kind: 'stand_vigil' }))).status).toBe(200);
+    await openUser('t2_p2', 'p2');
+    expect((await api.request('/pledge', postJson({ kind: 'stand_vigil' }))).status).toBe(200);
+    expect(await store.getPledger(await day(), 't2_p1')).toBeTruthy();
+    expect(await store.getPledger(await day(), 't2_p2')).toBeTruthy();
+
+    const again = await api.request('/pledge', postJson({ kind: 'stand_vigil' }));
+    expect(again.status).toBe(409);
+    expect(await again.json()).toEqual({ status: 'error', message: 'You already pledged today.' });
+  });
+});
+
+describe('GET /api/init — brand-new player robustness', () => {
+  it('falls back to username "citizen" when getCurrentUsername() throws (does not 500)', async () => {
+    ctx.userId = 't2_newbie';
+    redditMock.getCurrentUsername.mockRejectedValueOnce(new Error('reddit down'));
+    const res = await api.request('/init');
+    expect(res.status).toBe(200);
+    expect((await store.getPlayer('t2_newbie'))?.username).toBe('citizen');
+  });
+});

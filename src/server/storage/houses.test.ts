@@ -33,6 +33,37 @@ describe('house registry', () => {
     expect(await store.getHouseIndex('t2_founder')).toBeNull();
   });
 
+  it('normalizes inflated sequence gaps and corrupt index fields on read', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+
+    await redis.hSet(KEYS.housesMeta, { seq: '5', founder: 't2_founder' });
+    await redis.hSet(KEYS.housesIndex, {
+      t2_founder: '2',
+      t2_neighbor: '4',
+      t2_corrupt: 'not-a-number',
+    });
+
+    expect(await store.getHouseCount()).toBe(2);
+    expect(await store.getFounderId()).toBe('t2_founder');
+    expect(await store.getHouseIndex('t2_founder')).toBe(0);
+    expect(await store.getHouseIndex('t2_neighbor')).toBe(1);
+    expect(await store.getHouseIndex('t2_corrupt')).toBeNull();
+  });
+
+  it('repairs a corrupt existing index when that user contributes again', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+
+    await redis.hSet(KEYS.housesMeta, { seq: '7' });
+    await redis.hSet(KEYS.housesIndex, { t2_bad: 'NaN' });
+
+    await expect(store.registerHouse('t2_bad')).resolves.toEqual({ index: 0, isNew: true });
+    expect(await store.getHouseCount()).toBe(1);
+    expect(await store.getHouseIndex('t2_bad')).toBe(0);
+    expect(await store.getFounderId()).toBe('t2_bad');
+  });
+
   it('keeps the locked contract constants stable', () => {
     expect(HOUSE_CAP).toBe(240);
     expect(HOUSE_TIER_MINS).toEqual([1, 6, 18, 40]);
