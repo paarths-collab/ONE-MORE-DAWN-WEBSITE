@@ -201,10 +201,10 @@ const MARKED_ICONS: Record<Marked['kind'], string> = { person: '🧒', place: '�
 // First-run onboarding role catalog — icon/label/blurb, exact copy per spec.
 const ROLE_CATALOG: { id: Role; icon: string; label: string; blurb: string }[] = [
   { id: 'scout', icon: '🧭', label: 'SCOUT', blurb: 'Tracks danger and helps the city read the map.' },
-  { id: 'engineer', icon: '🔧', label: 'ENGINEER', blurb: '+50% when you Repair Power.' },
-  { id: 'medic', icon: '⛑️', label: 'MEDIC', blurb: '+50% when you Treat the Sick.' },
-  { id: 'farmer', icon: '🌾', label: 'FARMER', blurb: '+50% when you Grow Food.' },
-  { id: 'guard', icon: '🛡️', label: 'GUARD', blurb: '+50% when you Guard the Wall.' },
+  { id: 'engineer', icon: '🔧', label: 'ENGINEER', blurb: 'Repair Power to raise your standing with the Builders.' },
+  { id: 'medic', icon: '⛑️', label: 'MEDIC', blurb: 'Treat the Sick to raise your standing with the Hearth.' },
+  { id: 'farmer', icon: '🌾', label: 'FARMER', blurb: 'Grow Food to feed the city and earn your title.' },
+  { id: 'guard', icon: '🛡️', label: 'GUARD', blurb: 'Guard the Wall to raise your standing with the Wardens.' },
   { id: 'speaker', icon: '📣', label: 'SPEAKER', blurb: 'Every action you take also lifts morale.' },
 ];
 
@@ -1159,22 +1159,26 @@ function CityDashboard({
 
             <div className="p-sec">DISTRICTS — TAP TO VISIT</div>
             <div className="districts">
-              {pois.map((p) => (
-                <button
-                  key={p.name}
-                  type="button"
-                  className={selectedName === p.name ? 'district on' : 'district'}
-                  onClick={() => onVisit(p.name)}
-                  title={p.blurb}
-                >
-                  <span className="di">{p.icon}</span>
-                  <span className="dn2">
-                    {p.name}
-                    <i>LVL {levels[p.name] ?? p.level}</i>
-                  </span>
-                  <span className="go">→</span>
-                </button>
-              ))}
+              {pois.length === 0 ? (
+                <div className="mini-cap">No districts yet — raise the first Shelter to begin.</div>
+              ) : (
+                pois.map((p) => (
+                  <button
+                    key={p.name}
+                    type="button"
+                    className={selectedName === p.name ? 'district on' : 'district'}
+                    onClick={() => onVisit(p.name)}
+                    title={p.blurb}
+                  >
+                    <span className="di">{p.icon}</span>
+                    <span className="dn2">
+                      {p.name}
+                      <i>LVL {levels[p.name] ?? p.level}</i>
+                    </span>
+                    <span className="go">→</span>
+                  </button>
+                ))
+              )}
             </div>
           </>
         )}
@@ -1922,9 +1926,10 @@ function Onboarding({
           ✕
         </button>
         <div className="ob-sub" style={{ color: 'var(--ink)', marginTop: 0, marginBottom: 10 }}>
-          This subreddit is a shared city trying to survive one more dawn. Everyone gets one meaningful
-          action a day. Vote on the crisis, pledge to save The Marked, and hold the wall — then come back
-          at dawn to see what the community's choices did. The city remembers.
+          This subreddit is a shared city trying to survive one more dawn. It begins as a bare Camp —
+          everyone builds it up together, and your first contribution raises your own house in it. Take
+          your daily action, vote on the crisis, pledge to save The Marked, and hold the wall — then come
+          back at dawn to see what the community's choices did. The city remembers.
         </div>
         <div className="ob-title">CHOOSE YOUR ROLE</div>
         <div className="ob-sub">Your role shapes what you're best at. You can change it later.</div>
