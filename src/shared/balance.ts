@@ -91,6 +91,9 @@ export const BALANCE = {
 
   // contribution scoring (leaderboard + faction rep later)
   contributionPerAction: 10,
+  // Streak insurance: restore a dead streak by burning standing. Cost scales
+  // with the streak being saved, so long flames are precious, not free.
+  rekindle: { minStreak: 3, costPerDay: 2 },
   contributionPerMissionLoot: 5, // per item banked
   contributionPerPledge: 5, // one-tap pledge: half an action's worth
 

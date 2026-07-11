@@ -60,7 +60,7 @@ const CITY = {
 const PLAYER = {
   userId: 't2_mock', username: 'you', role: 'guard', roleChangedDay: 1, faction: null, factionRep: 0,
   roleRep: {}, title: 'Wall-Warden', avatar: null, energyUsedToday: 1, lastActiveDay: 6,
-  injuredUntilDay: 0, totalContribution: 14, streak: 3,
+  injuredUntilDay: 0, totalContribution: 14, streak: 3, lapsedStreak: 12,
 };
 const CRISIS = {
   id: 'first_light', title: 'First Light',
@@ -204,6 +204,9 @@ const mockApi = () => ({
         mockCrisisVotes = { a: 13, b: 7, c: 5 };
         mockCrisisVote = 'a';
         return send(res, { type: 'vote', crisisVotes: mockCrisisVotes, yourCrisisVote: mockCrisisVote });
+      }
+      if (path === '/api/rekindle') {
+        return send(res, { type: 'rekindle', player: { ...PLAYER, streak: 12, lapsedStreak: 0 }, cost: 24 });
       }
       if (path === '/api/pledge') {
         mockHasHouse = true;

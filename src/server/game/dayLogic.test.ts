@@ -26,6 +26,26 @@ describe('resetPlayerForDay', () => {
     expect(resetPlayerForDay(player({ lastActiveDay: 4, streak: 2 }), 5).streak).toBe(3);
     expect(resetPlayerForDay(player({ lastActiveDay: 2, streak: 9 }), 5).streak).toBe(1);
   });
+
+  it('a lapse remembers the dead streak as lapsedStreak (rekindle insurance)', () => {
+    // 9-day streak dies in a lapse — its ghost is stored.
+    const lapsed = resetPlayerForDay(player({ lastActiveDay: 2, streak: 9 }), 9);
+    expect(lapsed.streak).toBe(1);
+    expect(lapsed.lapsedStreak).toBe(9);
+    // A continued day never overwrites the stored ghost.
+    const continued = resetPlayerForDay({ ...lapsed, lastActiveDay: 9 }, 10);
+    expect(continued.streak).toBe(2);
+    expect(continued.lapsedStreak).toBe(9);
+    // A bigger dying streak replaces a smaller ghost; never shrinks it.
+    const bigger = resetPlayerForDay(player({ lastActiveDay: 2, streak: 12, lapsedStreak: 9 }), 9);
+    expect(bigger.lapsedStreak).toBe(12);
+  });
+
+  it('streaks below the rekindle minimum are not worth remembering', () => {
+    const p = resetPlayerForDay(player({ lastActiveDay: 2, streak: 2 }), 9);
+    expect(p.streak).toBe(1);
+    expect(p.lapsedStreak ?? 0).toBe(0);
+  });
 });
 
 describe('effectiveEnergy', () => {

@@ -22,6 +22,7 @@ import type {
   PledgeRequest,
   PledgeResponse,
   PlayerProfile,
+  RekindleResponse,
   RoleRequest,
   RoleResponse,
   StrategyRequest,
@@ -831,6 +832,57 @@ api.post('/pledge', async (c) => {
     pledge: buildPledgeInfo(pledgers, user.userId),
     player: updated,
   });
+});
+
+/**
+ * Rekindle — streak insurance. A lapse kills the streak but stores its ghost
+ * (lapsedStreak, see resetPlayerForDay); this endpoint restores it by BURNING
+ * standing (lifetime contribution: cost = lapsedStreak × costPerDay). Standing
+ * powers levels, house tiers, and the leaderboard, so the price is real and
+ * visible — a depleting resource spent to keep the flame.
+ */
+api.post('/rekindle', async (c) => {
+  const user = requireUser();
+  if (!user) return c.json<ApiError>({ status: 'error', message: 'Not logged in' }, 401);
+  const store = getStore();
+  const city = await store.getCityState();
+  if (!city || city.status !== 'alive') {
+    return c.json<ApiError>({ status: 'error', message: 'The city is beyond saving.' }, 409);
+  }
+
+  const lock = await beginUserLock(redis, user.userId);
+  const player = await store.getPlayer(user.userId);
+  if (!player) {
+    await lock.abort();
+    return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
+  }
+  const lapsed = player.lapsedStreak ?? 0;
+  if (lapsed < BALANCE.rekindle.minStreak || lapsed <= player.streak) {
+    await lock.abort();
+    return c.json<ApiError>({ status: 'error', message: 'No flame to rekindle.' }, 400);
+  }
+  const cost = lapsed * BALANCE.rekindle.costPerDay;
+  const standing = (await store.getContributionScore(user.userId)) ?? 0;
+  if (standing < cost) {
+    await lock.abort();
+    return c.json<ApiError>(
+      { status: 'error', message: `Rekindling this flame costs ${cost} standing.` },
+      400,
+    );
+  }
+
+  const updated = { ...player, streak: lapsed, lapsedStreak: 0 };
+  const committed = await lock.commit(async (tx) => {
+    await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(updated) });
+  });
+  if (!committed) {
+    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+  }
+  // The burn: standing depletes by exactly the cost (post-commit, same pattern
+  // as /action's contribution mirror — the profile write is the guarded part).
+  await store.addContribution(user.userId, -cost);
+
+  return c.json<RekindleResponse>({ type: 'rekindle', player: updated, cost });
 });
 
 /**

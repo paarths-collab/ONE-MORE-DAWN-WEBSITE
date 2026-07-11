@@ -357,6 +357,44 @@ describe('GET /api/init — daily mission (the 100-level hook)', () => {
   });
 });
 
+describe('POST /rekindle — streak insurance', () => {
+  const setupLapsed = async (uid: string, lapsed: number, standing: number) => {
+    ctx.userId = uid;
+    redditMock.getCurrentUsername.mockResolvedValueOnce('phoenixfan');
+    expect((await api.request('/init')).status).toBe(200);
+    const p = await store.getPlayer(uid);
+    await store.savePlayer({ ...p!, streak: 1, lapsedStreak: lapsed });
+    if (standing > 0) await store.addContribution(uid, standing);
+  };
+
+  it('restores the dead streak and burns exactly the cost in standing', async () => {
+    await setupLapsed('t2_flame', 10, 100);
+    const res = await api.request('/rekindle', postJson({}));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { player: { streak: number; lapsedStreak?: number }; cost: number };
+    expect(body.player.streak).toBe(10);
+    expect(body.cost).toBe(10 * BALANCE.rekindle.costPerDay);
+    expect(await store.getContributionScore('t2_flame')).toBe(100 - body.cost);
+    expect((await store.getPlayer('t2_flame'))?.streak).toBe(10);
+    // Second attempt: the ghost was consumed — nothing left to rekindle.
+    const again = await api.request('/rekindle', postJson({}));
+    expect(again.status).toBe(400);
+  });
+
+  it('rejects when standing cannot cover the cost', async () => {
+    await setupLapsed('t2_broke', 10, 5); // cost 20, has 5
+    const res = await api.request('/rekindle', postJson({}));
+    expect(res.status).toBe(400);
+    expect((await store.getPlayer('t2_broke'))?.streak).toBe(1); // untouched
+    expect(await store.getContributionScore('t2_broke')).toBe(5); // nothing burned
+  });
+
+  it('rejects when there is no flame worth rekindling', async () => {
+    await setupLapsed('t2_noflame', 0, 100);
+    expect((await api.request('/rekindle', postJson({}))).status).toBe(400);
+  });
+});
+
 describe('GET /api/init — brand-new player robustness', () => {
   it('falls back to username "citizen" when getCurrentUsername() throws (does not 500)', async () => {
     ctx.userId = 't2_newbie';

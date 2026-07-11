@@ -79,6 +79,14 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .mission-chip .mi-lv { font-family: var(--pixel); font-size: 8px; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; flex: none; }
 .mission-chip .mi-tx { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mission-chip .mi-streak { font-family: var(--pixel); font-size: 8px; color: #ff9c5b; flex: none; }
+/* rekindle chip: streak insurance offer, under the mission chip */
+.rekindle-chip { top: 112px; left: 18px; display: flex; align-items: center; gap: 10px; padding: 8px 12px; max-width: min(420px, calc(100vw - 320px)); border-radius: 12px; border-color: #a3541f; font-family: var(--mono); font-size: 10.5px; color: var(--ink); }
+.rekindle-chip .rk-tx { min-width: 0; }
+.rekindle-chip .rk-btn { flex: none; font-family: var(--pixel); font-size: 8.5px; letter-spacing: 1px; color: #171109; background: linear-gradient(180deg, #ffb45b, #e8843a); border: 1px solid #a3541f; border-radius: 8px; padding: 7px 10px; cursor: pointer; min-height: 32px; }
+.rekindle-chip .rk-btn:disabled { opacity: 0.6; cursor: default; }
+@media (max-width: 640px) { .rekindle-chip { top: 140px; left: 8px; max-width: calc(100vw - 16px); font-size: 9.5px; } }
+@media (orientation: landscape) and (max-height: 500px) { .rekindle-chip { top: 84px; left: 10px; max-width: min(360px, calc(100vw - 420px)); } }
+
 /* world map: travel to a rival city's subreddit */
 .wm-travel { display: block; width: 100%; margin-top: 8px; font-family: var(--pixel); font-size: 8.5px; letter-spacing: 1px; color: #171109; background: var(--gold); border: 1px solid #80651f; border-radius: 8px; padding: 8px 10px; cursor: pointer; min-height: 32px; }
 .wm-travel:hover { background: #f3d467; }
