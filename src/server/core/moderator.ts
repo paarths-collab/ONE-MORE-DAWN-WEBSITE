@@ -22,7 +22,7 @@ export type ModeratorCheck = { ok: true } | { ok: false; message: string };
 export const requireModerator = async (): Promise<ModeratorCheck> => {
   const denied: ModeratorCheck = {
     ok: false,
-    message: 'Moderators only — this action is restricted.',
+    message: 'Moderators only, this action is restricted.',
   };
   const { userId } = context;
   if (!userId) return denied;
@@ -33,6 +33,6 @@ export const requireModerator = async (): Promise<ModeratorCheck> => {
     const permissions = await user.getModPermissionsForSubreddit(subredditName);
     return permissions.length > 0 ? { ok: true } : denied;
   } catch {
-    return { ok: false, message: 'Could not verify moderator status — action blocked.' };
+    return { ok: false, message: 'Could not verify moderator status, action blocked.' };
   }
 };

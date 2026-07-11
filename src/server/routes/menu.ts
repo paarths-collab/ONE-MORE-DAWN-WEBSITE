@@ -39,7 +39,7 @@ menu.post('/force-resolve', async (c) => {
   const store = getStore();
   const city = await store.getCityState();
   if (!city) {
-    return c.json<UiResponse>({ showToast: 'No city yet — open the post first.' }, 200);
+    return c.json<UiResponse>({ showToast: 'No city yet, open the post first.' }, 200);
   }
   if (city.status === 'fallen') {
     return c.json<UiResponse>(
@@ -137,7 +137,7 @@ menu.post('/seed-demo', async (c) => {
   return c.json<UiResponse>(
     {
       showToast:
-        'Demo seeded: Day 5, 9 citizens, raid tomorrow, The Marked mid-rescue, votes & chronicle live.',
+        'Demo seeded: Day 5, 9 citizens, raid tomorrow, The Marked rescue underway, votes & chronicle live.',
     },
     200,
   );

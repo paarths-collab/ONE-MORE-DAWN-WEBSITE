@@ -90,7 +90,7 @@ mission.post('/start', async (c) => {
     await tx.hSet(KEYS.players, { [userId]: JSON.stringify(updated) });
   });
   if (!committed) {
-    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+    return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
   }
 
   // day-shared layout salted by the city's worldSeed (W1), per-user loot (spec §4)

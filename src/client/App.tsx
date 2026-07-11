@@ -43,10 +43,10 @@ import { tierForContribution } from '../shared/houses';
 // resolve against your defense, and you can talk, build huts, upgrade districts.
 
 const TIMES: { id: TimeOfDay; icon: string; label: string; tagline: string }[] = [
-  { id: 'night', icon: '🌙', label: 'NIGHT', tagline: 'the city sleeps — dawn is coming' },
-  { id: 'dawn', icon: '🌅', label: 'DAWN', tagline: 'dawn is coming — hold the line' },
+  { id: 'night', icon: '🌙', label: 'NIGHT', tagline: 'the city sleeps, dawn is coming' },
+  { id: 'dawn', icon: '🌅', label: 'DAWN', tagline: 'dawn is coming, hold the line' },
   { id: 'day', icon: '☀️', label: 'DAY', tagline: 'the city works while the light lasts' },
-  { id: 'dusk', icon: '🌇', label: 'DUSK', tagline: 'last light — count your stores' },
+  { id: 'dusk', icon: '🌇', label: 'DUSK', tagline: 'last light, count your stores' },
 ];
 const TIME_ORDER: TimeOfDay[] = ['night', 'dawn', 'day', 'dusk'];
 
@@ -79,7 +79,7 @@ const WORLD_CITIES: { id: string; name: string; status: WorldStatus; x: number; 
   { id: 'thornwick', name: 'r/thornwick', status: 'strained', x: 62, y: 17 },
 ];
 const WORLD_STATUS: Record<WorldStatus, { icon: string; label: string; color: string; flavor: string }> = {
-  thriving: { icon: '🌿', label: 'Thriving', color: '#7fd6a2', flavor: 'Holding the line — and then some.' },
+  thriving: { icon: '🌿', label: 'Thriving', color: '#7fd6a2', flavor: 'Holding the line, and then some.' },
   holding: { icon: '🕯️', label: 'Holding', color: '#ffcf70', flavor: 'Holding the line.' },
   strained: { icon: '🩸', label: 'Strained', color: '#ff8a3d', flavor: 'Rationing candles. Still standing.' },
   under_raid: { icon: '🚨', label: 'Under raid', color: '#ff5b4d', flavor: 'The wall decides tonight.' },
@@ -307,49 +307,49 @@ const COACH_STEPS: CoachStep[] = [
   {
     icon: '🕯️',
     title: 'WELCOME, SURVIVOR',
-    text: "I am Maren. I kept {CITY} standing before you came, and I'll show you how we keep it standing now. All of this belongs to everyone in this subreddit — and it remembers.",
+    text: "I am Maren. I kept {CITY} standing before you came, and I'll show you how we keep it standing now. All of this belongs to everyone in this subreddit, and it remembers.",
     anchor: '.title',
     go: { open: false },
   },
   {
     icon: '📊',
     title: 'THE VITALS',
-    text: 'Watch these as I do. Food, power, medicine, morale — the city consumes them every day. Threat climbs; defense holds it back. Let one reach zero and we lose people.',
+    text: 'Watch these as I do. Food, power, medicine, morale: the city consumes them every day. Threat climbs; defense holds it back. Let one reach zero and we lose people.',
     anchor: '.res',
     go: { open: false },
   },
   {
     icon: '📅',
     title: 'THE DAY',
-    text: 'One real day is one of ours. The raid clock counts down here — the night it reaches zero, the wall decides who wakes at dawn.',
+    text: 'One real day is one of ours. The raid clock counts down here. The night it reaches zero, the wall decides who wakes at dawn.',
     anchor: '.day',
     go: { open: false },
   },
   {
     icon: '⚡',
     title: 'YOUR ENERGY',
-    text: "Your strength for today. Spend it below — grow food, repair power, treat the sick, hold the wall. Whatever you choose, it lands at tomorrow's dawn.",
+    text: "Your strength for today. Spend it below: grow food, repair power, treat the sick, hold the wall. Whatever you choose, it lands at tomorrow's dawn.",
     anchor: '.hotbar',
     go: { open: false },
   },
   {
     icon: '▦',
     title: 'THE CITY PANEL',
-    text: 'My map table. Tap a district to fly to it — or look at WORLD and see the other cities out there, each one another subreddit holding its own line.',
+    text: 'My map table. Tap a district to fly to it, or look at WORLD and see the other cities out there, each one another subreddit holding its own line.',
     anchor: '.dash',
     go: { open: true, tab: 'map' },
   },
   {
     icon: '🔨',
     title: 'WE BUILD TOGETHER',
-    text: 'Nothing stands unless we raise it. ADD LABOR fills the shared bar — when it fills, the next building rises at dawn. Shelter first. Council Hall last.',
+    text: 'Nothing stands unless we raise it. ADD LABOR fills the shared bar; when it fills, the next building rises at dawn. Shelter first. Council Hall last.',
     anchor: '.build-panel',
     go: { open: true, tab: 'city' },
   },
   {
     icon: '🗳️',
     title: 'WE DECIDE TOGETHER',
-    text: "Here the city speaks: vote on today's crisis, back a council plan, and pledge for The Marked — one soul the night wants to take. One of each, every day.",
+    text: "Here the city speaks: vote on today's crisis, back a council plan, and pledge for The Marked, one soul the night wants to take. One of each, every day.",
     anchor: '.dash',
     go: { open: true, tab: 'live' },
   },
@@ -363,7 +363,7 @@ const COACH_STEPS: CoachStep[] = [
   {
     icon: '🏠',
     title: 'YOUR HOUSE',
-    text: 'One last thing. Your first contribution raises YOUR house — the founder built first; every soul after adds their own. Come back at dawn. {CITY} remembers its builders.',
+    text: 'One last thing. Your first contribution raises YOUR house. The founder built first; every soul after adds their own. Come back at dawn. {CITY} remembers its builders.',
     anchor: '.title',
     go: { open: false },
   },
@@ -425,14 +425,14 @@ const PLANS: { id: PlanId; nm: string }[] = [
 ];
 
 const DRAMA: { icon: string; text: string }[] = [
-  { icon: '🕯️', text: 'ashen_fox stood vigil for Mira — the medics take heart.' },
+  { icon: '🕯️', text: 'ashen_fox stood vigil for Mira, the medics take heart.' },
   { icon: '⚔️', text: 'Raiders probed the North Wall at dusk. The watch held.' },
   { icon: '🎒', text: 'quiet_marrow crawled back from the deep ruins with 7 food.' },
   { icon: '🗳️', text: '25 citizens have voted on the Convoy at the Gate.' },
-  { icon: '📜', text: 'The Council leans toward Prepare for Raid — 9 backers.' },
+  { icon: '📜', text: 'The Council leans toward Prepare for Raid, 9 backers.' },
   { icon: '🩹', text: 'saltcedar treated the sick through the night shift.' },
   { icon: '🏚️', text: 'A rival city went dark last night. Theirs, not ours.' },
-  { icon: '🌅', text: 'Dawn broke over the city — day 5, still standing.' },
+  { icon: '🌅', text: 'Dawn broke over the city, day 5, still standing.' },
 ];
 
 // Scripted replies to SAY HI — rotates each use.
@@ -527,13 +527,13 @@ const vitColor = (pct: number, danger = false): string =>
 // identical local state so the panel — and the 3D scene — still animate.
 // Sequence + thresholds mirror the server contract exactly.
 const BUILD_SEQUENCE: BuildingDef[] = [
-  { id: 'shelter', name: 'Shelter', description: 'First roofs against the cold — souls stop freezing.', progressRequired: 24, effect: 'survivors stay' },
-  { id: 'farm', name: 'Farm', description: 'Worked beds — food grows faster.', progressRequired: 30, effect: '+3 food/day' },
-  { id: 'clinic', name: 'Clinic', description: 'A ward for the sick — medicine goes further.', progressRequired: 34, effect: '+2 medicine/day' },
-  { id: 'watchtower', name: 'Watchtower', description: 'Eyes on the horizon — raiders lose the surprise.', progressRequired: 30, effect: '−threat at dawn' },
-  { id: 'storehouse', name: 'Storehouse', description: 'Dry stores — less waste, deeper reserves.', progressRequired: 28, effect: '+food capacity' },
-  { id: 'wall', name: 'Wall', description: 'Stone around the camp — the wall holds far longer.', progressRequired: 40, effect: '+defense' },
-  { id: 'council_hall', name: 'Council Hall', description: 'A place to decide together — the city endures.', progressRequired: 44, effect: 'the city endures' },
+  { id: 'shelter', name: 'Shelter', description: 'First roofs against the cold, souls stop freezing.', progressRequired: 24, effect: 'survivors stay' },
+  { id: 'farm', name: 'Farm', description: 'Worked beds, food grows faster.', progressRequired: 30, effect: '+3 food/day' },
+  { id: 'clinic', name: 'Clinic', description: 'A ward for the sick, medicine goes further.', progressRequired: 34, effect: '+2 medicine/day' },
+  { id: 'watchtower', name: 'Watchtower', description: 'Eyes on the horizon, raiders lose the surprise.', progressRequired: 30, effect: '−threat at dawn' },
+  { id: 'storehouse', name: 'Storehouse', description: 'Dry stores, less waste, deeper reserves.', progressRequired: 28, effect: '+food capacity' },
+  { id: 'wall', name: 'Wall', description: 'Stone around the camp, the wall holds far longer.', progressRequired: 40, effect: '+defense' },
+  { id: 'council_hall', name: 'Council Hall', description: 'A place to decide together, the city endures.', progressRequired: 44, effect: 'the city endures' },
 ];
 const BUILD_LABOR_STEP = 6; // labor added per contribution (matches the server)
 // 7 buildings collapse into 5 named stages (stage index 0..4).
@@ -840,8 +840,8 @@ function LiveTab({
           <div className="raid-count">{raidSoon ? 'RAID AT NEXT DAWN' : `RAID IN ${raidDays} DAWNS`}</div>
           <div className="raid-note">
             {liveData?.raidNote ?? (liveData?.raidLikely
-              ? '⚠ the forecast says raiders move at dawn — guard the wall'
-              : 'guard the wall — every point of defense counts')}
+              ? '⚠ the forecast says raiders move at dawn, guard the wall'
+              : 'guard the wall, every point of defense counts')}
           </div>
           {liveData?.raidLikely && (
             <div className="raid-detail">At dawn, the Red Signal can cost food, power, morale, and souls. Guard Wall softens every loss.</div>
@@ -862,7 +862,7 @@ function LiveTab({
   );
 }
 
-// TOP 🏆 tab — subreddit contribution leaderboard + city totals.
+// TOP 🏆 tab, subreddit contribution leaderboard + city totals.
 // Live mode renders the real server leaderboard (username + score only).
 function TopTab({ contribs, lb }: { contribs: Record<string, Contrib>; lb: LeaderboardEntry[] | null }) {
   if (lb) {
@@ -871,7 +871,7 @@ function TopTab({ contribs, lb }: { contribs: Record<string, Contrib>; lb: Leade
       <>
         <div className="p-sec">TOP CONTRIBUTORS</div>
         <div className="lb">
-          {lb.length === 0 && <div className="mini-cap">no contributions yet — be the first</div>}
+          {lb.length === 0 && <div className="mini-cap">no contributions yet, be the first</div>}
           {lb.map((row, i) => (
             <div key={`${row.username}-${i}`} className="lb-row">
               <span className="lb-rank">{LB_RANKS[i] ?? i + 1}</span>
@@ -1011,7 +1011,8 @@ function MiniMap({
 // ---------- MAP tab: world map of rival subreddit-cities ----------
 // A parchment-style terrain map: sea → continent → mountains/forests/river →
 // curved trade routes → hut-cluster settlements with status flags. Demo shows
-// the fictional set; live maps real /api/world cities onto the same 6 slots.
+// the fictional set; live maps real /api/world cities onto the same 6 slots,
+// backfilling any slot without a real city with its fictional settlement.
 type WmCity = { id: string; name: string; status: WorldStatus; x: number; y: number; info?: string };
 function WorldMap({
   youStatus,
@@ -1029,18 +1030,25 @@ function WorldMap({
   const unavailable = liveMode && liveCities === null;
   if (liveCities) {
     // your city → the center slot; the top 5 others (already ranked) → the
-    // remaining slots. Fewer than 6 cities just leaves slots empty.
+    // remaining slots. Slots without a real city keep their fictional
+    // settlement so the known world is always fully drawn — never a single
+    // isolated city on an empty continent.
     const you = liveCities.find((c) => c.isYou) ?? null;
     const others = liveCities.filter((c) => !c.isYou).slice(0, 5);
     const info = (c: WorldCity) => `${c.survivalDays} dawns · ${c.population} souls`;
     cities = [];
     const center = WORLD_CITIES[0]!;
     if (you) cities.push({ id: 'you', name: you.subreddit, status: you.status, x: center.x, y: center.y, info: info(you) });
+    else cities.push({ ...center, status: youStatus });
     others.forEach((c, i) => {
       const slot = WORLD_CITIES[i + 1];
       if (!slot) return;
       cities.push({ id: slot.id, name: c.subreddit, status: c.status, x: slot.x, y: slot.y, info: info(c) });
     });
+    for (let i = others.length + 1; i < WORLD_CITIES.length; i++) {
+      const slot = WORLD_CITIES[i]!;
+      cities.push({ ...slot, info: 'Beyond the trade routes, rumors only.' });
+    }
   } else {
     cities = WORLD_CITIES.map((c) => (c.id === 'you' ? { ...c, status: youStatus } : c));
   }
@@ -1051,7 +1059,7 @@ function WorldMap({
         <div className="wm-empty card-bit">
           <div className="wm-empty-k">{note ? 'WORLD SIGNAL LOST' : 'SCANNING WORLD'}</div>
           <div className="wm-empty-t">{note ? 'The known world is unavailable.' : 'Contacting the world registry.'}</div>
-          <div className="wm-empty-b">{note ?? 'Real subreddit-cities will appear here when the registry answers.'}</div>
+          <div className="wm-empty-b">{note ?? 'Real subreddit cities will appear here when the registry answers.'}</div>
         </div>
       </div>
     );
@@ -1127,7 +1135,7 @@ function WorldMap({
       </svg>
       {sel && (
         <div className="wm-info">
-          {WORLD_STATUS[sel.status].icon} {sel.name} — {WORLD_STATUS[sel.status].label}.{' '}
+          {WORLD_STATUS[sel.status].icon} {sel.name}, {WORLD_STATUS[sel.status].label}.{' '}
           {sel.info ?? WORLD_STATUS[sel.status].flavor}
         </div>
       )}
@@ -1330,10 +1338,10 @@ function CityDashboard({
               })}
             </div>
 
-            <div className="p-sec">DISTRICTS — TAP TO VISIT</div>
+            <div className="p-sec">DISTRICTS · TAP TO VISIT</div>
             <div className="districts">
               {pois.length === 0 ? (
-                <div className="mini-cap">No districts yet — raise the first Shelter to begin.</div>
+                <div className="mini-cap">No districts yet, raise the first Shelter to begin.</div>
               ) : (
                 pois.map((p) => (
                   <button
@@ -1394,7 +1402,7 @@ function BuildingChip({
             if (shown) onUpgrade(shown.name);
           }}
         >
-          ⬆ UPGRADE — 🍞 {UPGRADE_COST}
+          ⬆ UPGRADE · 🍞 {UPGRADE_COST}
         </button>
       )}
     </div>
@@ -1628,7 +1636,7 @@ function StatsModal({
         <button type="button" className="st-close" onClick={onClose} aria-label="Close stats">
           ✕
         </button>
-        <h2>CITY LEDGER — DAY {day}</h2>
+        <h2>CITY LEDGER · DAY {day}</h2>
 
         <div className="st-sec">CITY VITALS</div>
         <table className="st">
@@ -1665,9 +1673,9 @@ function StatsModal({
             <tr>
               <td>👥 SOULS</td>
               <td>{population}</td>
-              <td>—</td>
-              <td>—</td>
-              <td>—</td>
+              <td>·</td>
+              <td>·</td>
+              <td>·</td>
             </tr>
           </tbody>
         </table>
@@ -1778,7 +1786,7 @@ function StatsModal({
           <tbody>
             {raidLog.length === 0 ? (
               <tr>
-                <td colSpan={5}>no raids survived yet — the wall waits</td>
+                <td colSpan={5}>no raids survived yet, the wall waits</td>
               </tr>
             ) : (
               raidLog.map((e) => (
@@ -1843,10 +1851,10 @@ function DawnReportModal({
         <button type="button" className="st-close" onClick={onClose} aria-label="Close dawn report">
           ✕
         </button>
-        <h2>DAWN REPORT — DAY {report.day}</h2>
+        <h2>DAWN REPORT · DAY {report.day}</h2>
         <div className="st-sec">THE CITY</div>
         {report.citySummary.length === 0 ? (
-          <div className="mini-cap">a quiet night — nothing to report</div>
+          <div className="mini-cap">a quiet night, nothing to report</div>
         ) : (
           <div className="dr-lines">
             {report.citySummary.map((line, i) => (
@@ -1858,7 +1866,7 @@ function DawnReportModal({
         )}
         <div className="st-sec">YOUR PART</div>
         {report.yourImpact.length === 0 ? (
-          <div className="mini-cap">You rested. The city carried on without you — today, change that.</div>
+          <div className="mini-cap">You rested. The city carried on without you, today, change that.</div>
         ) : (
           <div className="dr-lines">
             {report.yourImpact.map((line, i) => (
@@ -1925,7 +1933,7 @@ function GameDashboard({
         <button type="button" className="st-close" onClick={onClose} aria-label="Close dashboard">
           ✕
         </button>
-        <h2>CITY DASHBOARD — DAY {day}</h2>
+        <h2>CITY DASHBOARD · DAY {day}</h2>
 
         <div className="st-sec">SETTLEMENT</div>
         {build ? (
@@ -1953,7 +1961,7 @@ function GameDashboard({
                 </div>
               </div>
             ) : (
-              <div className="mini-cap">Surviving City — every structure raised.</div>
+              <div className="mini-cap">Surviving City, every structure raised.</div>
             )}
             <table className="st">
               <thead>
@@ -1986,7 +1994,7 @@ function GameDashboard({
           <div className="mini-cap">the camp is still waking…</div>
         )}
 
-        <div className="st-sec">INVENTORY — RESOURCES</div>
+        <div className="st-sec">INVENTORY · RESOURCES</div>
         <table className="st">
           <thead>
             <tr>
@@ -2019,8 +2027,8 @@ function GameDashboard({
             <tr>
               <td>👥 SOULS</td>
               <td>{population}</td>
-              <td>—</td>
-              <td>—</td>
+              <td>·</td>
+              <td>·</td>
             </tr>
           </tbody>
         </table>
@@ -2032,7 +2040,7 @@ function GameDashboard({
         </div>
         <div className="db-feed">
           {events.length === 0 ? (
-            <div className="mini-cap">no news yet — the city is quiet</div>
+            <div className="mini-cap">no news yet, the city is quiet</div>
           ) : (
             events.map((e) => (
               <div key={e.key} className="db-feed-row">
@@ -2102,9 +2110,9 @@ function Onboarding({
           ✕
         </button>
         <div className="ob-sub" style={{ color: 'var(--ink)', marginTop: 0, marginBottom: 10 }}>
-          This subreddit is a shared city trying to survive one more dawn. It begins as a bare Camp —
+          This subreddit is a shared city trying to survive one more dawn. It begins as a bare Camp,
           everyone builds it up together, and your first contribution raises your own house in it. Take
-          your daily action, vote on the crisis, pledge to save The Marked, and hold the wall — then come
+          your daily action, vote on the crisis, pledge to save The Marked, and hold the wall, then come
           back at dawn to see what the community's choices did. The city remembers.
         </div>
         <div className="ob-title">CHOOSE YOUR ROLE</div>
@@ -2126,7 +2134,7 @@ function Onboarding({
         </div>
         <input
           className="ob-name"
-          placeholder="name your survivor — or we'll use your Reddit name"
+          placeholder="name your survivor, or we'll use your Reddit name"
           maxLength={24}
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -2214,7 +2222,7 @@ export function App() {
   const [used, setUsed] = useState<Record<string, boolean>>({});
   const [scavOpen, setScavOpen] = useState(false);
   const [scouting, setScouting] = useState(false);
-  // LIVE tab state — all demo numbers, drifting on timers.
+  // LIVE tab state, all demo numbers, drifting on timers.
   const [pledged, setPledged] = useState(23);
   const [pledgedToday, setPledgedToday] = useState(false);
   const [crisisVotes, setCrisisVotes] = useState<Record<CrisisOptId, number>>({ a: 12, b: 5, c: 8 });
@@ -2225,7 +2233,7 @@ export function App() {
     repair_power: 4,
   });
   const [raidDays, setRaidDays] = useState(5);
-  // subreddit contributions — houses bought + resources gifted, per user
+  // subreddit contributions, houses bought + resources gifted, per user
   const [contribs, setContribs] = useState<Record<string, Contrib>>(START_CONTRIBS);
   // seed newest-first: DRAMA[2] is the freshest, rotation continues at index 3
   const [events, setEvents] = useState<LiveEvent[]>(() => [2, 1, 0].map((i) => ({ ...DRAMA[i]!, key: i })));
@@ -2251,12 +2259,12 @@ export function App() {
   const [worldCities, setWorldCities] = useState<WorldCity[] | null>(null);
   const [worldNote, setWorldNote] = useState<string | null>(null);
   const [liveLb, setLiveLb] = useState<LeaderboardEntry[] | null>(null);
-  // BUILD FROM ZERO — live: server payload; demo: local counters synth a state.
+  // BUILD FROM ZERO, live: server payload; demo: local counters synth a state.
   const [liveBuild, setLiveBuild] = useState<BuildStatus | null>(null);
   const [demoUnlocked, setDemoUnlocked] = useState<string[]>([]);
   const [demoBuildProgress, setDemoBuildProgress] = useState(0);
   const [demoContributors, setDemoContributors] = useState(6);
-  // ONE REDDITOR ONE HOUSE — live: server house summary; demo: synth from a
+  // ONE REDDITOR ONE HOUSE, live: server house summary; demo: synth from a
   // growing contributor count + your own (demo) contribution driving your tier.
   const [liveHouses, setLiveHouses] = useState<HouseSummary | null>(null);
   const [demoHouseTotal, setDemoHouseTotal] = useState(0);
@@ -2280,7 +2288,7 @@ export function App() {
   const handleRef = useRef<VillageHandle | null>(null);
   const cityFallenRef = useRef(false); // fallen state, readable inside handlers/timers
   const modeRef = useRef<Mode>('connecting'); // current mode, readable inside timers
-  const mutatingRef = useRef(false); // a POST is in flight — pause polls + block double-taps
+  const mutatingRef = useRef(false); // a POST is in flight, pause polls + block double-taps
   const liveDayRef = useRef(0); // last server day seen (dawn diffing)
   const liveCrisisIdRef = useRef(''); // pins votes to the crisis being shown
   const seenDramaRef = useRef<Set<string>>(new Set()); // drama lines already in the feed
@@ -2363,7 +2371,7 @@ export function App() {
     if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToastOn(false), 2200);
   }, []);
-  // top-center notification stack — capped at 4, each auto-dismisses after 5s
+  // top-center notification stack, capped at 4, each auto-dismisses after 5s
   const pushNotif = useCallback((icon: string, text: string, tone?: 'good' | 'bad') => {
     const key = notifKeyRef.current;
     notifKeyRef.current += 1;
@@ -2425,7 +2433,7 @@ export function App() {
       setLiveHouses(init.houses ?? null); // one-redditor-one-house summary
       setLiveRaidNote(raidNoteFromEvents(init.timelinePreview?.events, init.forecast.raidLikely));
       setLiveTimelineHeadline(init.timelinePreview?.headline ?? null);
-      // fallen-city terminal state — mirror to a ref so handlers/timers can read it
+      // fallen-city terminal state, mirror to a ref so handlers/timers can read it
       const fallen = city.status === 'fallen';
       cityFallenRef.current = fallen;
       setCityFallen(fallen);
@@ -2459,8 +2467,8 @@ export function App() {
         }
       }
       if (dayIncreased) {
-        pushNotif('🌅', `dawn breaks — day ${city.day}`);
-        pushEvent('🌅', `Dawn broke over the city — day ${city.day}, still standing.`);
+        pushNotif('🌅', `dawn breaks, day ${city.day}`);
+        pushEvent('🌅', `Dawn broke over the city, day ${city.day}, still standing.`);
         // last night's raid, if the timeline recorded one
         const t = init.timelinePreview;
         if (t && (t.deltas.population ?? 0) < 0 && t.events.some((e) => /raid|red signal/i.test(e))) {
@@ -2494,7 +2502,7 @@ export function App() {
           setApiError(null);
           setMode('demo');
           modeRef.current = 'demo';
-          pushNotif('⚠️', 'dev demo mode — live API unavailable', 'bad');
+          pushNotif('⚠️', 'dev demo mode, live API unavailable', 'bad');
         } else {
           setApiError(message);
           setMode('offline');
@@ -2624,6 +2632,14 @@ export function App() {
       });
   }, []);
 
+  // Fetch the world once as soon as we're live, so the horizon settlements in
+  // the 3D scene wear real city names without waiting for the WORLD tab.
+  useEffect(() => {
+    if (mode !== 'live' || worldFetchedRef.current) return;
+    worldFetchedRef.current = true;
+    refreshWorld();
+  }, [mode, refreshWorld]);
+
   // First open of the WORLD map / TOP tab in live mode triggers the fetch;
   // afterwards the 30s poll refreshes whichever is on screen.
   useEffect(() => {
@@ -2656,7 +2672,7 @@ export function App() {
           if (dashTabRef.current === 'top') refreshLb();
         })
         .catch(() => {
-          // transient poll failure — keep showing the last known state
+          // transient poll failure, keep showing the last known state
         });
     }, 30000);
     return () => window.clearInterval(id);
@@ -2693,7 +2709,7 @@ export function App() {
           pushNotif('🗳️', 'your vote is in', 'good');
           await refreshAfterContribution();
         })
-        .catch((err) => toastFailure(err, 'vote failed — try again'))
+        .catch((err) => toastFailure(err, 'vote failed, try again'))
         .finally(() => {
           mutatingRef.current = false;
         });
@@ -2714,7 +2730,7 @@ export function App() {
           handleRef.current?.pulseMarked?.();
           await refreshAfterContribution();
         })
-        .catch((err) => toastFailure(err, 'pledge failed — try again'))
+        .catch((err) => toastFailure(err, 'pledge failed, try again'))
         .finally(() => {
           mutatingRef.current = false;
         });
@@ -2735,7 +2751,7 @@ export function App() {
           pushNotif('📜', 'the council heard you', 'good');
           await refreshAfterContribution();
         })
-        .catch((err) => toastFailure(err, 'the council is busy — try again'))
+        .catch((err) => toastFailure(err, 'the council is busy, try again'))
         .finally(() => {
           mutatingRef.current = false;
         });
@@ -2758,7 +2774,7 @@ export function App() {
           if (letters >= 2) {
             await postAvatar({ name: trimmed, gender: 'nonbinary', skin: 0, hair: 0, hairStyle: 0, outfit: 0 });
           }
-          pushNotif('🫡', `role set — ${roleLabel}`, 'good');
+          pushNotif('🫡', `role set, ${roleLabel}`, 'good');
           setOnboardOpen(false);
           setNeedsOnboard(false);
           if (!coachSeen()) setCoachStep(0); // the advisor picks up where onboarding ends
@@ -2766,7 +2782,7 @@ export function App() {
           const init = await getInit();
           applyInit(init, false);
         })
-        .catch((err) => toastFailure(err, 'could not set your role — try again'))
+        .catch((err) => toastFailure(err, 'could not set your role, try again'))
         .finally(() => {
           setOnboardBusy(false);
           mutatingRef.current = false;
@@ -2779,7 +2795,7 @@ export function App() {
     setNeedsOnboard(false);
   }, []);
 
-  // ADD LABOR — the shared "build from zero" contribution. Live: post the
+  // ADD LABOR, the shared "build from zero" contribution. Live: post the
   // energy-gated once/day build_city action, then re-fetch to pull the fresh
   // community progress. Demo: advance the local meter and unlock buildings on
   // the same thresholds so the panel + scene animate without a server.
@@ -2794,7 +2810,7 @@ export function App() {
           pushNotif('🔨', `you added a day's labor to the ${nextName}`, 'good');
           await refreshAfterContribution();
         })
-        .catch((err) => toastFailure(err, 'could not add labor — try again'))
+        .catch((err) => toastFailure(err, 'could not add labor, try again'))
         .finally(() => {
           mutatingRef.current = false;
         });
@@ -2814,7 +2830,7 @@ export function App() {
       demoBuildProgressRef.current = carry;
       setDemoUnlocked(nextUnlocked);
       setDemoBuildProgress(carry);
-      pushNotif('🏗️', `the ${nextDef.name} is built — we raised it together`, 'good');
+      pushNotif('🏗️', `the ${nextDef.name} is built, we raised it together`, 'good');
     } else {
       demoBuildProgressRef.current = progress;
       setDemoBuildProgress(progress);
@@ -2847,7 +2863,7 @@ export function App() {
     [pushTalk],
   );
 
-  // scene reports a clicked villager (null = clicked empty ground) — selection
+  // scene reports a clicked villager (null = clicked empty ground), selection
   // drives the bottom-left chip and re-targets SAY HI.
   const onVillager = useCallback((name: string | null) => {
     villagerRef.current = name;
@@ -2855,18 +2871,18 @@ export function App() {
   }, []);
 
   // scene reports a placed hut → grow the city, spend food, exit build mode.
-  // Live mode: the hut is purely cosmetic — city numbers belong to the server.
+  // Live mode: the hut is purely cosmetic, city numbers belong to the server.
   const onBuilt = useCallback(
     (x: number, _z: number) => {
       if (modeRef.current !== 'live') {
         setPopulation((p) => p + 4);
         setVitals((v) => ({ ...v, FOOD: clampVit('FOOD', v.FOOD - 5) }));
         addContrib('u/you', { houses: 1 });
-        pushEvent('🔨', `A new hut rose in the ${x < 0 ? 'west' : 'east'} quarter — a family moves in.`);
-        pushNotif('🔨', 'a new hut — +4 souls', 'good');
-        popToast('Hut raised — +4 souls');
+        pushEvent('🔨', `A new hut rose in the ${x < 0 ? 'west' : 'east'} quarter, a family moves in.`);
+        pushNotif('🔨', 'a new hut, +4 souls', 'good');
+        popToast('Hut raised, +4 souls');
       } else {
-        pushEvent('🔨', `A new hut rose in the ${x < 0 ? 'west' : 'east'} quarter — a family moves in.`);
+        pushEvent('🔨', `A new hut rose in the ${x < 0 ? 'west' : 'east'} quarter, a family moves in.`);
         pushNotif('🔨', 'a new hut rises (cosmetic)', 'good');
         popToast('Hut raised');
       }
@@ -2877,7 +2893,7 @@ export function App() {
     [addContrib, pushEvent, pushNotif, popToast],
   );
 
-  // VILLAGERS are now PLAYERS — the walking count tracks the number of distinct
+  // VILLAGERS are now PLAYERS, the walking count tracks the number of distinct
   // contributors (people who opted into the game), clamped to a sane range.
   // Live mode keeps a small constant crowd (the server has no walker roster).
   const playerCount = Object.keys(contribs).length;
@@ -2886,7 +2902,7 @@ export function App() {
     handleRef.current?.setVillagers(n);
   }, [playerCount, loaded, mode]);
 
-  // COMPANIONS are permanently on — sync all four once the scene is ready.
+  // COMPANIONS are permanently on, sync all four once the scene is ready.
   useEffect(() => {
     const h = handleRef.current;
     if (!h) return;
@@ -2903,7 +2919,7 @@ export function App() {
     if (mode === 'demo') handleRef.current?.setBuildStage?.(demoUnlocked);
   }, [mode, demoUnlocked, loaded]);
 
-  // ONE REDDITOR ONE HOUSE — houses reveal by contributor count. Demo synthesises
+  // ONE REDDITOR ONE HOUSE, houses reveal by contributor count. Demo synthesises
   // a growing neighborhood (you are the founder) so the mechanic is visible
   // without a backend; live uses the server house summary.
   useEffect(() => {
@@ -2931,6 +2947,16 @@ export function App() {
   useEffect(() => {
     handleRef.current?.setHouses?.(houses);
   }, [houses, loaded]);
+
+  // Horizon: relabel the 3D scene's distant neighbor settlements with real
+  // world-map cities (rank order, minus your own). No data (demo mode, gate,
+  // registry down) keeps the scene's fictional defaults.
+  useEffect(() => {
+    if (!worldCities) return;
+    handleRef.current?.setDistantCities?.(
+      worldCities.filter((c) => !c.isYou).slice(0, 5).map((c) => ({ name: c.subreddit, status: c.status })),
+    );
+  }, [worldCities, loaded]);
 
   // Declutter: the floating in-world district/house banner labels are redundant
   // (and overlap in a narrow webview) while the CITY dashboard panel is open, so
@@ -3001,8 +3027,8 @@ export function App() {
       if (next === 'dawn' && modeRef.current === 'demo') {
         dayRef.current += 1;
         setDay(dayRef.current);
-        pushEvent('🌅', `Dawn broke over the city — day ${dayRef.current}, still standing.`);
-        pushNotif('🌅', `dawn breaks — day ${dayRef.current}`);
+        pushEvent('🌅', `Dawn broke over the city, day ${dayRef.current}, still standing.`);
+        pushNotif('🌅', `dawn breaks, day ${dayRef.current}`);
       }
     }, 12000);
     return () => window.clearInterval(id);
@@ -3019,16 +3045,16 @@ export function App() {
     prevDayRef.current = day;
     usedRef.current = {};
     setUsed({});
-    pushNotif('🌅', 'new dawn — actions refreshed');
+    pushNotif('🌅', 'new dawn, actions refreshed');
   }, [day, mode, pushNotif]);
 
-  // LIVE tab handlers — one pledge / one crisis vote per "day" (session).
+  // LIVE tab handlers, one pledge / one crisis vote per "day" (session).
   const onPledge = useCallback(() => {
     if (pledgedRef.current) return;
     pledgedRef.current = true;
     setPledged((p) => Math.min(MARKED_GOAL, p + 3));
     setPledgedToday(true);
-    // optional scene API (added by another agent) — never crash if absent
+    // optional scene API (added by another agent), never crash if absent
     handleRef.current?.pulseMarked?.();
   }, []);
   const onCrisisVote = useCallback((id: CrisisOptId) => {
@@ -3038,7 +3064,7 @@ export function App() {
     setCrisisVotes((v) => ({ ...v, [id]: v[id] + 1 }));
   }, []);
 
-  // SAY HI — local city chatter only: wave in the scene and get a scripted reply.
+  // SAY HI, local city chatter only: wave in the scene and get a scripted reply.
   // With a villager selected the greeting is tagged and THEY answer; otherwise
   // the old random-reply rotation plays out.
   const onSayHi = useCallback(() => {
@@ -3073,7 +3099,7 @@ export function App() {
     }, 6000);
   }, [pushTalk, pushNotif]);
 
-  // villager chip actions — wave at / deselect the clicked villager
+  // villager chip actions, wave at / deselect the clicked villager
   const onWaveAt = useCallback(() => {
     const target = villagerRef.current;
     if (!target) return;
@@ -3085,12 +3111,12 @@ export function App() {
     setVillager(null);
   }, []);
 
-  // BUILD — toggle placement mode in the scene (fallback toast if the scene
+  // BUILD, toggle placement mode in the scene (fallback toast if the scene
   // API isn't there yet).
   const toggleBuild = useCallback(() => {
     const h = handleRef.current;
     if (!h?.setBuildMode) {
-      popToast('Building placement — coming soon');
+      popToast('Building placement, coming soon');
       return;
     }
     const on = !buildModeRef.current;
@@ -3099,7 +3125,7 @@ export function App() {
     h.setBuildMode?.(on);
   }, [popToast]);
 
-  // UPGRADE — bump a district's level for food; flash it in the scene.
+  // UPGRADE, bump a district's level for food; flash it in the scene.
   const onUpgrade = useCallback(
     (name: string) => {
       if (vitalsRef.current.FOOD < UPGRADE_COST) return;
@@ -3112,7 +3138,7 @@ export function App() {
     [pushEvent],
   );
 
-  // DAWN ACTIONS — each spends once per day; refreshed by the day effect.
+  // DAWN ACTIONS, each spends once per day; refreshed by the day effect.
   // Live mode posts the real action instead: no optimistic vital bump (the next
   // poll brings the server truth), energy/counters from the response, 400/409
   // surfaced as a toast.
@@ -3129,13 +3155,13 @@ export function App() {
             setLiveActions(res.yourActionsToday);
             playSound('action_confirm');
             pushNotif('✅', 'your work lands at the next dawn', 'good');
-            if (res.unlockedTitle) pushNotif('🏅', `title unlocked — ${res.unlockedTitle}`, 'good');
+            if (res.unlockedTitle) pushNotif('🏅', `title unlocked, ${res.unlockedTitle}`, 'good');
             const liveFrags = ACTION_FLASH[id] ?? [];
             const liveHit = poisRef.current.find((p) => liveFrags.some((f) => p.name.toUpperCase().includes(f)));
             if (liveHit) handleRef.current?.flashDistrict?.(liveHit.name);
             await refreshAfterContribution();
           })
-          .catch((err) => toastFailure(err, 'the action failed — try again'))
+          .catch((err) => toastFailure(err, 'the action failed, try again'))
           .finally(() => {
             mutatingRef.current = false;
           });
@@ -3149,16 +3175,16 @@ export function App() {
         setVitals((v) => ({ ...v, FOOD: clampVit('FOOD', v.FOOD + 3) }));
         addContrib('u/you', { food: 3 });
         pushEvent('🌾', 'The growers coaxed 3 more food from the greenhouse beds.');
-        pushNotif('🍞', 'Food grown — the greenhouse holds');
+        pushNotif('🍞', 'Food grown, the greenhouse holds');
       } else if (id === 'repair_power') {
         setVitals((v) => ({ ...v, POWER: clampVit('POWER', v.POWER + 4) }));
         addContrib('u/you', { power: 4 });
-        pushEvent('🔧', 'Hands on the generator through the morning — power steadies.');
+        pushEvent('🔧', 'Hands on the generator through the morning, power steadies.');
         pushNotif('⚡', 'Generator steadied');
       } else if (id === 'treat_sick') {
         setVitals((v) => ({ ...v, MEDICINE: clampVit('MEDICINE', v.MEDICINE + 2) }));
         addContrib('u/you', { medicine: 2 });
-        pushEvent('⛑️', 'The clinic worked the ward — the sick rest easier.');
+        pushEvent('⛑️', 'The clinic worked the ward, the sick rest easier.');
         pushNotif('🩹', 'The sick rest easier');
       } else if (id === 'guard_wall') {
         setVitals((v) => ({
@@ -3166,7 +3192,7 @@ export function App() {
           THREAT: clampVit('THREAT', v.THREAT - 5),
           DEFENSE: clampVit('DEFENSE', v.DEFENSE + 2),
         }));
-        pushEvent('🛡️', 'Extra watch posted on the wall — the raiders keep their distance.');
+        pushEvent('🛡️', 'Extra watch posted on the wall, the raiders keep their distance.');
         pushNotif('🛡️', 'The wall holds');
       }
       // flash the matching district if the scene labeled one
@@ -3177,7 +3203,7 @@ export function App() {
     [addContrib, pushEvent, pushNotif, refreshAfterContribution, toastFailure],
   );
 
-  // Demo-only SCAVENGE — live V1 never opens this flow.
+  // Demo-only SCAVENGE, live V1 never opens this flow.
   const runScavenge = useCallback(
     (id: RouteId) => {
       if (modeRef.current === 'live') return;
@@ -3203,7 +3229,7 @@ export function App() {
           pushNotif('☠️', "a scout didn't come back", 'bad');
         }
         addContrib('u/you', { food: route.food });
-        pushNotif('🎒', `the scout returns — +${route.food} food`, 'good');
+        pushNotif('🎒', `the scout returns, +${route.food} food`, 'good');
         pushEvent('🎒', `A scout came back from the ${route.title} with ${route.food} food.`);
       }, route.dur);
     },
@@ -3218,12 +3244,12 @@ export function App() {
     setRaidLog((prev) => [{ day: dayRef.current, outcome, ...loss, key }, ...prev].slice(0, 12));
   }, []);
 
-  // RAID — 9s of dread, then the wall decides on CURRENT defense.
+  // RAID, 9s of dread, then the wall decides on CURRENT defense.
   const startRaid = useCallback(() => {
     if (raidPhaseRef.current !== 'idle') return;
     raidPhaseRef.current = 'incoming';
     setRaidPhase('incoming');
-    pushNotif('⚔', 'RAID — raiders are at the gate!', 'bad');
+    pushNotif('⚔', 'RAID, raiders are at the gate!', 'bad');
     handleRef.current?.setRaidWatch?.(true);
     handleRef.current?.setRaiders?.(true); // raider party appears at the gate
     raidTimersRef.current.push(
@@ -3251,7 +3277,7 @@ export function App() {
             MORALE: clampVit('MORALE', v.MORALE - 10),
           }));
           pushEvent('🔥', 'Raiders breached the gate before the watch pushed them out.');
-          pushNotif('🔥', 'the wall was breached — 8 souls lost', 'bad');
+          pushNotif('🔥', 'the wall was breached, 8 souls lost', 'bad');
           logRaid('breach');
           raidPhaseRef.current = 'breach';
           setRaidPhase('breach');
@@ -3271,13 +3297,13 @@ export function App() {
     );
   }, [pushEvent, pushNotif, logRaid]);
 
-  // SUBREDDIT SIMULATION — a community member buys a house (scene API, added
+  // SUBREDDIT SIMULATION, a community member buys a house (scene API, added
   // by another agent) or gifts resources into the city stores.
   const simBuyHouse = useCallback(
     (user: string) => {
       // A new redditor joins: their house rises through the one-house-per-person
       // system (setHouses reveals it from the growing contributor count), so the
-      // demo town fills the same way a real city does — no ungated placements.
+      // demo town fills the same way a real city does, no ungated placements.
       setDemoHouseTotal((n) => Math.min(120, n + 1));
       setPopulation((p) => p + 3);
       addContrib(user, { houses: 1 });
@@ -3307,7 +3333,7 @@ export function App() {
     },
     [simBuyHouse, simContribute],
   );
-  // the subreddit stirs every ~11s — DEMO only; in live mode the real city's
+  // the subreddit stirs every ~11s, DEMO only; in live mode the real city's
   // numbers belong to the server, so the local sim must never touch them.
   useEffect(() => {
     if (mode !== 'demo') return undefined;
@@ -3518,7 +3544,7 @@ export function App() {
         <div className="rg-card">
           <div className="rg-i">📱</div>
           <b>ROTATE TO LANDSCAPE</b>
-          <span>One More Dawn is a wide city — turn your phone sideways to hold the line.</span>
+          <span>One More Dawn is a wide city, turn your phone sideways to hold the line.</span>
         </div>
       </div>
       <VillageCanvas
@@ -3625,7 +3651,7 @@ export function App() {
           <AdvisorPortrait talking={coachTyped < coachFullText.length} face={coachAim.face} point={coachAim.point} />
           <div className="co-head">
             <span>
-              {COACH_STEPS[coachStep].icon} MAREN · CITY ADVISOR — {COACH_STEPS[coachStep].title}
+              {COACH_STEPS[coachStep].icon} MAREN · CITY ADVISOR · {COACH_STEPS[coachStep].title}
             </span>
             <button
               type="button"

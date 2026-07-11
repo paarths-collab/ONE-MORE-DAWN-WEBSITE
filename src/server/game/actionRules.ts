@@ -14,7 +14,7 @@ export const validateAction = (
   if (!ACTION_TYPES.includes(action)) return `Unknown action: ${String(action)}`;
   if (!player.role) return 'Choose a role before acting.';
   if (player.energyUsedToday >= effectiveEnergy(player, cityDay)) {
-    return 'No energy left today. The city rests — come back tomorrow.';
+    return 'No energy left today. The city rests, come back tomorrow.';
   }
   return null;
 };

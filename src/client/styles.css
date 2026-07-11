@@ -215,9 +215,14 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .poi-label { pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: var(--pixel); font-size: 8.5px; letter-spacing: 1px; color: var(--gold); background: rgba(20, 16, 13, 0.88); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; white-space: nowrap; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5); transition: border-color 0.15s, color 0.15s; }
 /* Fade the floating in-world banners while the CITY panel is open (declutter).
    !important beats the CSS2DRenderer's inline display style. */
-.omd-hide-labels .poi-label, .omd-hide-labels .h-owner { display: none !important; }
+.omd-hide-labels .poi-label, .omd-hide-labels .h-owner, .omd-hide-labels .dc-label { display: none !important; }
 .poi-label .ic { font-size: 12px; }
 .poi-label:hover { border-color: var(--gold); color: #ffe9ad; }
+
+/* ---- distant neighbor-city banners on the horizon (CSS2DRenderer layer) ---- */
+.dc-label { pointer-events: none; display: inline-flex; align-items: center; gap: 5px; font-family: var(--pixel); font-size: 7.5px; letter-spacing: 1px; color: #d8cdb4; background: rgba(20, 16, 13, 0.72); border: 1px solid var(--line); border-radius: 8px; padding: 3px 7px; white-space: nowrap; }
+.dc-label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+.dc-label.fallen { opacity: 0.55; }
 
 /* ---- villager speech bubbles (CSS2DRenderer layer — appearance only) ---- */
 .v-bubble { position: relative; pointer-events: none; font-family: var(--mono); font-size: 10px; color: #221607; background: rgba(244, 234, 216, 0.95); border-radius: 10px; padding: 5px 9px; max-width: 150px; width: max-content; white-space: normal; line-height: 1.35; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35); opacity: 0; scale: 0.8; transition: opacity 0.2s, scale 0.2s; }
@@ -545,6 +550,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .dt-t { font-size: 10px; }
   .dt-s { font-size: 9px; max-height: 42px; overflow: hidden; }
   .poi-label { display: none; }
+  .dc-label { font-size: 6.5px; padding: 2px 5px; }
   .offline-sheet { padding: 18px; }
   .offline-sheet h2 { font-size: 12px; }
   .offline-sheet p { font-size: 11px; }

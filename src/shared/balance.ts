@@ -68,10 +68,10 @@ export const BALANCE = {
     progressPerAction: 6,
     stages: ['Camp', 'Settlement', 'Village', 'Fortified Town', 'Surviving City'],
     buildings: [
-      { id: 'shelter',      name: 'Shelter',      description: 'Tents become homes — fewer are lost to the cold.', progressRequired: 24, effect: '+1 morale/day' },
-      { id: 'farm',         name: 'Farm',         description: 'Worked beds — food grows faster.',                  progressRequired: 30, effect: '+3 food/day' },
+      { id: 'shelter',      name: 'Shelter',      description: 'Tents become homes, fewer are lost to the cold.', progressRequired: 24, effect: '+1 morale/day' },
+      { id: 'farm',         name: 'Farm',         description: 'Worked beds, food grows faster.',                  progressRequired: 30, effect: '+3 food/day' },
       { id: 'clinic',       name: 'Clinic',       description: 'The sick rest and recover.',                         progressRequired: 34, effect: '+1 medicine/day' },
-      { id: 'watchtower',   name: 'Watchtower',   description: 'Eyes on the ridge — the wall holds harder.',         progressRequired: 30, effect: '+2 defense/day' },
+      { id: 'watchtower',   name: 'Watchtower',   description: 'Eyes on the ridge, the wall holds harder.',         progressRequired: 30, effect: '+2 defense/day' },
       { id: 'storehouse',   name: 'Storehouse',   description: 'Stores keep more before they spoil.',                progressRequired: 28, effect: '+100 food cap' },
       { id: 'wall',         name: 'Wall',         description: 'Raiders break on stone.',                            progressRequired: 40, effect: 'softens raid losses' },
       { id: 'council_hall', name: 'Council Hall', description: 'The council speaks with one voice.',                 progressRequired: 44, effect: '+1 morale/day' },

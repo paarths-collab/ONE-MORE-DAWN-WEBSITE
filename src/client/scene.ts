@@ -23,6 +23,10 @@ export type SceneHouses = {
   named: { username: string; index: number; tier: number }[];
 };
 
+/** One rival settlement on the horizon (status set matches the 2D world map). */
+export type DistantCityStatus = 'thriving' | 'holding' | 'strained' | 'under_raid' | 'fallen';
+export type DistantCity = { name: string; status: DistantCityStatus };
+
 /** Snapshot the React HUD reads (via getMapData) to draw its live minimap. */
 export type MapData = {
   radius: number;                                              // max plateau radius (scale hint)
@@ -74,6 +78,12 @@ export type VillageHandle = {
    */
   setBuildStage: (unlocked: string[]) => void;
   setHouses: (houses: SceneHouses | null) => void;
+  /**
+   * Relabel the distant neighbor settlements on the horizon with real
+   * world-map cities (rank order, your own city excluded). Slots past the end
+   * of the list keep their fictional default neighbor. Idempotent.
+   */
+  setDistantCities: (cities: DistantCity[]) => void;
   /**
    * Build a house for a named owner at a random free spot (roadside preferred)
    * and float a temporary owner tag over it. Returns the tile + compass quarter,
@@ -553,6 +563,94 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     scene.add(inst);
   }
 
+  // ---------- distant neighbor cities (the world beyond the abyss) ----------
+  // Five rival settlements on their own mesas past the mountain ring, so panning
+  // toward the horizon shows a living world instead of empty haze. Fictional by
+  // default (mirroring the 2D world map's demo set); setDistantCities relabels
+  // them with real /api/world cities as the registry fills in.
+  const DC_STATUS_COL: Record<DistantCityStatus, number> = {
+    thriving: 0x7fd6a2, holding: 0xffcf70, strained: 0xff8a3d, under_raid: 0xff5b4d, fallen: 0x6b7089,
+  };
+  const DC_DEFAULTS: DistantCity[] = [
+    { name: 'r/ironhollow', status: 'thriving' },
+    { name: 'r/ashfall', status: 'under_raid' },
+    { name: 'r/deepwater', status: 'fallen' },
+    { name: 'r/saltmere', status: 'holding' },
+    { name: 'r/thornwick', status: 'strained' },
+  ];
+  const distantSlots: { nameEl: Text; dotEl: HTMLElement; el: HTMLElement; flagMat: THREE.MeshBasicMaterial }[] = [];
+  {
+    const roofMats = [MAT.roofSlate, MAT.roofSlateDark, MAT.roofBrown];
+    const angles = [0.45, 1.7, 2.75, 3.95, 5.25];
+    angles.forEach((a0) => {
+      const a = a0 + (rng() - 0.5) * 0.2;
+      const dist = 150 + rng() * 35;
+      const g = new THREE.Group();
+      g.position.set(Math.cos(a) * dist, 0, Math.sin(a) * dist);
+      // mesa rising from the abyss floor, grass on top
+      const topR = 10 + rng() * 3;
+      const mesa = new THREE.Mesh(new THREE.CylinderGeometry(topR, topR * 1.4, 7, 9), lam(C.cliff, { flatShading: true }));
+      mesa.position.y = -3.5;
+      g.add(mesa);
+      const top = new THREE.Mesh(new THREE.CircleGeometry(topR - 0.4, 9), lam(C.grassB));
+      top.rotation.x = -Math.PI / 2;
+      top.position.y = 0.04;
+      g.add(top);
+      // central hall + hut cluster (chunky, so it reads as a town from 150+ units)
+      g.add(box(3.6, 2.6, 3.0, MAT.plaster, 0, 1.3, 0));
+      g.add(pyramid(3.6, 2.2, 3.0, lam(C.roofRed), 0, 3.7, 0));
+      for (let h = 0; h < 8; h++) {
+        const ha = rng() * Math.PI * 2;
+        const hr = 3.4 + rng() * (topR - 5.5);
+        const hx = Math.cos(ha) * hr;
+        const hz = Math.sin(ha) * hr;
+        const hw = 1.5 + rng() * 0.8;
+        const hh = 1.1 + rng() * 0.4;
+        g.add(box(hw, hh, hw * 0.85, rng() > 0.4 ? MAT.timber : MAT.plaster, hx, hh / 2, hz));
+        g.add(pyramid(hw, 1.1, hw * 0.85, roofMats[Math.floor(rng() * roofMats.length)]!, hx, hh + 0.5, hz));
+      }
+      for (let t = 0; t < 5; t++) {
+        const ta = rng() * Math.PI * 2;
+        const tr = topR - 2 - rng() * 2;
+        const tx = Math.cos(ta) * tr;
+        const tz = Math.sin(ta) * tr;
+        g.add(cyl(0.22, 1.2, MAT.trunk, tx, 0.6, tz, 6));
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.5, 3.6, 7), lam(rng() > 0.5 ? C.leaf : C.leafDark));
+        leaf.position.set(tx, 3.0, tz);
+        g.add(leaf);
+      }
+      // status flag on a tall pole by the hall
+      const flagMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+      g.add(cyl(0.12, 6.5, MAT.stoneDark, 2.6, 3.25, 1.4, 6));
+      const flag = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.3), flagMat);
+      flag.position.set(3.7, 6.0, 1.4);
+      g.add(flag);
+      // floating name banner (the declutter CSS hides it with the other labels)
+      const el = document.createElement('div');
+      el.className = 'dc-label';
+      const dotEl = document.createElement('span');
+      dotEl.className = 'dot';
+      const nameEl = document.createTextNode('');
+      el.append(dotEl, nameEl);
+      const tag = new CSS2DObject(el);
+      tag.position.set(0, 9.5, 0);
+      g.add(tag);
+      scene.add(g);
+      distantSlots.push({ nameEl, dotEl, el, flagMat });
+    });
+  }
+  const applyDistantCities = (cities: DistantCity[]) => {
+    distantSlots.forEach((slot, i) => {
+      const c = cities[i] ?? DC_DEFAULTS[i]!;
+      const col = DC_STATUS_COL[c.status] ?? DC_STATUS_COL.holding;
+      slot.nameEl.textContent = c.name;
+      slot.dotEl.style.background = `#${col.toString(16).padStart(6, '0')}`;
+      slot.el.classList.toggle('fallen', c.status === 'fallen');
+      slot.flagMat.color.setHex(col);
+    });
+  };
+  applyDistantCities([]); // stamp the fictional defaults
+
   // ---------- occupancy for buildings ----------
   const occupied = new Set<string>();
   const occupy = (x: number, z: number, r: number) => {
@@ -783,7 +881,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     g.add(cyl(0.06, 0.9, MAT.timberDark, 0.6, 0.45, 1.8, 6));
     g.add(box(1.6, 0.1, 0.9, MAT.roofSlate, 0, 0.95, 1.55));
     g.add(glowCube(0.4, -0.8, 1.0, 1.12));
-    register(g, x, z, { name: 'DIPLOMACY', level: 2, blurb: 'Envoys from other subreddit-cities are received here.' }, 2.8, { icon: '🕊️', y: 3.4 });
+    register(g, x, z, { name: 'DIPLOMACY', level: 2, blurb: 'Envoys from other subreddit cities are received here.' }, 2.8, { icon: '🕊️', y: 3.4 });
   }
   // NEWS — notice board, inner west
   {
@@ -826,7 +924,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     g.add(box(1.9, 1.0, 1.9, MAT.plaster, 0, 5.0, 0));
     g.add(pyramid(2.3, 1.1, 2.3, MAT.roofSlateDark, 0, 6.05, 0));
     g.add(glowCube(0.4, 0, 5.1, 0.98));
-    register(g, x, z, { name: 'STATISTICS', level: 2, blurb: 'Dawns survived, pledges counted — the chronicle keeps score.' }, 2.4, { icon: '📊', y: 7.0 });
+    register(g, x, z, { name: 'STATISTICS', level: 2, blurb: 'Dawns survived, pledges counted, the chronicle keeps score.' }, 2.4, { icon: '📊', y: 7.0 });
   }
 
   // ---------- filler houses along the roads (~240) ----------
@@ -1981,6 +2079,13 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     setBuildMode,
     setBuildStage,
     setHouses,
+    setDistantCities: (cities) => {
+      try {
+        applyDistantCities(Array.isArray(cities) ? cities : []);
+      } catch {
+        /* cosmetic overlay — never throw into the caller */
+      }
+    },
     buyHouse,
     flashDistrict,
     getMapData,

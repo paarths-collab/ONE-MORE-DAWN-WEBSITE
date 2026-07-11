@@ -12,6 +12,18 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["node_modules/vite/bin/vite.js", "--config", "vite.dev3d.config.mjs"],
       "port": 4630
+    },
+    {
+      "name": "mock-live",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set MOCK_API=1&& node node_modules/vite/bin/vite.js --config vite.dev3d.config.mjs --host 127.0.0.1 --port 4635 --strictPort"],
+      "port": 4635
+    },
+    {
+      "name": "mock-onboard",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set MOCK_API=1&& set MOCK_ROLE_NULL=1&& node node_modules/vite/bin/vite.js --config vite.dev3d.config.mjs --host 127.0.0.1 --port 4636 --strictPort"],
+      "port": 4636
     }
   ]
 }

@@ -53,15 +53,15 @@ export const buildDrama = (
   if (city.status === 'fallen') {
     out.push(event('city', `The city fell on day ${city.day}. The fires are out.`, '🕯️'));
   } else if (city.threat + BALANCE.passiveThreatRise >= BALANCE.raid.triggerThreshold) {
-    out.push(event('raid', 'The Red Signal glows on the horizon — a raid is imminent.'));
+    out.push(event('raid', 'The Red Signal glows on the horizon, a raid is imminent.'));
   }
 
   // The Marked: yesterday's dawn verdict, then today's rally.
   if (marked.savedYesterday) {
     out.push(
       marked.savedYesterday.saved
-        ? event('marked', `${marked.savedYesterday.name} was saved at dawn — the city remembers.`)
-        : event('marked', `${marked.savedYesterday.name} was lost at dawn — a memorial grows by the gate.`, '🖤'),
+        ? event('marked', `${marked.savedYesterday.name} was saved at dawn, the city remembers.`)
+        : event('marked', `${marked.savedYesterday.name} was lost at dawn, a memorial grows by the gate.`, '🖤'),
     );
   }
   out.push(
@@ -78,11 +78,11 @@ export const buildDrama = (
       ? BALANCE.laws[city.activeLaw as FactionId]
       : null;
   if (activeLaw) {
-    out.push(event('law', `${activeLaw.label} is law today — the ${city.activeLaw} hold the council.`));
+    out.push(event('law', `${activeLaw.label} is law today, the ${city.activeLaw} hold the council.`));
   } else {
     const leader = winningFaction(factionInfluence);
     if (leader) {
-      out.push(event('law', `The ${leader} lead today's influence — tomorrow's law is theirs to lose.`));
+      out.push(event('law', `The ${leader} lead today's influence, tomorrow's law is theirs to lose.`));
     }
   }
 
@@ -98,13 +98,13 @@ export const buildDrama = (
 
   // Low-vital warnings (thresholds derived from balance, not invented here).
   if (city.food < Math.ceil(city.population * BALANCE.foodPerPopulation) * 2) {
-    out.push(event('city', 'The granary echoes — food runs out within two dawns.', '🍞'));
+    out.push(event('city', 'The granary echoes, food runs out within two dawns.', '🍞'));
   }
   if (city.power < BALANCE.lowPowerThreshold) {
-    out.push(event('city', 'The grid is failing — darkness weighs on everyone.', '🔌'));
+    out.push(event('city', 'The grid is failing, darkness weighs on everyone.', '🔌'));
   }
   if (city.medicine < BALANCE.sickness.threshold) {
-    out.push(event('city', 'Medicine is short — the ward whispers of the cough.', '🩹'));
+    out.push(event('city', 'Medicine is short, the ward whispers of the cough.', '🩹'));
   }
 
   // Yesterday's dawn story, straight from the timeline.

@@ -229,7 +229,7 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
   const nextCityLevel = stageForCount(built.unlocked.length);
   for (const id of built.completed) {
     const def = BALANCE.build.buildings.find((b) => b.id === id);
-    events.push(`The ${def?.name ?? id} is complete — the city grows.`);
+    events.push(`The ${def?.name ?? id} is complete, the city grows.`);
   }
 
   // --- 1b. one-tap pledge pressure (hook layer): each tap nudges a vital ---
@@ -295,7 +295,7 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     if (totalCount > 0 && alignedCount / totalCount >= BALANCE.unity.alignedShareThreshold) {
       morale += BALANCE.unity.moraleBonus;
       events.push(
-        `Unity: the city rallied behind "${plan.replace(/_/g, ' ')}" — morale +${BALANCE.unity.moraleBonus}.`,
+        `Unity: the city rallied behind "${plan.replace(/_/g, ' ')}", morale +${BALANCE.unity.moraleBonus}.`,
       );
     }
   }
@@ -309,12 +309,12 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
   if (markedSaved) {
     morale += BALANCE.marked.savedMoraleBonus;
     events.push(
-      `${marked.name} was saved — ${inputs.markedPledged}/${marked.goal} resolve pledged. The city takes heart.`,
+      `${marked.name} was saved, ${inputs.markedPledged}/${marked.goal} resolve pledged. The city takes heart.`,
     );
   } else {
     morale -= BALANCE.marked.lostMoralePenalty;
     events.push(
-      `Memorial: ${marked.name} was lost at dawn — only ${inputs.markedPledged}/${marked.goal} resolve pledged.`,
+      `Memorial: ${marked.name} was lost at dawn, only ${inputs.markedPledged}/${marked.goal} resolve pledged.`,
     );
   }
 
@@ -343,7 +343,7 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
       medicine -= BALANCE.sickness.medicineCostPerDay;
     } else {
       population -= BALANCE.sickness.deathsIfNone;
-      events.push(`Sickness claimed ${BALANCE.sickness.deathsIfNone} lives — there was no medicine left.`);
+      events.push(`Sickness claimed ${BALANCE.sickness.deathsIfNone} lives, there was no medicine left.`);
     }
   } else {
     medicine -= BALANCE.sickness.medicineCostPerDay;
@@ -394,7 +394,7 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     const raidFelled = next.population <= BALANCE.fall.populationThreshold;
     events.push(
       raidFelled
-        ? 'The Red Signal came in the night. The city could not hold — it fell.'
+        ? 'The Red Signal came in the night. The city could not hold, it fell.'
         : 'The Red Signal came in the night. The city held, but paid in blood.',
     );
   }

@@ -343,7 +343,7 @@ api.get('/init', async (c) => {
     },
   );
   if (!loadedPlayer) {
-    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+    return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
   }
   const { player, brandNew, firstVisitToday } = loadedPlayer;
 
@@ -512,7 +512,7 @@ api.post('/role', async (c) => {
     await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(updated) });
   });
   if (!committed) {
-    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+    return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
   }
   return c.json<RoleResponse>({ type: 'role', player: updated });
 });
@@ -545,7 +545,7 @@ api.post('/avatar', async (c) => {
     await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(updated) });
   });
   if (!committed) {
-    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+    return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
   }
   return c.json<AvatarResponse>({ type: 'avatar', player: updated });
 });
@@ -608,7 +608,7 @@ api.post('/action', async (c) => {
     }
   });
   if (!committed) {
-    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+    return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
   }
 
   // Non-critical bookkeeping outside the tx (contribution mirror + aggregates),
@@ -649,7 +649,7 @@ api.post('/vote', async (c) => {
   // YESTERDAY's crisis. Without this its optionId ('a') would silently count for
   // a DIFFERENT crisis's option 'a' today.
   if (typeof body.crisisId === 'string' && body.crisisId !== city.crisisId) {
-    return c.json<ApiError>({ status: 'error', message: 'A new day has dawned — reload.' }, 409);
+    return c.json<ApiError>({ status: 'error', message: 'A new day has dawned, reload.' }, 409);
   }
   const crisis = getCrisis(city.crisisId);
   if (!crisis.options.some((o) => o.id === body.optionId)) {
@@ -673,7 +673,7 @@ api.post('/vote', async (c) => {
     await tx.hIncrBy(KEYS.dayVotes(city.day), body.optionId, 1);
   });
   if (!committed) {
-    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+    return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
   }
   await store.registerHouse(user.userId);
 
@@ -714,7 +714,7 @@ api.post('/strategy', async (c) => {
     await tx.hIncrBy(KEYS.dayStrategyPlan(city.day), body.planId, 1);
   });
   if (!committed) {
-    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+    return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
   }
   await store.registerHouse(user.userId);
 
@@ -773,7 +773,7 @@ api.post('/pledge', async (c) => {
     await tx.hIncrBy(KEYS.dayMarked(city.day), body.kind, 1);
   });
   if (!committed) {
-    return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
+    return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
   }
 
   // Public credit: pledges count toward contribution/status (never energy).

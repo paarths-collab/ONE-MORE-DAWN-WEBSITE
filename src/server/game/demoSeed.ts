@@ -172,7 +172,7 @@ export async function seedDemoCity(store: Store, { cycle, worldSeed, nowMs }: Se
   const timeline: TimelineEntry[] = [
     {
       day: 2, cycle,
-      headline: 'Day 2: Refugees at the gate — the city let them in.',
+      headline: 'Day 2: Refugees at the gate, the city let them in.',
       events: ['30 souls taken in; food strained but morale lifted.', 'Farmers doubled the greenhouse shifts.'],
       deltas: { population: 28, food: -18, morale: 5 },
       crisisId: 'refugee_convoy', winningOptionId: 'a',
@@ -186,7 +186,7 @@ export async function seedDemoCity(store: Store, { cycle, worldSeed, nowMs }: Se
     },
     {
       day: 4, cycle,
-      headline: 'Day 4: Raiders probed the North Wall — the watch held.',
+      headline: 'Day 4: Raiders probed the North Wall, the watch held.',
       events: [
         'The North Wall was saved by citizens standing vigil.',
         '12 citizen actions strengthened the city.',

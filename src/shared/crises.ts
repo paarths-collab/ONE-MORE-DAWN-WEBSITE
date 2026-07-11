@@ -20,7 +20,7 @@ export const CRISES: Crisis[] = [
       'A refugee convoy is outside the gate. Thirty souls, thin and coughing. They say raiders burned their camp.',
     minDay: 2,
     options: [
-      { id: 'a', label: 'Let them in', description: 'More mouths — and more hands.', effects: { population: 30, food: -20, morale: 4 } },
+      { id: 'a', label: 'Let them in', description: 'More mouths, and more hands.', effects: { population: 30, food: -20, morale: 4 } },
       { id: 'b', label: 'Turn them away', description: 'The city cannot bleed for strangers.', effects: { morale: -10, defense: 3 } },
       { id: 'c', label: 'Inspect first', description: 'Scouts check the convoy for sickness and weapons.', effects: { population: 15, food: -8, threat: 3 } },
     ],
@@ -54,7 +54,7 @@ export const CRISES: Crisis[] = [
     id: 'strange_signal',
     title: 'A Strange Signal',
     narrative:
-      'The radio tower catches a repeating pulse from the north. Not weather. Not random. Someone — or something — is broadcasting.',
+      'The radio tower catches a repeating pulse from the north. Not weather. Not random. Someone, or something, is broadcasting.',
     minDay: 3,
     options: [
       { id: 'a', label: 'Answer it', description: 'Break silence. Risk attention.', effects: { threat: 8, morale: 5 } },

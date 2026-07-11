@@ -106,7 +106,7 @@ const clampIndex = (n: unknown, len: number): number => {
 /**
  * Coerce an untrusted config into a safe one: clamp every index into range and
  * sanitize the name. Used server-side so a malformed client payload can never
- * store an out-of-bounds index. The name is NOT length-checked here — validate
+ * store an out-of-bounds index. The name is NOT length-checked here, validate
  * with isValidAvatar first for the min-length rule.
  */
 export const clampAvatar = (a: AvatarConfig): AvatarConfig => ({
