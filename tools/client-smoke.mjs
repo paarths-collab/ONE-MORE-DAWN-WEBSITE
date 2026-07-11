@@ -284,6 +284,13 @@ async function liveSmoke(url) {
     // Daily mission chip: the 100-level hook must show level + progress.
     const mission = await cdp.eval(`(() => { const m = document.querySelector('.mission-chip'); return m ? m.textContent.replace(/\\s+/g, ' ') : ''; })()`);
     assert(/LV 7/.test(mission) && /1\/2/.test(mission), `mission chip should show level and progress, saw "${mission}".`);
+    // REKINDLE (streak insurance): the fixture player lapsed a 12-day streak, so
+    // the offer must show with its standing cost, and accepting must restore it.
+    const rekindle = await cdp.eval(`(() => { const r = document.querySelector('.rekindle-chip'); return r ? r.textContent.replace(/\\s+/g, ' ') : ''; })()`);
+    assert(/12-day flame/.test(rekindle) && /24/.test(rekindle), `rekindle chip should offer the 12-day flame for 24 standing, saw "${rekindle}".`);
+    await cdp.eval(`document.querySelector('.rekindle-chip .rk-btn')?.click()`);
+    await cdp.waitFor(`!document.querySelector('.rekindle-chip')`, 'rekindle chip resolves after accepting');
+    await cdp.waitFor(`document.body.innerText.includes('the flame burns again')`, 'rekindle success notif');
     assert(mission.includes('🔥 3d'), `mission chip should surface the 3-day streak, saw "${mission}".`);
     // Dawn countdown: the appointment mechanic must be visible in the day pill.
     const eta = await cdp.eval(`document.querySelector('.dp-eta')?.textContent || ''`);

@@ -14,6 +14,7 @@ import type {
   PledgeKind,
   PledgeRequest,
   PledgeResponse,
+  RekindleResponse,
   Role,
   RoleRequest,
   RoleResponse,
@@ -94,6 +95,10 @@ export const postStrategy = (planId: StrategyPlanId): Promise<StrategyResponse> 
   const body: StrategyRequest = { planId };
   return request<StrategyResponse>('/api/strategy', body);
 };
+
+/** Streak insurance: burn standing to restore a lapsed streak. */
+export const postRekindle = (): Promise<RekindleResponse> =>
+  request<RekindleResponse>('/api/rekindle', {});
 
 export const postRole = (role: Role): Promise<RoleResponse> => {
   const body: RoleRequest = { role };

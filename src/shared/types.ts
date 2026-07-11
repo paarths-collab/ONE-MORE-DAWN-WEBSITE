@@ -110,6 +110,8 @@ export type PlayerProfile = {
   injuredUntilDay: number; // player is injured while city.day <= injuredUntilDay
   totalContribution: number;
   streak: number;
+  /** A streak that died in a lapse — restorable via /rekindle for standing. */
+  lapsedStreak?: number;
 };
 
 // ---------- Crises ----------
@@ -435,6 +437,12 @@ export type LawDef = {
  * Public leaderboard row. Deliberately carries NO userId: raw t2_* identifiers
  * are server-side keys and never leave the API (see GET /api/leaderboard).
  */
+export type RekindleResponse = {
+  type: 'rekindle';
+  player: PlayerProfile;
+  cost: number; // standing burned
+};
+
 export type LeaderboardEntry = { username: string; score: number };
 
 export type LeaderboardResponse = {

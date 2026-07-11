@@ -9,8 +9,9 @@ import {
   type VillageHandle,
   type VillageHooks,
 } from './scene';
-import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postAvatar, postPledge, postRole, postStrategy, postVote } from './api';
+import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postAvatar, postPledge, postRekindle, postRole, postStrategy, postVote } from './api';
 import { isLocalHarnessHost, raidNoteFromEvents, worldUnavailableMessage } from './liveUi';
+import { BALANCE } from '../shared/balance';
 import { cityEpithet } from '../shared/cityName';
 import { navigateTo } from '@devvit/web/client';
 import { isMuted, playSound, preloadSounds, toggleMuted, unlockAudio } from './sound';
@@ -2428,6 +2429,8 @@ export function App() {
   const [liveChallenge, setLiveChallenge] = useState<InitResponse['challenge'] | null>(null); // today's personal mission
   const challengeDoneRef = useRef(false); // last seen done-state, for the completion cheer
   const [liveStreak, setLiveStreak] = useState(0); // consecutive-day streak (server-tracked)
+  const [liveLapsed, setLiveLapsed] = useState(0); // a dead streak's ghost, restorable via REKINDLE
+  const [rekindleBusy, setRekindleBusy] = useState(false);
   const [dawnEta, setDawnEta] = useState<string | null>(null); // countdown to next UTC-midnight dawn
   // Epic banners (LEVEL UP / THE SHELTER STANDS): one at a time, queued.
   const [epic, setEpic] = useState<{ title: string; sub: string } | null>(null);
@@ -2635,6 +2638,7 @@ export function App() {
       }
       challengeDoneRef.current = !!ch?.done;
       setLiveStreak(init.player.streak ?? 0);
+      setLiveLapsed(init.player.lapsedStreak ?? 0);
       // Level-up moment: the mission level climbed since the last refresh.
       if (ch) {
         if (!first && prevLevelRef.current !== null && ch.level > prevLevelRef.current) {
@@ -2750,6 +2754,7 @@ export function App() {
       cancelled = true;
     };
   }, [applyInit, pushNotif]);
+
 
   // Advisor tour: each step can open the dashboard on a tab (so the player SEES
   // what's being explained) and highlight its anchor element with a ring. The
@@ -2939,6 +2944,22 @@ export function App() {
       popToast('Saved. City refresh delayed.');
     }
   }, [applyInit, popToast, pushNotif]);
+
+  // REKINDLE — streak insurance: burn standing to restore the dead streak.
+  const onRekindle = useCallback(() => {
+    if (rekindleBusy || mutatingRef.current) return;
+    setRekindleBusy(true);
+    postRekindle()
+      .then((res) => {
+        setLiveStreak(res.player.streak);
+        setLiveLapsed(0);
+        playSound('dawn_report');
+        pushNotif('🔥', `the flame burns again, ${res.player.streak} days strong (-${res.cost} standing)`, 'good');
+      })
+      .catch((err) => toastFailure(err, 'could not rekindle, try again'))
+      .finally(() => setRekindleBusy(false));
+  }, [rekindleBusy, pushNotif, toastFailure]);
+
 
   const onLiveVote = useCallback(
     (optionId: string) => {
@@ -3821,6 +3842,14 @@ export function App() {
           <span className={liveChallenge.done ? 'mi-pr done' : 'mi-pr'}>
             {liveChallenge.done ? `✓ +${liveChallenge.reward}` : `${liveChallenge.progress}/${liveChallenge.target}`}
           </span>
+        </div>
+      )}
+      {isLive && !cityFallen && liveLapsed >= BALANCE.rekindle.minStreak && liveLapsed > liveStreak && (
+        <div className="hud rekindle-chip card-bit">
+          <span className="rk-tx">🔥 Your {liveLapsed}-day flame went out while you were away.</span>
+          <button type="button" className="rk-btn" disabled={rekindleBusy} onClick={onRekindle}>
+            REKINDLE · {liveLapsed * BALANCE.rekindle.costPerDay} ⭐
+          </button>
         </div>
       )}
       <DayPill time={time} day={day} raidSoon={raidDays <= 1} raidActive={raidPhase === 'incoming'} dawnEta={dawnEta} />

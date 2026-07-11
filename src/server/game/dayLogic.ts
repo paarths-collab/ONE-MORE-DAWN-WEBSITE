@@ -1,13 +1,18 @@
 import { BALANCE } from '../../shared/balance';
 import type { PlayerProfile, Role } from '../../shared/types';
 
-/** Spec §2 "Daily player reset". Pure: returns a new profile, never mutates. */
+/** Spec §2 "Daily player reset". Pure: returns a new profile, never mutates.
+ *  A lapse kills the streak but remembers its ghost (lapsedStreak) so the
+ *  player can /rekindle it by burning standing — streak insurance. */
 export const resetPlayerForDay = (player: PlayerProfile, cityDay: number): PlayerProfile => {
   if (player.lastActiveDay >= cityDay) return player;
+  const continued = player.lastActiveDay === cityDay - 1;
+  const dying = !continued && player.streak >= BALANCE.rekindle.minStreak ? player.streak : 0;
   return {
     ...player,
     energyUsedToday: 0,
-    streak: player.lastActiveDay === cityDay - 1 ? player.streak + 1 : 1,
+    streak: continued ? player.streak + 1 : 1,
+    lapsedStreak: Math.max(player.lapsedStreak ?? 0, dying),
     lastActiveDay: cityDay,
   };
 };
