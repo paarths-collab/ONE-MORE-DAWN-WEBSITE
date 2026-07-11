@@ -370,6 +370,11 @@ async function liveSmoke(url) {
         }))()`);
         assert(world.count >= 2, 'WORLD view should render multiple cities in mock-live.');
         assert(world.names.includes('r/meadowbrook') && world.names.includes('r/ironhollow'), 'WORLD view should include your city and a rival city.');
+        // Multi-city travel: selecting a REAL rival city offers a TRAVEL button
+        // (fictional filler settlements must not). Assert presence, never click —
+        // it would navigate the page out of the test.
+        await cdp.eval(`(() => { const el = [...document.querySelectorAll('.wm-city')].find((c) => c.querySelector('.wm-name')?.textContent === 'r/ironhollow'); el?.dispatchEvent(new MouseEvent('click', { bubbles: true })); })()`);
+        await cdp.waitFor(`(document.querySelector('.wm-travel')?.textContent || '').includes('R/IRONHOLLOW')`, 'rival city selection offers TRAVEL');
       }
       await sleep(200);
     }

@@ -12,6 +12,7 @@ import {
 import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postAvatar, postPledge, postRole, postStrategy, postVote } from './api';
 import { isLocalHarnessHost, raidNoteFromEvents, worldUnavailableMessage } from './liveUi';
 import { cityEpithet } from '../shared/cityName';
+import { navigateTo } from '@devvit/web/client';
 import { isMuted, playSound, preloadSounds, toggleMuted, unlockAudio } from './sound';
 import { isMusicMuted, playTrack, stopMusic, toggleMusicMuted, unlockMusic } from './music';
 import type {
@@ -343,7 +344,7 @@ const COACH_STEPS: CoachStep[] = [
   {
     icon: '▦',
     title: 'THE CITY PANEL',
-    text: 'My map table. Tap a district to fly to it, or look at WORLD and see the other cities out there, each one another subreddit holding its own line.',
+    text: 'My map table. Tap a district to fly to it, or look at WORLD and see the other cities out there, each one another subreddit holding its own line. Tap a city to travel to it.',
     anchor: '.dash',
     go: { open: true, tab: 'map' },
   },
@@ -1117,7 +1118,24 @@ function MiniMap({
 // curved trade routes → hut-cluster settlements with status flags. Demo shows
 // the fictional set; live maps real /api/world cities onto the same 6 slots,
 // backfilling any slot without a real city with its fictional settlement.
-type WmCity = { id: string; name: string; status: WorldStatus; x: number; y: number; info?: string };
+type WmCity = { id: string; name: string; status: WorldStatus; x: number; y: number; info?: string; real?: boolean };
+
+/** Open another city's subreddit — every city on the world map IS a community.
+ *  navigateTo needs the Devvit runtime; outside it (dev harness) fall back to
+ *  a plain new tab so travel is testable everywhere. */
+const travelTo = (subreddit: string): void => {
+  const path = subreddit.startsWith('r/') ? subreddit : `r/${subreddit}`;
+  const url = `https://www.reddit.com/${path}`;
+  try {
+    navigateTo(url);
+  } catch {
+    try {
+      window.open(url, '_blank', 'noopener');
+    } catch {
+      /* travel unavailable — never break the map */
+    }
+  }
+};
 function WorldMap({
   youStatus,
   liveCities,
@@ -1147,7 +1165,7 @@ function WorldMap({
     others.forEach((c, i) => {
       const slot = WORLD_CITIES[i + 1];
       if (!slot) return;
-      cities.push({ id: slot.id, name: c.subreddit, status: c.status, x: slot.x, y: slot.y, info: info(c) });
+      cities.push({ id: slot.id, name: c.subreddit, status: c.status, x: slot.x, y: slot.y, info: info(c), real: true });
     });
     for (let i = others.length + 1; i < WORLD_CITIES.length; i++) {
       const slot = WORLD_CITIES[i]!;
@@ -1241,6 +1259,18 @@ function WorldMap({
         <div className="wm-info">
           {WORLD_STATUS[sel.status].icon} {sel.name}, {WORLD_STATUS[sel.status].label}.{' '}
           {sel.info ?? WORLD_STATUS[sel.status].flavor}
+          {sel.real && (
+            <button
+              type="button"
+              className="wm-travel"
+              onClick={() => {
+                playSound('button_click');
+                travelTo(sel.name);
+              }}
+            >
+              ⤴ TRAVEL TO {sel.name.toUpperCase()}
+            </button>
+          )}
         </div>
       )}
       {note && <div className="mini-cap">{note}</div>}
