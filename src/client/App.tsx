@@ -840,7 +840,8 @@ function MiniMap({
 // ---------- MAP tab: world map of rival subreddit-cities ----------
 // A parchment-style terrain map: sea → continent → mountains/forests/river →
 // curved trade routes → hut-cluster settlements with status flags. Demo shows
-// the fictional set; live maps real /api/world cities onto the same 6 slots.
+// the fictional set; live maps real /api/world cities onto the same 6 slots,
+// backfilling any slot without a real city with its fictional settlement.
 type WmCity = { id: string; name: string; status: WorldStatus; x: number; y: number; info?: string };
 function WorldMap({
   youStatus,
@@ -858,18 +859,25 @@ function WorldMap({
   const unavailable = liveMode && liveCities === null;
   if (liveCities) {
     // your city → the center slot; the top 5 others (already ranked) → the
-    // remaining slots. Fewer than 6 cities just leaves slots empty.
+    // remaining slots. Slots without a real city keep their fictional
+    // settlement so the known world is always fully drawn — never a single
+    // isolated city on an empty continent.
     const you = liveCities.find((c) => c.isYou) ?? null;
     const others = liveCities.filter((c) => !c.isYou).slice(0, 5);
     const info = (c: WorldCity) => `${c.survivalDays} dawns · ${c.population} souls`;
     cities = [];
     const center = WORLD_CITIES[0]!;
     if (you) cities.push({ id: 'you', name: you.subreddit, status: you.status, x: center.x, y: center.y, info: info(you) });
+    else cities.push({ ...center, status: youStatus });
     others.forEach((c, i) => {
       const slot = WORLD_CITIES[i + 1];
       if (!slot) return;
       cities.push({ id: slot.id, name: c.subreddit, status: c.status, x: slot.x, y: slot.y, info: info(c) });
     });
+    for (let i = others.length + 1; i < WORLD_CITIES.length; i++) {
+      const slot = WORLD_CITIES[i]!;
+      cities.push({ ...slot, info: 'Beyond the trade routes — rumors only.' });
+    }
   } else {
     cities = WORLD_CITIES.map((c) => (c.id === 'you' ? { ...c, status: youStatus } : c));
   }
