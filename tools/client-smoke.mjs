@@ -570,6 +570,8 @@ async function fallenSmoke(url) {
   const { cdp, close } = await openPage(url);
   try {
     await cdp.waitFor('document.body && document.body.innerText.includes("THE CITY HAS FALLEN")', 'fallen terminal screen');
+    // Phoenix Dawn: the memorial must promise the rebirth, not a dead end.
+    await cdp.waitFor('document.body.innerText.includes("rises from the ashes at the next dawn")', 'fallen screen promises the Phoenix Dawn');
     const state = await cdp.eval(`(() => ({
       hasGrowFood: document.body.innerText.includes('GROW FOOD'),
       hasBuild: [...document.querySelectorAll('button')].some((b) => (b.textContent || '').includes('🔨')),

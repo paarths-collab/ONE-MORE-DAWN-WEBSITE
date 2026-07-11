@@ -31,8 +31,14 @@ export const runLazyResolution = async (
   const needsCreate = city === undefined;
   const needsResolve =
     city !== undefined && city.status === 'alive' && meta.lastResolvedDate !== today;
+  // Phoenix Dawn: a fallen city mourns for the rest of the real day it fell,
+  // then rises at the next UTC dawn as a fresh Camp in the next cycle — no
+  // moderator required. Players persist (profiles, titles, streaks, lifetime
+  // contribution and therefore house tiers); only the city itself resets.
+  const needsRebirth =
+    city !== undefined && city.status !== 'alive' && meta.lastResolvedDate !== today;
 
-  if (!needsCreate && !needsResolve) {
+  if (!needsCreate && !needsResolve && !needsRebirth) {
     return { city: city!, resolving: false };
   }
 
@@ -62,8 +68,44 @@ export const runLazyResolution = async (
       return { city, resolving: false };
     }
 
-    if (city.status !== 'alive' || freshMeta.lastResolvedDate === today) {
+    if (freshMeta.lastResolvedDate === today) {
       return { city, resolving: false };
+    }
+
+    if (city.status !== 'alive') {
+      // --- Phoenix Dawn: rebirth into the next cycle ---
+      // CLEARED: houses (re-earned instantly at the tier your lifetime
+      // contribution has already banked), day-scoped ballots/actions (their
+      // day numbers would collide with the new cycle's), marked outcomes.
+      // KEPT: player profiles, lifetime contribution + scout leaderboards,
+      // and the timeline — the city remembers every cycle, including its falls.
+      const keysToDelete: string[] = [KEYS.housesIndex, KEYS.housesMeta, KEYS.markedOutcomes];
+      for (let d = 1; d <= city.day + 1; d++) {
+        keysToDelete.push(
+          KEYS.dayActions(d), KEYS.dayUserActions(d), KEYS.dayVotes(d), KEYS.dayVoters(d),
+          KEYS.dayMissions(d), KEYS.dayFactionInfluence(d), KEYS.dayStrategyPlan(d),
+          KEYS.dayStrategyVoters(d), KEYS.dayMarked(d), KEYS.dayPledgers(d),
+        );
+      }
+      for (let i = 0; i < keysToDelete.length; i += 100) {
+        await redis.del(...keysToDelete.slice(i, i + 100));
+      }
+      const reborn = newCityState(city.cycle + 1, worldSeed);
+      await store.setCityState(reborn);
+      await store.appendTimeline({
+        day: 1,
+        cycle: reborn.cycle,
+        headline: `FROM THE ASHES — cycle ${reborn.cycle} begins`,
+        events: [
+          `The city fell after ${city.day} dawns. The survivors regrouped at the old hearth.`,
+          'Every title, every deed, and every name carries into the new dawn.',
+        ],
+        deltas: {},
+        crisisId: reborn.crisisId,
+        winningOptionId: null,
+      });
+      await store.setCityMeta({ lastResolvedDate: today });
+      return { city: reborn, resolving: false };
     }
 
     // One hGetAll for userActions (roleCounts needs it), then the independent

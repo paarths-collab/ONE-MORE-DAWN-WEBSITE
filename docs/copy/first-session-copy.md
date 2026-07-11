@@ -102,7 +102,7 @@ Show once, after entering. Each is one short card with a "GOT IT" / "NEXT" butto
 
 - **Title:** `THE CITY HAS FALLEN`
 - **Stats:** `Survived {n} dawns · {souls} souls remained · Cycle {c}, Day {d}`
-- **Note:** `Only a moderator's reset can begin a new cycle.`
+- **Note:** `The survivors regroup. The city rises from the ashes at the next dawn, and every title, streak, and deed carries with you into the new cycle.`
 
 ## 8. CTA label reference (quick list)
 

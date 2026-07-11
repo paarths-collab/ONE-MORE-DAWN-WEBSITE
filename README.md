@@ -57,7 +57,9 @@ The client runs in three honest modes, decided by one `/api/init` call:
    and **pledge** to save **The Marked**.
 6. **Brace** — watch the **raid countdown**; raids resolve at dawn.
 7. **Return** — the **Dawn Report** shows what the community's choices did, and the
-   city timeline remembers it. If the city falls, a memorial marks the end.
+   city timeline remembers it. If the city falls, a memorial holds for the day,
+   then the **Phoenix Dawn** rebirths it as a fresh Camp in the next cycle;
+   every player's titles, streaks, and lifetime standing carry over.
 
 ## Why it's Reddit-native
 

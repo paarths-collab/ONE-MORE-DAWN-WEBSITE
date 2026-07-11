@@ -135,15 +135,20 @@ describe('scenario matrix — the resolver behaves as specified', () => {
     expect(entry.headline).toMatch(/fell/i);
   });
 
-  it('a fallen city is a stable terminal state — the lazy resolver never advances it', async () => {
+  it('a fallen city holds its memorial for the day, then the Phoenix Dawn rebirths it', async () => {
     const redis = makeFakeRedis();
     const store = new Store(redis);
     await runLazyResolution(store, redis, new Date('2026-07-04T10:00:00Z'), 0);
     await store.setCityState({ ...newCityState(1), status: 'fallen' });
+    // Same UTC day it fell: the memorial is a stable state, never a same-day loop.
+    const sameDay = await runLazyResolution(store, redis, new Date('2026-07-04T21:00:00Z'), 0);
+    expect(sameDay.city.status).toBe('fallen');
+    // The next UTC dawn: the city rises as a fresh Camp in the next cycle.
     const { city, resolving } = await runLazyResolution(store, redis, new Date('2026-07-05T10:00:00Z'), 0);
-    expect(city.status).toBe('fallen');
-    expect(city.day).toBe(1); // untouched
     expect(resolving).toBe(false);
+    expect(city.status).toBe('alive');
+    expect(city.cycle).toBe(2);
+    expect(city.day).toBe(1);
   });
 });
 

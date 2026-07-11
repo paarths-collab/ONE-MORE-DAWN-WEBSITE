@@ -2295,21 +2295,25 @@ function Onboarding({
   );
 }
 
-// Fallen-city terminal state (live mode only, city.status === 'fallen'). A dim
-// scrim over the (still visible) 3D town; every action surface is suppressed and
-// the LIVE handlers are no-ops while it shows. Only a mod reset clears it.
+// Fallen-city memorial (live mode only, city.status === 'fallen'). A dim scrim
+// over the (still visible) 3D town; every action surface is suppressed while it
+// shows. It is a CHAPTER, not an ending: the Phoenix Dawn rebirths the city at
+// the next UTC dawn (see lazyResolve), and every player's titles, streaks, and
+// lifetime contribution carry into the new cycle.
 function FallenScreen({
   epitaph,
   survivalDays,
   population,
   cycle,
   day,
+  cityName,
 }: {
   epitaph: string;
   survivalDays: number;
   population: number;
   cycle: number;
   day: number;
+  cityName: string;
 }) {
   return (
     <div className="hud fallen on">
@@ -2322,7 +2326,10 @@ function FallenScreen({
           <span>{population} souls remained</span>
           <span>Cycle {cycle}, Day {day}</span>
         </div>
-        <div className="fl-note">Only a moderator's reset can begin a new cycle.</div>
+        <div className="fl-note fl-phoenix">
+          The survivors regroup. {cityName} rises from the ashes at the next dawn — and every
+          title, streak, and deed carries with you into the new cycle.
+        </div>
       </div>
     </div>
   );
@@ -2427,6 +2434,7 @@ export function App() {
   const epicQueueRef = useRef<{ title: string; sub: string }[]>([]);
   const prevLevelRef = useRef<number | null>(null);
   const prevUnlockedRef = useRef<string[] | null>(null);
+  const prevCycleRef = useRef<number | null>(null); // Phoenix Dawn rebirth detection
   // Action juice: transient floating "+1 🌾" markers above the hotbar.
   const [floats, setFloats] = useState<{ key: number; text: string }[]>([]);
   const floatKeyRef = useRef(0);
@@ -2649,6 +2657,13 @@ export function App() {
       setLiveActions(init.yourActionsToday);
       setLiveStanding(init.standing);
       setLiveCycle(city.cycle);
+      // Phoenix Dawn: a cycle increase mid-session means the fallen city rose
+      // again overnight — celebrate the rebirth once.
+      if (!first && prevCycleRef.current !== null && city.cycle > prevCycleRef.current) {
+        showEpic('FROM THE ASHES', `cycle ${city.cycle}, the city rises again`);
+        playSound('dawn_report');
+      }
+      prevCycleRef.current = city.cycle;
       setLiveRaidLikely(init.forecast.raidLikely);
       setLiveBuild(init.build ?? null); // defensive: server lane owns this field
       liveHousesRef.current = init.houses ?? null;
@@ -4014,6 +4029,7 @@ export function App() {
           population={population}
           cycle={liveCycle}
           day={day}
+          cityName={liveCityName ?? 'The city'}
         />
       )}
       <DawnReportModal report={dawnReport} open={dawnOpen} onClose={() => setDawnOpen(false)} />
