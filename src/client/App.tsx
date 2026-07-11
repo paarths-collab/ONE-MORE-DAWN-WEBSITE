@@ -216,30 +216,80 @@ const markCoachSeen = (): void => {
     /* storage unavailable */
   }
 };
-// The Advisor is a CHARACTER: Elder Maren, the city's keeper, drawn as a
-// pixel portrait beside her dialogue. She speaks in first person, types her
-// lines out, and walks the player across every surface.
-function AdvisorPortrait() {
-  // 11×11 pixel grid — hooded elder with a lantern, in the HUD palette.
-  const P = 4; // pixel size
-  const px = (x: number, y: number, w: number, h: number, fill: string) => (
-    <rect key={`${x}-${y}-${fill}`} x={x * P} y={y * P} width={w * P} height={h * P} fill={fill} />
+// The Advisor is a CHARACTER: Elder Maren, the city's keeper. Pixel-art SVG,
+// but ALIVE — she bobs, blinks, her mouth moves while her line types out, her
+// lantern flickers, and she turns/points toward whatever she is showing.
+function AdvisorPortrait({
+  talking,
+  face,
+  point,
+}: {
+  talking: boolean;
+  face: 'left' | 'right' | 'front';
+  point: 'up' | 'side' | null;
+}) {
+  const P = 3.5; // pixel size on a 14×14 grid
+  const px = (x: number, y: number, w: number, h: number, fill: string, key?: string) => (
+    <rect key={key ?? `${x}.${y}.${fill}`} x={x * P} y={y * P} width={w * P} height={h * P} fill={fill} />
   );
   return (
-    <svg className="co-avatar" viewBox="0 0 44 44" width="44" height="44" aria-hidden="true">
-      {px(1, 1, 9, 3, '#4a3a14')/* hood crown */}
-      {px(0, 3, 2, 6, '#4a3a14')/* hood left */}
-      {px(9, 3, 2, 6, '#4a3a14')/* hood right */}
-      {px(2, 3, 7, 4, '#2a2013')/* hood shadow */}
-      {px(3, 4, 5, 3, '#d9b98c')/* face */}
-      {px(3, 5, 1, 1, '#171109')/* eye L */}
-      {px(6, 5, 1, 1, '#171109')/* eye R */}
-      {px(3, 7, 5, 1, '#b7936a')/* chin */}
-      {px(2, 8, 7, 3, '#3a2d16')/* robe */}
-      {px(4, 8, 3, 3, '#6e5b1e')/* robe trim */}
-      {px(9, 7, 2, 2, '#e8c34a')/* lantern glow */}
-      {px(9, 6, 1, 1, '#80651f')/* lantern cap */}
-    </svg>
+    <span className={`co-avatar-wrap face-${face}${talking ? ' talking' : ''}${point ? ` point-${point}` : ''}`}>
+      <svg className="co-avatar" viewBox="0 0 49 49" width="48" height="48" aria-hidden="true">
+        {/* hood */}
+        {px(3, 0, 8, 2, '#4a3a14')}
+        {px(2, 1, 1, 9, '#4a3a14')}
+        {px(11, 1, 1, 9, '#4a3a14')}
+        {px(3, 2, 8, 2, '#2a2013')}
+        {px(3, 1, 8, 1, '#5c4a1a')}
+        {/* silver hair under the hood */}
+        {px(4, 3, 6, 1, '#b9b0a3')}
+        {px(4, 4, 1, 2, '#b9b0a3')}
+        {px(9, 4, 1, 2, '#b9b0a3')}
+        {/* face + shading */}
+        {px(5, 4, 4, 4, '#e2c49a')}
+        {px(4, 6, 1, 2, '#d3b285')}
+        {px(9, 6, 1, 2, '#d3b285')}
+        {/* brows */}
+        {px(5, 4, 1, 1, '#8c7a5c')}
+        {px(8, 4, 1, 1, '#8c7a5c')}
+        {/* eyes (blink via CSS) */}
+        <g className="co-eyes">
+          {px(5, 5, 1, 1, '#241c10', 'eyeL')}
+          {px(8, 5, 1, 1, '#241c10', 'eyeR')}
+        </g>
+        {/* nose + kind wrinkles */}
+        {px(6, 6, 2, 1, '#caa87f')}
+        {px(5, 7, 1, 1, '#caa87f')}
+        {/* mouth: closed line + open talk-frame toggled by CSS */}
+        <g className="co-mouth-closed">{px(6, 8, 2, 1, '#8a5a49', 'mC')}</g>
+        <g className="co-mouth-open">{px(6, 8, 2, 2, '#5c3a30', 'mO')}</g>
+        {/* chin + collar */}
+        {px(5, 9, 4, 1, '#caa87f')}
+        {px(3, 10, 8, 4, '#3a2d16')}
+        {px(6, 10, 2, 4, '#6e5b1e')}
+        {px(4, 10, 1, 1, '#5c4a1a')}
+        {px(9, 10, 1, 1, '#5c4a1a')}
+        {/* resting arm + lantern at her side */}
+        <g className="co-arm co-arm-side">
+          {px(11, 9, 2, 1, '#3a2d16', 'armS')}
+          {px(12, 10, 1, 1, '#d9b98c', 'handS')}
+          {px(12, 11, 2, 2, '#e8c34a', 'glowS')}
+          {px(12, 11, 1, 1, '#80651f', 'capS')}
+        </g>
+        {/* raised arm + lantern held high (pointing up at the topbar) */}
+        <g className="co-arm co-arm-up">
+          {px(11, 6, 1, 3, '#3a2d16', 'armU')}
+          {px(11, 5, 1, 1, '#d9b98c', 'handU')}
+          {px(11, 2, 2, 2, '#e8c34a', 'glowU')}
+          {px(11, 4, 1, 1, '#80651f', 'capU')}
+        </g>
+        {/* lantern light halo (flickers) */}
+        <g className="co-halo">{px(11, 1, 3, 3, 'rgba(232,195,74,0.28)', 'halo')}</g>
+      </svg>
+      <span className={`co-point${point ? ` co-point-${point}` : ''}`} aria-hidden="true">
+        {point ? '👉' : ''}
+      </span>
+    </span>
   );
 }
 
@@ -2221,6 +2271,8 @@ export function App() {
   // Advisor coachmarks: a guided tour after onboarding, replayable from the fab bar.
   const [coachStep, setCoachStep] = useState<number | null>(null);
   const [coachRing, setCoachRing] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  // Where Maren looks/points, derived from the highlighted element's position.
+  const [coachAim, setCoachAim] = useState<{ face: 'left' | 'right' | 'front'; point: 'up' | 'side' | null }>({ face: 'front', point: null });
   // Fallen-city terminal state (live only): city.status === 'fallen'.
   const [cityFallen, setCityFallen] = useState(false);
   const [liveTimelineHeadline, setLiveTimelineHeadline] = useState<string | null>(null);
@@ -2496,9 +2548,15 @@ export function App() {
       const r = el?.getBoundingClientRect();
       if (!r || r.width <= 0 || r.height <= 0) {
         setCoachRing(null);
+        setCoachAim({ face: 'front', point: null });
         return;
       }
       setCoachRing({ left: r.left - 6, top: r.top - 6, width: r.width + 12, height: r.height + 12 });
+      // Maren turns toward the target and raises her lantern when it's high up.
+      const cx = r.left + r.width / 2;
+      const face = cx < window.innerWidth / 2 - 60 ? 'left' : cx > window.innerWidth / 2 + 60 ? 'right' : 'front';
+      const point = r.bottom < window.innerHeight * 0.55 ? 'up' : face !== 'front' ? 'side' : null;
+      setCoachAim({ face, point });
     };
     // Measure NOW (throttled webviews clamp timers, and the ring must never
     // lag a step behind), then re-measure once the drawer's slide settles.
@@ -3564,7 +3622,7 @@ export function App() {
       )}
       {coachStep !== null && !showOnboard && !showFallen && COACH_STEPS[coachStep] && (
         <div className="coach card-bit">
-          <AdvisorPortrait />
+          <AdvisorPortrait talking={coachTyped < coachFullText.length} face={coachAim.face} point={coachAim.point} />
           <div className="co-head">
             <span>
               {COACH_STEPS[coachStep].icon} MAREN · CITY ADVISOR — {COACH_STEPS[coachStep].title}

@@ -452,7 +452,29 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
 .coach-ring { position: fixed; z-index: 29; pointer-events: none; border: 2px solid var(--gold); border-radius: 14px; box-shadow: 0 0 0 4px rgba(232, 195, 74, 0.22), 0 0 20px rgba(232, 195, 74, 0.35); transition: left 0.3s, top 0.3s, width 0.3s, height 0.3s; }
 @keyframes co-in { from { opacity: 0; transform: translateX(-50%) translateY(16px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 .coach { position: fixed; left: 50%; bottom: 170px; transform: translateX(-50%); z-index: 30; width: min(360px, calc(100vw - 24px)); padding: 12px 14px; border-radius: 14px; pointer-events: auto; display: grid; grid-template-columns: 44px 1fr; column-gap: 12px; animation: co-in 0.35s ease-out; }
-.coach .co-avatar { grid-row: 1 / 4; align-self: start; margin-top: 2px; image-rendering: pixelated; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)); }
+/* Maren is alive: she bobs, blinks, talks, flickers her lantern, turns toward
+   what she's showing, and points. All pure CSS on SVG groups — no assets. */
+.coach .co-avatar-wrap { grid-row: 1 / 4; align-self: start; margin-top: 2px; position: relative; display: inline-block; transition: transform 0.35s; }
+.coach .co-avatar-wrap.face-left { transform: scaleX(-1); }
+.coach .co-avatar { image-rendering: pixelated; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)); animation: co-bob 2.8s ease-in-out infinite; }
+@keyframes co-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+.co-eyes { animation: co-wink 4.4s step-end infinite; }
+@keyframes co-wink { 0%, 91%, 100% { opacity: 1; } 93%, 96% { opacity: 0; } }
+.co-mouth-open { opacity: 0; }
+.talking .co-mouth-open { animation: co-talk 0.32s steps(1) infinite; }
+.talking .co-mouth-closed { animation: co-talk-inv 0.32s steps(1) infinite; }
+@keyframes co-talk { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+@keyframes co-talk-inv { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+.co-halo { animation: co-flicker 1.5s ease-in-out infinite; }
+@keyframes co-flicker { 0%, 100% { opacity: 0.5; } 42% { opacity: 1; } 64% { opacity: 0.72; } }
+.co-arm-up { opacity: 0; transition: opacity 0.25s; }
+.co-arm-side { opacity: 1; transition: opacity 0.25s; }
+.point-up .co-arm-up { opacity: 1; }
+.point-up .co-arm-side { opacity: 0; }
+.co-point { position: absolute; right: -18px; top: 14px; font-size: 13px; opacity: 0; pointer-events: none; }
+.co-point-side { opacity: 1; animation: co-nudge 0.9s ease-in-out infinite; }
+.co-point-up { opacity: 0; } /* the raised lantern arm does the pointing */
+@keyframes co-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
 .coach .co-caret { font-style: normal; color: var(--gold); animation: co-blink 0.8s step-end infinite; }
 @keyframes co-blink { 50% { opacity: 0; } }
 .coach .co-head { display: flex; align-items: center; gap: 8px; font-family: var(--pixel); font-size: 8.5px; letter-spacing: 1px; color: var(--gold); margin-bottom: 6px; }
