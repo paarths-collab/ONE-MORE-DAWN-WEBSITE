@@ -79,6 +79,9 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .mission-chip .mi-lv { font-family: var(--pixel); font-size: 8px; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; flex: none; }
 .mission-chip .mi-tx { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mission-chip .mi-streak { font-family: var(--pixel); font-size: 8px; color: #ff9c5b; flex: none; }
+/* world map: travel to a rival city's subreddit */
+.wm-travel { display: block; width: 100%; margin-top: 8px; font-family: var(--pixel); font-size: 8.5px; letter-spacing: 1px; color: #171109; background: var(--gold); border: 1px solid #80651f; border-radius: 8px; padding: 8px 10px; cursor: pointer; min-height: 32px; }
+.wm-travel:hover { background: #f3d467; }
 /* music fab: dimmed when off so it reads as "not currently playing" */
 .music-fab { transition: opacity 0.15s, transform 0.15s; }
 .music-fab[aria-pressed="false"] { opacity: 0.68; }
