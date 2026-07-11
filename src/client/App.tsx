@@ -11,6 +11,7 @@ import {
 } from './scene';
 import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postAvatar, postPledge, postRole, postStrategy, postVote } from './api';
 import { isLocalHarnessHost, raidNoteFromEvents, worldUnavailableMessage } from './liveUi';
+import { cityEpithet } from '../shared/cityName';
 import { isMuted, playSound, preloadSounds, toggleMuted, unlockAudio } from './sound';
 import type {
   ActionType,
@@ -2131,6 +2132,7 @@ export function App() {
   const [onboardBusy, setOnboardBusy] = useState(false);
   const [liveUsername, setLiveUsername] = useState(''); // Reddit username (prefills the survivor name)
   const [liveCityName, setLiveCityName] = useState<string | null>(null); // this city's ancient name (per-subreddit)
+  const [liveTraitId, setLiveTraitId] = useState<string | null>(null); // founding trait → the name's epithet
   // Advisor coachmarks: a 3-step guide after onboarding, replayable from the fab bar.
   const [coachStep, setCoachStep] = useState<number | null>(null);
   // Fallen-city terminal state (live only): city.status === 'fallen'.
@@ -2275,6 +2277,7 @@ export function App() {
       setLiveEnergy({ effective: init.effectiveEnergy, used: init.player.energyUsedToday });
       setLiveUsername(init.player.username ?? '');
       setLiveCityName(init.cityName || null);
+      setLiveTraitId(init.trait?.id ?? null);
       setLiveActions(init.yourActionsToday);
       setLiveStanding(init.standing);
       setLiveCycle(city.cycle);
@@ -3234,7 +3237,7 @@ export function App() {
   // ---- derived render values (live vs demo) ----
   const isLive = mode === 'live';
   const subtitle = isLive
-    ? (liveStanding?.rankLabel ?? `cycle ${liveCycle} · the last city`)
+    ? `${cityEpithet(liveTraitId ?? 'standard')} · ${liveStanding?.rankLabel ?? `cycle ${liveCycle}`}`
     : mode === 'demo'
       ? '3D town · demo mode'
       : mode === 'offline'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cityNameFromSeed } from './cityName';
+import { cityEpithet, cityNameFromSeed } from './cityName';
 
 describe('cityNameFromSeed', () => {
   it('is deterministic for the same seed', () => {
@@ -17,5 +17,15 @@ describe('cityNameFromSeed', () => {
   it('gives different subreddit seeds different names (spot check)', () => {
     expect(cityNameFromSeed(1)).not.toBe(cityNameFromSeed(2));
     expect(cityNameFromSeed(33)).not.toBe(cityNameFromSeed(66));
+  });
+});
+
+describe('cityEpithet', () => {
+  it('maps every founding trait to house words, with a safe default', () => {
+    for (const id of ['standard', 'frozen', 'crowded', 'militarized', 'sick']) {
+      expect(cityEpithet(id)).toMatch(/^the /);
+    }
+    expect(cityEpithet('frozen')).toBe('the frostbound');
+    expect(cityEpithet('someday-new-trait')).toBe('the last refuge');
   });
 });

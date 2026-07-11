@@ -24,3 +24,18 @@ export const cityNameFromSeed = (seed: number): string => {
   const last = LAST[Math.trunc(s / FIRST.length) % LAST.length]!;
   return (first + last).toUpperCase();
 };
+
+/**
+ * The city's epithet — its "house words," tied to the founding trait the
+ * server already rolls per (worldSeed, cycle). Name + epithet correlate:
+ * a Frozen Start city IS the frostbound one, wherever it's mentioned.
+ */
+export const cityEpithet = (traitId: string): string => {
+  switch (traitId) {
+    case 'frozen': return 'the frostbound';
+    case 'crowded': return 'the teeming';
+    case 'militarized': return 'the walled';
+    case 'sick': return 'the fevered';
+    default: return 'the last refuge'; // 'standard' + any future trait
+  }
+};
