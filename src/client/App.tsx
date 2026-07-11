@@ -376,6 +376,15 @@ const COACH_STEPS: CoachStep[] = [
   },
 ];
 
+// Action juice: the icon floated above the hotbar when an action lands.
+const ACTION_JUICE: Record<string, string> = {
+  grow_food: '🌾',
+  repair_power: '🔧',
+  treat_sick: '⛑️',
+  guard_wall: '🛡️',
+  build_city: '🔨',
+};
+
 // First-run onboarding role catalog — icon/label/blurb, exact copy per spec.
 const ROLE_CATALOG: { id: Role; icon: string; label: string; blurb: string }[] = [
   { id: 'scout', icon: '🧭', label: 'SCOUT', blurb: 'Tracks danger and helps the city read the map.' },
@@ -628,11 +637,14 @@ function DayPill({
   day,
   raidSoon,
   raidActive,
+  dawnEta,
 }: {
   time: TimeOfDay;
   day: number;
   raidSoon: boolean;
   raidActive: boolean;
+  /** live only: countdown to the next dawn resolution (UTC midnight) */
+  dawnEta: string | null;
 }) {
   const def = TIMES.find((t) => t.id === time)!;
   return (
@@ -642,6 +654,7 @@ function DayPill({
         {def.icon} {def.label}
       </div>
       <div className="dt">{def.tagline}</div>
+      {dawnEta && <div className="dp-eta">🌅 dawn in {dawnEta}</div>}
       {raidActive ? (
         <div className="dp-warn">⚔ RAID AT THE GATE</div>
       ) : (
@@ -2284,6 +2297,16 @@ export function App() {
   const [liveCityName, setLiveCityName] = useState<string | null>(null); // this city's ancient name (per-subreddit)
   const [liveChallenge, setLiveChallenge] = useState<InitResponse['challenge'] | null>(null); // today's personal mission
   const challengeDoneRef = useRef(false); // last seen done-state, for the completion cheer
+  const [liveStreak, setLiveStreak] = useState(0); // consecutive-day streak (server-tracked)
+  const [dawnEta, setDawnEta] = useState<string | null>(null); // countdown to next UTC-midnight dawn
+  // Epic banners (LEVEL UP / THE SHELTER STANDS): one at a time, queued.
+  const [epic, setEpic] = useState<{ title: string; sub: string } | null>(null);
+  const epicQueueRef = useRef<{ title: string; sub: string }[]>([]);
+  const prevLevelRef = useRef<number | null>(null);
+  const prevUnlockedRef = useRef<string[] | null>(null);
+  // Action juice: transient floating "+1 🌾" markers above the hotbar.
+  const [floats, setFloats] = useState<{ key: number; text: string }[]>([]);
+  const floatKeyRef = useRef(0);
   const [liveTraitId, setLiveTraitId] = useState<string | null>(null); // founding trait → the name's epithet
   // Advisor coachmarks: a guided tour after onboarding, replayable from the fab bar.
   const [coachStep, setCoachStep] = useState<number | null>(null);
@@ -2404,6 +2427,44 @@ export function App() {
   }, []);
 
   // ---- LIVE mode: map an InitResponse onto the HUD state ----
+  // Epic banner queue: show one at a time for ~3.2s each.
+  const showEpic = useCallback((title: string, sub: string) => {
+    epicQueueRef.current.push({ title, sub });
+    setEpic((cur) => cur ?? epicQueueRef.current.shift() ?? null);
+  }, []);
+  useEffect(() => {
+    if (!epic) return undefined;
+    const t = window.setTimeout(() => setEpic(epicQueueRef.current.shift() ?? null), 3200);
+    return () => window.clearTimeout(t);
+  }, [epic]);
+
+  // Dawn countdown (live only): the city resolves at UTC midnight — show the
+  // appointment. Ticks every 30s; hidden in demo/offline.
+  useEffect(() => {
+    if (mode !== 'live') {
+      setDawnEta(null);
+      return undefined;
+    }
+    const compute = () => {
+      const now = new Date();
+      const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+      const mins = Math.max(1, Math.round((next - now.getTime()) / 60000));
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      setDawnEta(h > 0 ? `${h}h ${m}m` : `${m}m`);
+    };
+    compute();
+    const id = window.setInterval(compute, 30000);
+    return () => window.clearInterval(id);
+  }, [mode]);
+
+  // Action juice: float a "+1 🌾" above the hotbar, gone in ~1.1s.
+  const popFloat = useCallback((text: string) => {
+    const key = ++floatKeyRef.current;
+    setFloats((f) => [...f, { key, text }]);
+    window.setTimeout(() => setFloats((f) => f.filter((x) => x.key !== key)), 1100);
+  }, []);
+
   const applyInit = useCallback(
     (init: InitResponse, first: boolean) => {
       const { city } = init;
@@ -2441,6 +2502,25 @@ export function App() {
         playSound('action_confirm');
       }
       challengeDoneRef.current = !!ch?.done;
+      setLiveStreak(init.player.streak ?? 0);
+      // Level-up moment: the mission level climbed since the last refresh.
+      if (ch) {
+        if (!first && prevLevelRef.current !== null && ch.level > prevLevelRef.current) {
+          showEpic(`LEVEL ${ch.level}`, 'your standing in the city grows');
+          playSound('dawn_report');
+        }
+        prevLevelRef.current = ch.level;
+      }
+      // Dawn celebration: a building the community raised appeared overnight.
+      const unlocked = init.build?.unlocked ?? [];
+      if (!first && prevUnlockedRef.current) {
+        const fresh = unlocked.filter((id) => !prevUnlockedRef.current!.includes(id));
+        for (const id of fresh) {
+          showEpic(`THE ${id.replace(/_/g, ' ').toUpperCase()} STANDS`, 'raised by this whole subreddit');
+          playSound('dawn_report');
+        }
+      }
+      prevUnlockedRef.current = unlocked;
       setLiveTraitId(init.trait?.id ?? null);
       setLiveActions(init.yourActionsToday);
       setLiveStanding(init.standing);
@@ -2496,7 +2576,7 @@ export function App() {
         }
       }
     },
-    [pushEvent, pushNotif],
+    [pushEvent, pushNotif, showEpic],
   );
 
   // Boot: one real /api/init decides the mode. Success = LIVE (the shared city
@@ -3172,6 +3252,7 @@ export function App() {
             setLiveEnergy({ effective: res.effectiveEnergy, used: res.player.energyUsedToday });
             setLiveActions(res.yourActionsToday);
             playSound('action_confirm');
+            popFloat(`+1 ${ACTION_JUICE[act] ?? '⚡'}`);
             pushNotif('✅', 'your work lands at the next dawn', 'good');
             if (res.unlockedTitle) pushNotif('🏅', `title unlocked, ${res.unlockedTitle}`, 'good');
             const liveFrags = ACTION_FLASH[id] ?? [];
@@ -3218,7 +3299,7 @@ export function App() {
       const hit = poisRef.current.find((p) => frags.some((f) => p.name.toUpperCase().includes(f)));
       if (hit) handleRef.current?.flashDistrict?.(hit.name);
     },
-    [addContrib, pushEvent, pushNotif, refreshAfterContribution, toastFailure],
+    [addContrib, popFloat, pushEvent, pushNotif, refreshAfterContribution, toastFailure],
   );
 
   // Demo-only SCAVENGE, live V1 never opens this flow.
@@ -3580,13 +3661,29 @@ export function App() {
         <div className="hud mission-chip card-bit" title="Your personal mission for today">
           <span className="mi-ic">{liveChallenge.icon}</span>
           <span className="mi-lv">LV {liveChallenge.level}</span>
+          {liveStreak >= 2 && <span className="mi-streak">🔥 {liveStreak}d</span>}
           <span className="mi-tx">{liveChallenge.text}</span>
           <span className={liveChallenge.done ? 'mi-pr done' : 'mi-pr'}>
             {liveChallenge.done ? `✓ +${liveChallenge.reward}` : `${liveChallenge.progress}/${liveChallenge.target}`}
           </span>
         </div>
       )}
-      <DayPill time={time} day={day} raidSoon={raidDays <= 1} raidActive={raidPhase === 'incoming'} />
+      <DayPill time={time} day={day} raidSoon={raidDays <= 1} raidActive={raidPhase === 'incoming'} dawnEta={dawnEta} />
+      {floats.length > 0 && (
+        <div className="floats" aria-hidden="true">
+          {floats.map((f) => (
+            <span key={f.key} className="float-up">
+              {f.text}
+            </span>
+          ))}
+        </div>
+      )}
+      {epic && (
+        <div className="epic-banner card-bit">
+          <div className="ep-t">{epic.title}</div>
+          <div className="ep-s">{epic.sub}</div>
+        </div>
+      )}
       <NotifStack notifs={notifs} />
       <CityDashboard
         open={dashOpen}

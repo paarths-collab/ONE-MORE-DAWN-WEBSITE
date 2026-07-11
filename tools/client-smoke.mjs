@@ -277,6 +277,10 @@ async function liveSmoke(url) {
     // Daily mission chip: the 100-level hook must show level + progress.
     const mission = await cdp.eval(`(() => { const m = document.querySelector('.mission-chip'); return m ? m.textContent.replace(/\\s+/g, ' ') : ''; })()`);
     assert(/LV 7/.test(mission) && /1\/2/.test(mission), `mission chip should show level and progress, saw "${mission}".`);
+    assert(mission.includes('🔥 3d'), `mission chip should surface the 3-day streak, saw "${mission}".`);
+    // Dawn countdown: the appointment mechanic must be visible in the day pill.
+    const eta = await cdp.eval(`document.querySelector('.dp-eta')?.textContent || ''`);
+    assert(/dawn in \d/.test(eta), `day pill should count down to dawn, saw "${eta}".`);
     assert(!boot.overflowX, 'Desktop page should not overflow horizontally.');
 
     // Sound is a live V1 promise: every local cue must resolve to a non-empty
