@@ -90,10 +90,10 @@ const INIT = {
   crisisVotes: { a: 12, b: 7, c: 5 }, yourCrisisVote: null,
   strategyVotes: { prepare_raid: 9, stockpile_food: 6, repair_power: 4 }, yourStrategyVote: null,
   yourActionsToday: { grow_food: 1 }, missionUsedToday: false, resolving: false,
-  timelinePreview: { day: 5, cycle: 1, headline: 'The wall held', events: ['Raiders probed the north wall — the watch held.', 'Food ran short; rationing began.'], deltas: { food: -12, threat: -20 }, crisisId: 'ration_riots', winningOptionId: 'b' },
+  timelinePreview: { day: 5, cycle: 1, headline: 'The wall held', events: ['Raiders probed the north wall, the watch held.', 'Food ran short; rationing began.'], deltas: { food: -12, threat: -20 }, crisisId: 'ration_riots', winningOptionId: 'b' },
   activeLaw: null, raidInDays: 6, factionInfluence: { builders: 2, wardens: 5, seekers: 1, hearth: 3 },
   yourFaction: null, yourFactionRep: 0,
-  dawnReport: { day: 5, citySummary: ['Raiders probed the north wall — the watch held.', 'Food ran short; rationing began.'], yourImpact: ['You took 2 city action(s) for the city.', 'You voted on the crisis.'], title: 'Wall-Warden' },
+  dawnReport: { day: 5, citySummary: ['Raiders probed the north wall, the watch held.', 'Food ran short; rationing began.'], yourImpact: ['You took 2 city action(s) for the city.', 'You voted on the crisis.'], title: 'Wall-Warden' },
   firstVisitToday: true,
   forecast: { food: 198, power: 75, medicine: 32, morale: 49, threat: 70, raidLikely: false },
   trait: { id: 'standard', label: 'Standard', blurb: 'A city like any other.' },
@@ -102,7 +102,7 @@ const INIT = {
   standing: { survivalDays: 5, rankLabel: 'holding the line · day 6', contributionRank: 7 },
   build: {
     stage: 1, stageLabel: 'Settlement', unlocked: ['shelter'],
-    next: { id: 'farm', name: 'Farm', description: 'Worked beds — food grows faster.', progressRequired: 30, effect: '+3 food/day' },
+    next: { id: 'farm', name: 'Farm', description: 'Worked beds, food grows faster.', progressRequired: 30, effect: '+3 food/day' },
     progress: 12, progressRequired: 30, contributorsToday: 8, youBuiltToday: false,
   },
   houses: {
@@ -139,7 +139,7 @@ const LEADERBOARD = {
 const PLAYER_V = { ...PLAYER, role: process.env.MOCK_ROLE_NULL ? null : PLAYER.role, avatar: null };
 const CAMP_BUILD = {
   stage: 0, stageLabel: 'Camp', unlocked: [],
-  next: { id: 'shelter', name: 'Shelter', description: 'Tents become homes — fewer are lost to the cold.', progressRequired: 24, effect: '+1 morale/day' },
+  next: { id: 'shelter', name: 'Shelter', description: 'Tents become homes, fewer are lost to the cold.', progressRequired: 24, effect: '+1 morale/day' },
   progress: 0, progressRequired: 24, contributorsToday: 0, youBuiltToday: false,
 };
 const CITY_V = {
