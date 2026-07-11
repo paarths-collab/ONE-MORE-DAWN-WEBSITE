@@ -333,6 +333,13 @@ const COACH_STEPS: CoachStep[] = [
     go: { open: false },
   },
   {
+    icon: '📜',
+    title: 'MY TASK FOR YOU',
+    text: 'Each dawn I set you a mission of your own, no two neighbors share one. Finish it and your standing grows. A hundred levels await the faithful.',
+    anchor: '.mission-chip',
+    go: { open: false },
+  },
+  {
     icon: '▦',
     title: 'THE CITY PANEL',
     text: 'My map table. Tap a district to fly to it, or look at WORLD and see the other cities out there, each one another subreddit holding its own line.',
@@ -2275,6 +2282,8 @@ export function App() {
   const [onboardBusy, setOnboardBusy] = useState(false);
   const [liveUsername, setLiveUsername] = useState(''); // Reddit username (prefills the survivor name)
   const [liveCityName, setLiveCityName] = useState<string | null>(null); // this city's ancient name (per-subreddit)
+  const [liveChallenge, setLiveChallenge] = useState<InitResponse['challenge'] | null>(null); // today's personal mission
+  const challengeDoneRef = useRef(false); // last seen done-state, for the completion cheer
   const [liveTraitId, setLiveTraitId] = useState<string | null>(null); // founding trait → the name's epithet
   // Advisor coachmarks: a guided tour after onboarding, replayable from the fab bar.
   const [coachStep, setCoachStep] = useState<number | null>(null);
@@ -2423,6 +2432,15 @@ export function App() {
       setLiveEnergy({ effective: init.effectiveEnergy, used: init.player.energyUsedToday });
       setLiveUsername(init.player.username ?? '');
       setLiveCityName(init.cityName || null);
+      // Daily mission: track completion transitions so finishing mid-session
+      // cheers exactly once (never on boot, never again on later polls).
+      const ch = init.challenge ?? null;
+      setLiveChallenge(ch);
+      if (!first && ch?.done && !challengeDoneRef.current) {
+        pushNotif('📜', `mission complete, +${ch.reward} standing`, 'good');
+        playSound('action_confirm');
+      }
+      challengeDoneRef.current = !!ch?.done;
       setLiveTraitId(init.trait?.id ?? null);
       setLiveActions(init.yourActionsToday);
       setLiveStanding(init.standing);
@@ -3558,6 +3576,16 @@ export function App() {
         onVillager={onVillager}
       />
       <TopBar vitals={vitals} population={population} subtitle={subtitle} cityName={liveCityName} />
+      {isLive && !cityFallen && liveChallenge && (
+        <div className="hud mission-chip card-bit" title="Your personal mission for today">
+          <span className="mi-ic">{liveChallenge.icon}</span>
+          <span className="mi-lv">LV {liveChallenge.level}</span>
+          <span className="mi-tx">{liveChallenge.text}</span>
+          <span className={liveChallenge.done ? 'mi-pr done' : 'mi-pr'}>
+            {liveChallenge.done ? `✓ +${liveChallenge.reward}` : `${liveChallenge.progress}/${liveChallenge.target}`}
+          </span>
+        </div>
+      )}
       <DayPill time={time} day={day} raidSoon={raidDays <= 1} raidActive={raidPhase === 'incoming'} />
       <NotifStack notifs={notifs} />
       <CityDashboard

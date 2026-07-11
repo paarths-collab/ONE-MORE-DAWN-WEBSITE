@@ -59,6 +59,20 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .toast { position: absolute; bottom: calc(100% + 10px); right: 0; border-radius: 10px; padding: 8px 12px; font-family: var(--pixel); font-size: 9px; letter-spacing: 0.5px; color: var(--ink); white-space: nowrap; opacity: 0; transform: translateY(6px); transition: opacity 0.2s, transform 0.2s; pointer-events: none; background: var(--card); border: 1px solid var(--line); backdrop-filter: blur(4px); }
 .toast.on { opacity: 1; transform: none; }
 
+/* ---- daily mission chip (the 100-level hook) — top-left under the title ---- */
+.mission-chip { top: 70px; left: 18px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; max-width: min(380px, calc(100vw - 320px)); border-radius: 12px; font-family: var(--mono); font-size: 10.5px; color: var(--ink); }
+.mission-chip .mi-ic { font-size: 14px; flex: none; }
+.mission-chip .mi-lv { font-family: var(--pixel); font-size: 8px; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; flex: none; }
+.mission-chip .mi-tx { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mission-chip .mi-pr { font-family: var(--pixel); font-size: 9px; color: var(--gold); flex: none; }
+.mission-chip .mi-pr.done { color: #9fd08a; }
+@media (max-width: 640px) {
+  .mission-chip { top: 96px; left: 8px; max-width: calc(100vw - 76px); font-size: 9.5px; padding: 7px 10px; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .mission-chip { top: 44px; left: 10px; max-width: min(330px, calc(100vw - 420px)); font-size: 9.5px; padding: 6px 10px; }
+}
+
 /* ---- CITY dashboard (right) ---- */
 .dash-fab { top: 84px; right: 14px; pointer-events: auto; font-family: var(--pixel); font-size: 10px; letter-spacing: 1.5px; color: var(--gold); padding: 10px 14px; border-radius: 12px; cursor: pointer; }
 .dash { top: 128px; right: 14px; width: 250px; max-height: calc(100vh - 230px); overflow-y: auto; scrollbar-gutter: stable; border-radius: 16px; padding: 14px; opacity: 0; transform: translateX(12px); transition: opacity 0.25s, transform 0.25s; pointer-events: none !important; z-index: 6; }
@@ -531,6 +545,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .notifs { top: 118px; }
   .hotbar { bottom: 118px; gap: 5px; }
   .hotbar.live { bottom: 96px; }
+  .dash.on ~ .hotbar { opacity: 0; pointer-events: none; }
   .act { min-width: 60px; padding: 6px 8px; }
   .act .al { font-size: 6.5px; }
   .act .af { font-size: 7px; }

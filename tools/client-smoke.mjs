@@ -274,6 +274,9 @@ async function liveSmoke(url) {
     assert(!boot.upgradeVisible, 'Live mode must not show demo-only UPGRADE.');
     assert(!boot.playableScavenge, 'Live V1 must not show a playable scavenge action.');
     assert(boot.muteControl, 'V1 must show a global mute control.');
+    // Daily mission chip: the 100-level hook must show level + progress.
+    const mission = await cdp.eval(`(() => { const m = document.querySelector('.mission-chip'); return m ? m.textContent.replace(/\\s+/g, ' ') : ''; })()`);
+    assert(/LV 7/.test(mission) && /1\/2/.test(mission), `mission chip should show level and progress, saw "${mission}".`);
     assert(!boot.overflowX, 'Desktop page should not overflow horizontally.');
 
     // Sound is a live V1 promise: every local cue must resolve to a non-empty

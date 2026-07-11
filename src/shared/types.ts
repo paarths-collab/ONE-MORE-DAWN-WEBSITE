@@ -210,6 +210,19 @@ export type InitResponse = {
   type: 'init';
   postId: string;
   cityName: string; // ancient name derived from worldSeed (cityNameFromSeed)
+  /** Today's personal mission (the 100-level hook) — deterministic per (user, day). */
+  challenge: {
+    id: string;
+    icon: string;
+    text: string;
+    kind: string;
+    action: ActionType | null;
+    target: number;
+    level: number;
+    reward: number;
+    progress: number;
+    done: boolean;
+  };
   city: CityState;
   player: PlayerProfile;
   effectiveEnergy: number; // dailyEnergy minus injury penalty; derived, never stored
