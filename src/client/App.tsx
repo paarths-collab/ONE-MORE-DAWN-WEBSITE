@@ -1950,7 +1950,7 @@ function Onboarding({
         </div>
         <input
           className="ob-name"
-          placeholder="name your survivor (optional)"
+          placeholder="name your survivor — or we'll use your Reddit name"
           maxLength={24}
           value={name}
           onChange={(e) => setName(e.target.value)}

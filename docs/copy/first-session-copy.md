@@ -25,7 +25,10 @@ Role cards (icon · label · one-line):
 - 🛡️ `GUARD` — `Guard the Wall to raise your standing with the Wardens.`
 - 📣 `SPEAKER` — `Every action you take also lifts morale.`
 
-**Name field placeholder:** `Name your survivor (optional)`
+**Name field placeholder:** `Name your survivor — or we'll use your Reddit name`
+(Skipping the field is fine: the game falls back to the player's Reddit
+username — masked as `abcd•••` in the villager roster, full `u/name` on
+houses and the leaderboard.)
 **Primary CTA (enabled once a role is picked):** `ENTER THE CITY`
 **Disabled hint (no role yet):** `Pick a role to begin`
 
