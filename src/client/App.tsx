@@ -13,6 +13,7 @@ import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postAvatar, 
 import { isLocalHarnessHost, raidNoteFromEvents, worldUnavailableMessage } from './liveUi';
 import { cityEpithet } from '../shared/cityName';
 import { isMuted, playSound, preloadSounds, toggleMuted, unlockAudio } from './sound';
+import { isMusicMuted, playTrack, stopMusic, toggleMusicMuted, unlockMusic } from './music';
 import type {
   ActionType,
   BuildingDef,
@@ -333,6 +334,13 @@ const COACH_STEPS: CoachStep[] = [
     go: { open: false },
   },
   {
+    icon: '📜',
+    title: 'MY TASK FOR YOU',
+    text: 'Each dawn I set you a mission of your own, no two neighbors share one. Finish it and your standing grows. A hundred levels await the faithful.',
+    anchor: '.mission-chip',
+    go: { open: false },
+  },
+  {
     icon: '▦',
     title: 'THE CITY PANEL',
     text: 'My map table. Tap a district to fly to it, or look at WORLD and see the other cities out there, each one another subreddit holding its own line.',
@@ -368,6 +376,90 @@ const COACH_STEPS: CoachStep[] = [
     go: { open: false },
   },
 ];
+
+// Action juice: the icon floated above the hotbar when an action lands.
+const ACTION_JUICE: Record<string, string> = {
+  grow_food: '🌾',
+  repair_power: '🔧',
+  treat_sick: '⛑️',
+  guard_wall: '🛡️',
+  build_city: '🔨',
+};
+
+// Maren's dialogue chip, isolated so the 24ms typewriter tick re-renders ONLY
+// this small subtree — never the whole App (which hosts the WebGL canvas HUD).
+// Tapping NEXT mid-sentence completes her line; the next tap advances.
+function CoachDialogue({
+  step,
+  stepIndex,
+  total,
+  cityName,
+  aim,
+  onNext,
+  onDismiss,
+}: {
+  step: CoachStep;
+  stepIndex: number;
+  total: number;
+  cityName: string;
+  aim: { face: 'left' | 'right' | 'front'; point: 'up' | 'side' | null };
+  onNext: () => void;
+  onDismiss: () => void;
+}) {
+  const fullText = step.text.replace(/\{CITY\}/g, cityName);
+  const [typed, setTyped] = useState(0);
+  useEffect(() => {
+    setTyped(0);
+    const full = fullText.length;
+    const id = window.setInterval(() => {
+      setTyped((n) => {
+        if (n + 2 >= full) {
+          window.clearInterval(id);
+          return full;
+        }
+        return n + 2;
+      });
+    }, 24);
+    return () => window.clearInterval(id);
+  }, [stepIndex, fullText.length]);
+  const typing = typed < fullText.length;
+  return (
+    <div className="coach card-bit">
+      <AdvisorPortrait talking={typing} face={aim.face} point={aim.point} />
+      <div className="co-head">
+        <span>
+          {step.icon} MAREN · CITY ADVISOR · {step.title}
+        </span>
+        <button type="button" className="p-x" onClick={onDismiss} aria-label="Dismiss advisor">
+          ✕
+        </button>
+      </div>
+      <div className="co-body">
+        {fullText.slice(0, typed)}
+        {typing && <i className="co-caret">▌</i>}
+      </div>
+      <div className="co-foot">
+        <span className="co-step">
+          {stepIndex + 1}/{total}
+        </span>
+        <button
+          type="button"
+          className="co-next"
+          onClick={() => {
+            playSound('button_click');
+            if (typing) {
+              setTyped(fullText.length);
+              return;
+            }
+            onNext();
+          }}
+        >
+          {typing ? '»' : stepIndex + 1 < total ? 'NEXT →' : 'GOT IT'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // First-run onboarding role catalog — icon/label/blurb, exact copy per spec.
 const ROLE_CATALOG: { id: Role; icon: string; label: string; blurb: string }[] = [
@@ -621,11 +713,14 @@ function DayPill({
   day,
   raidSoon,
   raidActive,
+  dawnEta,
 }: {
   time: TimeOfDay;
   day: number;
   raidSoon: boolean;
   raidActive: boolean;
+  /** live only: countdown to the next dawn resolution (UTC midnight) */
+  dawnEta: string | null;
 }) {
   const def = TIMES.find((t) => t.id === time)!;
   return (
@@ -635,6 +730,7 @@ function DayPill({
         {def.icon} {def.label}
       </div>
       <div className="dt">{def.tagline}</div>
+      {dawnEta && <div className="dp-eta">🌅 dawn in {dawnEta}</div>}
       {raidActive ? (
         <div className="dp-warn">⚔ RAID AT THE GATE</div>
       ) : (
@@ -864,7 +960,15 @@ function LiveTab({
 
 // TOP 🏆 tab, subreddit contribution leaderboard + city totals.
 // Live mode renders the real server leaderboard (username + score only).
-function TopTab({ contribs, lb }: { contribs: Record<string, Contrib>; lb: LeaderboardEntry[] | null }) {
+function TopTab({ contribs, lb, unavailable }: { contribs: Record<string, Contrib>; lb: LeaderboardEntry[] | null; unavailable: boolean }) {
+  if (unavailable) {
+    return (
+      <>
+        <div className="p-sec">TOP CONTRIBUTORS</div>
+        <div className="mini-cap">The city ledger could not be reached. Try again shortly.</div>
+      </>
+    );
+  }
   if (lb) {
     const topScore = Math.max(1, lb[0]?.score ?? 1);
     return (
@@ -1222,6 +1326,7 @@ function CityDashboard({
   live,
   contribs,
   lb,
+  lbUnavailable,
   build,
   onAddLabor,
   buildCtaDisabled,
@@ -1250,6 +1355,7 @@ function CityDashboard({
   live: LiveState;
   contribs: Record<string, Contrib>;
   lb: LeaderboardEntry[] | null;
+  lbUnavailable: boolean;
   build: BuildStatus | null;
   onAddLabor: () => void;
   buildCtaDisabled: boolean;
@@ -1305,7 +1411,7 @@ function CityDashboard({
 
         {tab === 'live' && <LiveTab {...live} />}
 
-        {tab === 'top' && <TopTab contribs={contribs} lb={lb} />}
+        {tab === 'top' && <TopTab contribs={contribs} lb={lb} unavailable={lbUnavailable} />}
 
         {tab === 'city' && (
           <>
@@ -1607,6 +1713,7 @@ function StatsModal({
   youStatus,
   vitalMaxes,
   lb,
+  lbUnavailable,
   liveRaidLikely,
   liveRaidNote,
 }: {
@@ -1622,6 +1729,7 @@ function StatsModal({
   youStatus: WorldStatus;
   vitalMaxes: Record<VitKey, number>;
   lb: LeaderboardEntry[] | null;
+  lbUnavailable: boolean;
   liveRaidLikely: boolean;
   liveRaidNote: string | null;
 }) {
@@ -1712,7 +1820,9 @@ function StatsModal({
         </table>
 
         <div className="st-sec">TOP CONTRIBUTORS</div>
-        {lb ? (
+        {lbUnavailable ? (
+          <div className="mini-cap">The city ledger could not be reached. Try again shortly.</div>
+        ) : lb ? (
           <table className="st">
             <thead>
               <tr>
@@ -2194,7 +2304,9 @@ export function App() {
   const [selected, setSelected] = useState<BuildingMeta | null>(null);
   const [pois, setPois] = useState<PoiInfo[]>([]);
   const [time, setTimeState] = useState<TimeOfDay>('dawn');
-  const [dashOpen, setDashOpen] = useState(true);
+  const [dashOpen, setDashOpen] = useState(
+    () => !window.matchMedia('(orientation: portrait) and (max-width: 640px)').matches,
+  );
   const [dashTab, setDashTab] = useState<DashTab>('map');
   const [mapView, setMapView] = useState<MapViewMode>('town');
   const [mapData, setMapData] = useState<MapData | null>(null);
@@ -2259,6 +2371,7 @@ export function App() {
   const [worldCities, setWorldCities] = useState<WorldCity[] | null>(null);
   const [worldNote, setWorldNote] = useState<string | null>(null);
   const [liveLb, setLiveLb] = useState<LeaderboardEntry[] | null>(null);
+  const [liveLbUnavailable, setLiveLbUnavailable] = useState(false);
   // BUILD FROM ZERO, live: server payload; demo: local counters synth a state.
   const [liveBuild, setLiveBuild] = useState<BuildStatus | null>(null);
   const [demoUnlocked, setDemoUnlocked] = useState<string[]>([]);
@@ -2275,6 +2388,18 @@ export function App() {
   const [onboardBusy, setOnboardBusy] = useState(false);
   const [liveUsername, setLiveUsername] = useState(''); // Reddit username (prefills the survivor name)
   const [liveCityName, setLiveCityName] = useState<string | null>(null); // this city's ancient name (per-subreddit)
+  const [liveChallenge, setLiveChallenge] = useState<InitResponse['challenge'] | null>(null); // today's personal mission
+  const challengeDoneRef = useRef(false); // last seen done-state, for the completion cheer
+  const [liveStreak, setLiveStreak] = useState(0); // consecutive-day streak (server-tracked)
+  const [dawnEta, setDawnEta] = useState<string | null>(null); // countdown to next UTC-midnight dawn
+  // Epic banners (LEVEL UP / THE SHELTER STANDS): one at a time, queued.
+  const [epic, setEpic] = useState<{ title: string; sub: string } | null>(null);
+  const epicQueueRef = useRef<{ title: string; sub: string }[]>([]);
+  const prevLevelRef = useRef<number | null>(null);
+  const prevUnlockedRef = useRef<string[] | null>(null);
+  // Action juice: transient floating "+1 🌾" markers above the hotbar.
+  const [floats, setFloats] = useState<{ key: number; text: string }[]>([]);
+  const floatKeyRef = useRef(0);
   const [liveTraitId, setLiveTraitId] = useState<string | null>(null); // founding trait → the name's epithet
   // Advisor coachmarks: a guided tour after onboarding, replayable from the fab bar.
   const [coachStep, setCoachStep] = useState<number | null>(null);
@@ -2285,6 +2410,7 @@ export function App() {
   const [cityFallen, setCityFallen] = useState(false);
   const [liveTimelineHeadline, setLiveTimelineHeadline] = useState<string | null>(null);
   const [muted, setMutedUi] = useState(isMuted()); // global SFX mute (persisted)
+  const [musicMuted, setMusicMutedUi] = useState(isMusicMuted()); // background music mute (persisted, defaults ON = muted)
   const handleRef = useRef<VillageHandle | null>(null);
   const cityFallenRef = useRef(false); // fallen state, readable inside handlers/timers
   const modeRef = useRef<Mode>('connecting'); // current mode, readable inside timers
@@ -2395,6 +2521,44 @@ export function App() {
   }, []);
 
   // ---- LIVE mode: map an InitResponse onto the HUD state ----
+  // Epic banner queue: show one at a time for ~3.2s each.
+  const showEpic = useCallback((title: string, sub: string) => {
+    epicQueueRef.current.push({ title, sub });
+    setEpic((cur) => cur ?? epicQueueRef.current.shift() ?? null);
+  }, []);
+  useEffect(() => {
+    if (!epic) return undefined;
+    const t = window.setTimeout(() => setEpic(epicQueueRef.current.shift() ?? null), 3200);
+    return () => window.clearTimeout(t);
+  }, [epic]);
+
+  // Dawn countdown (live only): the city resolves at UTC midnight — show the
+  // appointment. Ticks every 30s; hidden in demo/offline.
+  useEffect(() => {
+    if (mode !== 'live') {
+      setDawnEta(null);
+      return undefined;
+    }
+    const compute = () => {
+      const now = new Date();
+      const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+      const mins = Math.max(1, Math.round((next - now.getTime()) / 60000));
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      setDawnEta(h > 0 ? `${h}h ${m}m` : `${m}m`);
+    };
+    compute();
+    const id = window.setInterval(compute, 30000);
+    return () => window.clearInterval(id);
+  }, [mode]);
+
+  // Action juice: float a "+1 🌾" above the hotbar, gone in ~1.1s.
+  const popFloat = useCallback((text: string) => {
+    const key = ++floatKeyRef.current;
+    setFloats((f) => [...f, { key, text }]);
+    window.setTimeout(() => setFloats((f) => f.filter((x) => x.key !== key)), 1100);
+  }, []);
+
   const applyInit = useCallback(
     (init: InitResponse, first: boolean) => {
       const { city } = init;
@@ -2423,6 +2587,34 @@ export function App() {
       setLiveEnergy({ effective: init.effectiveEnergy, used: init.player.energyUsedToday });
       setLiveUsername(init.player.username ?? '');
       setLiveCityName(init.cityName || null);
+      // Daily mission: track completion transitions so finishing mid-session
+      // cheers exactly once (never on boot, never again on later polls).
+      const ch = init.challenge ?? null;
+      setLiveChallenge(ch);
+      if (!first && ch?.done && !challengeDoneRef.current) {
+        pushNotif('📜', `mission complete, +${ch.reward} standing`, 'good');
+        playSound('action_confirm');
+      }
+      challengeDoneRef.current = !!ch?.done;
+      setLiveStreak(init.player.streak ?? 0);
+      // Level-up moment: the mission level climbed since the last refresh.
+      if (ch) {
+        if (!first && prevLevelRef.current !== null && ch.level > prevLevelRef.current) {
+          showEpic(`LEVEL ${ch.level}`, 'your standing in the city grows');
+          playSound('dawn_report');
+        }
+        prevLevelRef.current = ch.level;
+      }
+      // Dawn celebration: a building the community raised appeared overnight.
+      const unlocked = init.build?.unlocked ?? [];
+      if (!first && prevUnlockedRef.current) {
+        const fresh = unlocked.filter((id) => !prevUnlockedRef.current!.includes(id));
+        for (const id of fresh) {
+          showEpic(`THE ${id.replace(/_/g, ' ').toUpperCase()} STANDS`, 'raised by this whole subreddit');
+          playSound('dawn_report');
+        }
+      }
+      prevUnlockedRef.current = unlocked;
       setLiveTraitId(init.trait?.id ?? null);
       setLiveActions(init.yourActionsToday);
       setLiveStanding(init.standing);
@@ -2478,7 +2670,7 @@ export function App() {
         }
       }
     },
-    [pushEvent, pushNotif],
+    [pushEvent, pushNotif, showEpic],
   );
 
   // Boot: one real /api/init decides the mode. Success = LIVE (the shared city
@@ -2513,29 +2705,6 @@ export function App() {
       cancelled = true;
     };
   }, [applyInit, pushNotif]);
-
-  // Maren speaks: her line types out character by character; tapping NEXT while
-  // she's mid-sentence completes the line first (classic dialogue-box feel).
-  const [coachTyped, setCoachTyped] = useState(0);
-  const coachFullText =
-    coachStep !== null && COACH_STEPS[coachStep]
-      ? COACH_STEPS[coachStep].text.replace(/\{CITY\}/g, liveCityName ?? 'the last city')
-      : '';
-  useEffect(() => {
-    if (coachStep === null) return undefined;
-    setCoachTyped(0);
-    const full = coachFullText.length;
-    const id = window.setInterval(() => {
-      setCoachTyped((n) => {
-        if (n + 2 >= full) {
-          window.clearInterval(id);
-          return full;
-        }
-        return n + 2;
-      });
-    }, 24);
-    return () => window.clearInterval(id);
-  }, [coachStep, liveCityName]);
 
   // Advisor tour: each step can open the dashboard on a tab (so the player SEES
   // what's being explained) and highlight its anchor element with a ring. The
@@ -2582,10 +2751,26 @@ export function App() {
     preloadSounds();
     // Strict webviews (Reddit app) gate playback behind a user gesture — prime
     // audio on pointerdown until one sticks (unlockAudio self-resets on failure).
-    const prime = () => unlockAudio();
+    const prime = () => {
+      unlockAudio();
+      unlockMusic();
+    };
     window.addEventListener('pointerdown', prime, { passive: true });
     return () => window.removeEventListener('pointerdown', prime);
   }, []);
+  // Background music track selection: raid-tension when a raid is imminent,
+  // dawn-hope stinger on the dawn transition, otherwise the calm dusk theme.
+  useEffect(() => {
+    if (mode !== 'live') return;
+    if (cityFallen) { stopMusic(); return; }
+    if (liveRaidLikely || (raidDays >= 0 && raidDays <= 1)) {
+      playTrack('raid');
+    } else if (time === 'dawn') {
+      playTrack('dawn');
+    } else {
+      playTrack('dusk');
+    }
+  }, [mode, cityFallen, liveRaidLikely, raidDays, time]);
   // Boolean state → the effect only re-fires on a real transition (no repeat on poll).
   useEffect(() => {
     if (cityFallen) playSound('city_fallen');
@@ -2597,6 +2782,11 @@ export function App() {
     const next = toggleMuted();
     setMutedUi(next);
     if (!next) playSound('button_click'); // give audible feedback only when unmuting
+  }, []);
+  const onToggleMusic = useCallback(() => {
+    const next = toggleMusicMuted();
+    setMusicMutedUi(next);
+    if (!next) playSound('button_click'); // audible feedback when turning music on
   }, []);
 
   // WORLD map (live): real cities from /api/world; any failure or an
@@ -2626,11 +2816,15 @@ export function App() {
 
   const refreshLb = useCallback(() => {
     getLeaderboard()
-      .then((r) => setLiveLb(r.contributors))
+      .then((r) => {
+        setLiveLb(r.contributors);
+        setLiveLbUnavailable(false);
+      })
       .catch(() => {
-        // keep the last leaderboard on a transient failure
+        // Keep cached truth when available; otherwise render an honest unavailable state.
+        if (liveLb === null) setLiveLbUnavailable(true);
       });
-  }, []);
+  }, [liveLb]);
 
   // Fetch the world once as soon as we're live, so the horizon settlements in
   // the 3D scene wear real city names without waiting for the WORLD tab.
@@ -2688,14 +2882,18 @@ export function App() {
   );
 
   const refreshAfterContribution = useCallback(async () => {
-    const before = liveHousesRef.current?.yours ?? null;
-    const init = await getInit();
-    applyInit(init, false);
-    const yours = init.houses?.yours ?? null;
-    if (!before && yours) {
-      pushNotif('🏠', `Your house now stands in the city. Build order #${yours.index + 1}.`, 'good');
+    try {
+      const before = liveHousesRef.current?.yours ?? null;
+      const init = await getInit();
+      applyInit(init, false);
+      const yours = init.houses?.yours ?? null;
+      if (!before && yours) {
+        pushNotif('🏠', `Your house now stands in the city. Build order #${yours.index + 1}.`, 'good');
+      }
+    } catch {
+      popToast('Saved. City refresh delayed.');
     }
-  }, [applyInit, pushNotif]);
+  }, [applyInit, popToast, pushNotif]);
 
   const onLiveVote = useCallback(
     (optionId: string) => {
@@ -2772,15 +2970,23 @@ export function App() {
       postRole(role)
         .then(async () => {
           if (letters >= 2) {
-            await postAvatar({ name: trimmed, gender: 'nonbinary', skin: 0, hair: 0, hairStyle: 0, outfit: 0 });
+            try {
+              await postAvatar({ name: trimmed, gender: 'nonbinary', skin: 0, hair: 0, hairStyle: 0, outfit: 0 });
+            } catch {
+              popToast('Role saved. Survivor name can be set later.');
+            }
           }
           pushNotif('🫡', `role set, ${roleLabel}`, 'good');
           setOnboardOpen(false);
           setNeedsOnboard(false);
           if (!coachSeen()) setCoachStep(0); // the advisor picks up where onboarding ends
           // pull fresh player-derived state from the server
-          const init = await getInit();
-          applyInit(init, false);
+          try {
+            const init = await getInit();
+            applyInit(init, false);
+          } catch {
+            popToast('Role saved. City refresh delayed.');
+          }
         })
         .catch((err) => toastFailure(err, 'could not set your role, try again'))
         .finally(() => {
@@ -2788,7 +2994,7 @@ export function App() {
           mutatingRef.current = false;
         });
     },
-    [onboardBusy, applyInit, pushNotif, toastFailure],
+    [onboardBusy, applyInit, popToast, pushNotif, toastFailure],
   );
   const dismissOnboard = useCallback(() => {
     setOnboardOpen(false);
@@ -2805,7 +3011,9 @@ export function App() {
       const nextName = liveBuildRef.current?.next?.name ?? 'settlement';
       mutatingRef.current = true;
       postAction('build_city')
-        .then(async () => {
+        .then(async (res) => {
+          setLiveEnergy({ effective: res.effectiveEnergy, used: res.player.energyUsedToday });
+          setLiveActions(res.yourActionsToday);
           playSound('action_confirm');
           pushNotif('🔨', `you added a day's labor to the ${nextName}`, 'good');
           await refreshAfterContribution();
@@ -3154,6 +3362,7 @@ export function App() {
             setLiveEnergy({ effective: res.effectiveEnergy, used: res.player.energyUsedToday });
             setLiveActions(res.yourActionsToday);
             playSound('action_confirm');
+            popFloat(`+1 ${ACTION_JUICE[act] ?? '⚡'}`);
             pushNotif('✅', 'your work lands at the next dawn', 'good');
             if (res.unlockedTitle) pushNotif('🏅', `title unlocked, ${res.unlockedTitle}`, 'good');
             const liveFrags = ACTION_FLASH[id] ?? [];
@@ -3200,7 +3409,7 @@ export function App() {
       const hit = poisRef.current.find((p) => frags.some((f) => p.name.toUpperCase().includes(f)));
       if (hit) handleRef.current?.flashDistrict?.(hit.name);
     },
-    [addContrib, pushEvent, pushNotif, refreshAfterContribution, toastFailure],
+    [addContrib, popFloat, pushEvent, pushNotif, refreshAfterContribution, toastFailure],
   );
 
   // Demo-only SCAVENGE, live V1 never opens this flow.
@@ -3472,7 +3681,7 @@ export function App() {
         : 'connecting to the city';
   const vitalMaxes = isLive ? LIVE_VITAL_MAX : VITAL_MAX;
   const energyLeft = Math.max(0, liveEnergy.effective - liveEnergy.used);
-  const liveLeaderboard = isLive ? liveLb : null;
+  const liveLeaderboard = isLive ? (liveLb ?? []) : null;
 
   // The LIVE tab's real-backend payload — null until the first /api/init lands,
   // which keeps the demo rendering (fictional crisis/marked/council) untouched.
@@ -3558,7 +3767,33 @@ export function App() {
         onVillager={onVillager}
       />
       <TopBar vitals={vitals} population={population} subtitle={subtitle} cityName={liveCityName} />
-      <DayPill time={time} day={day} raidSoon={raidDays <= 1} raidActive={raidPhase === 'incoming'} />
+      {isLive && !cityFallen && liveChallenge && (
+        <div className="hud mission-chip card-bit" title="Your personal mission for today">
+          <span className="mi-ic">{liveChallenge.icon}</span>
+          <span className="mi-lv">LV {liveChallenge.level}</span>
+          {liveStreak >= 2 && <span className="mi-streak">🔥 {liveStreak}d</span>}
+          <span className="mi-tx">{liveChallenge.text}</span>
+          <span className={liveChallenge.done ? 'mi-pr done' : 'mi-pr'}>
+            {liveChallenge.done ? `✓ +${liveChallenge.reward}` : `${liveChallenge.progress}/${liveChallenge.target}`}
+          </span>
+        </div>
+      )}
+      <DayPill time={time} day={day} raidSoon={raidDays <= 1} raidActive={raidPhase === 'incoming'} dawnEta={dawnEta} />
+      {floats.length > 0 && (
+        <div className="floats" aria-hidden="true">
+          {floats.map((f) => (
+            <span key={f.key} className="float-up">
+              {f.text}
+            </span>
+          ))}
+        </div>
+      )}
+      {epic && (
+        <div className="epic-banner card-bit">
+          <div className="ep-t">{epic.title}</div>
+          <div className="ep-s">{epic.sub}</div>
+        </div>
+      )}
       <NotifStack notifs={notifs} />
       <CityDashboard
         open={dashOpen}
@@ -3599,6 +3834,7 @@ export function App() {
         }}
         contribs={contribs}
         lb={liveLeaderboard}
+        lbUnavailable={isLive && liveLbUnavailable}
         build={build}
         onAddLabor={onAddLabor}
         buildCtaDisabled={buildCtaDisabled}
@@ -3635,6 +3871,16 @@ export function App() {
         </button>
         <button
           type="button"
+          className="mute-fab card-bit music-fab"
+          onClick={onToggleMusic}
+          aria-pressed={!musicMuted}
+          aria-label={musicMuted ? 'Play background music' : 'Stop background music'}
+          title={musicMuted ? 'Music off' : 'Music on'}
+        >
+          {musicMuted ? '🎵' : '🎶'}
+        </button>
+        <button
+          type="button"
           className="mute-fab card-bit"
           onClick={() => setCoachStep(0)}
           aria-label="Open the advisor guide"
@@ -3647,54 +3893,25 @@ export function App() {
         <div className="coach-ring" style={{ left: coachRing.left, top: coachRing.top, width: coachRing.width, height: coachRing.height }} />
       )}
       {coachStep !== null && !showOnboard && !showFallen && COACH_STEPS[coachStep] && (
-        <div className="coach card-bit">
-          <AdvisorPortrait talking={coachTyped < coachFullText.length} face={coachAim.face} point={coachAim.point} />
-          <div className="co-head">
-            <span>
-              {COACH_STEPS[coachStep].icon} MAREN · CITY ADVISOR · {COACH_STEPS[coachStep].title}
-            </span>
-            <button
-              type="button"
-              className="p-x"
-              onClick={() => {
-                markCoachSeen();
-                setCoachStep(null);
-              }}
-              aria-label="Dismiss advisor"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="co-body">
-            {coachFullText.slice(0, coachTyped)}
-            {coachTyped < coachFullText.length && <i className="co-caret">▌</i>}
-          </div>
-          <div className="co-foot">
-            <span className="co-step">
-              {coachStep + 1}/{COACH_STEPS.length}
-            </span>
-            <button
-              type="button"
-              className="co-next"
-              onClick={() => {
-                playSound('button_click');
-                // mid-sentence tap completes her line; the next tap advances
-                if (coachTyped < coachFullText.length) {
-                  setCoachTyped(coachFullText.length);
-                  return;
-                }
-                if (coachStep + 1 < COACH_STEPS.length) {
-                  setCoachStep(coachStep + 1);
-                } else {
-                  markCoachSeen();
-                  setCoachStep(null);
-                }
-              }}
-            >
-              {coachTyped < coachFullText.length ? '»' : coachStep + 1 < COACH_STEPS.length ? 'NEXT →' : 'GOT IT'}
-            </button>
-          </div>
-        </div>
+        <CoachDialogue
+          step={COACH_STEPS[coachStep]}
+          stepIndex={coachStep}
+          total={COACH_STEPS.length}
+          cityName={liveCityName ?? 'the last city'}
+          aim={coachAim}
+          onNext={() => {
+            if (coachStep + 1 < COACH_STEPS.length) {
+              setCoachStep(coachStep + 1);
+            } else {
+              markCoachSeen();
+              setCoachStep(null);
+            }
+          }}
+          onDismiss={() => {
+            markCoachSeen();
+            setCoachStep(null);
+          }}
+        />
       )}
       <StatsModal
         open={statsOpen}
@@ -3709,6 +3926,7 @@ export function App() {
         youStatus={worldYouStatus}
         vitalMaxes={vitalMaxes}
         lb={liveLeaderboard}
+        lbUnavailable={isLive && liveLbUnavailable}
         liveRaidLikely={liveRaidLikely}
         liveRaidNote={liveRaidNote}
       />

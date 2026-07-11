@@ -2,7 +2,7 @@ import { BALANCE } from '../../shared/balance';
 import type { ActionType, PlayerProfile, Role } from '../../shared/types';
 import { effectiveEnergy } from './dayLogic';
 
-const ACTION_TYPES: ActionType[] = ['grow_food', 'repair_power', 'treat_sick', 'guard_wall', 'build_city'];
+export const ACTION_TYPES: ActionType[] = ['grow_food', 'repair_power', 'treat_sick', 'guard_wall', 'build_city'];
 const ROLES: Role[] = ['scout', 'engineer', 'medic', 'farmer', 'guard', 'speaker'];
 
 /** Returns an error message, or null when the action is allowed. */

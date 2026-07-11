@@ -37,4 +37,8 @@ export const KEYS = {
   // Cycle-namespaced so a mod reset (which can't enumerate per-player keys)
   // doesn't resurrect last cycle's faction rep for returning players.
   playerFactions: (cycle: number, userId: string) => `player:${cycle}:${userId}:factions`,
+  // Daily-mission completion claim (NX + TTL): cycle-scoped like playerFactions
+  // so a reset can never leak last cycle's claims into the new one.
+  challengeDone: (cycle: number, day: number, userId: string) =>
+    `challenge:${cycle}:${day}:${userId}`,
 } as const;

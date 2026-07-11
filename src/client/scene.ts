@@ -1762,10 +1762,17 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     const dt = Math.min(clock.getDelta(), 0.1);
     const t = clock.elapsedTime;
     if (fly) {
-      const k = 1 - Math.exp(-dt * 3.2);
+      const k = 1 - Math.exp(-dt * (introMaxRestore !== null ? 1.6 : 3.2));
       controls.target.lerp(fly.tgt, k);
       camera.position.lerp(fly.pos, k);
-      if (camera.position.distanceTo(fly.pos) < 0.4) fly = null;
+      if (camera.position.distanceTo(fly.pos) < 0.4) {
+        fly = null;
+        // intro flyover done — restore the normal zoom clamp
+        if (introMaxRestore !== null) {
+          controls.maxDistance = introMaxRestore;
+          introMaxRestore = null;
+        }
+      }
     }
     controls.update();
     lerpEnv(dt);
@@ -1853,6 +1860,21 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     renderer.render(scene, camera);
     labelRenderer.render(scene, camera);
   };
+  // Intro flyover: start high and far, glide down onto the town (slower fly
+  // damping while introMaxRestore is set). Skipped for reduced-motion users.
+  let introMaxRestore: number | null = null;
+  try {
+    if (!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+      const restPos = camera.position.clone();
+      const restTgt = controls.target.clone();
+      introMaxRestore = controls.maxDistance;
+      controls.maxDistance = 500; // let the intro start outside the normal clamp
+      camera.position.set(restPos.x + 70, restPos.y * 2.4, restPos.z * 2.2);
+      fly = { tgt: restTgt, pos: restPos };
+    }
+  } catch {
+    /* cosmetic only — never block the scene */
+  }
   renderer.setAnimationLoop(tick);
 
   // ---------- build-from-zero progression cue (setBuildStage) ----------

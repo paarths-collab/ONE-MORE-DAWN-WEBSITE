@@ -152,11 +152,11 @@ Deliberately cut or hidden for a small, honest V1 (see `docs/V1_SCOPE.md`):
 
 - **No scavenge/expedition minigame in V1** — the unfinished backend module is
   fail-closed at its route, and the action is absent from the live 3D town.
-- **Minimal sound + mute** — local SFX cues on key events (action, vote, pledge,
-  raid warning, dawn report, fallen city) + a global mute toggle persisted in
-  localStorage; fail-silent, never blocks gameplay. Sounds ship as
-  procedurally-generated placeholder tones (`tools/gen-sfx.mjs`, no external
-  assets); swap in Kenney CC0 files anytime — see [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md).
+- **Sound + music, each muteable** — Kenney CC0 SFX cues on key events (action,
+  vote, pledge, raid warning, dawn report, fallen city) plus three CC0 ambient
+  tracks that follow the game state (dusk / raid / dawn; music defaults off),
+  behind separate persisted toggles; all local files, fail-silent, never blocks
+  gameplay — see [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md).
 - **Avatar is name-only** — you name your survivor; a full look editor and
   in-world avatar rendering are post-V1.
 - **City trait and active law** are computed server-side but not yet surfaced in

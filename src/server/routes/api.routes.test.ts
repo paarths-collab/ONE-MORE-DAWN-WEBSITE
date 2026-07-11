@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { context, redis, reddit } from '@devvit/web/server';
 import { BALANCE } from '../../shared/balance';
+import { dailyChallenge } from '../../shared/challenges';
 import { cityNameFromSeed } from '../../shared/cityName';
 import { hashString } from '../../shared/rng';
 import { HOUSE_CAP } from '../../shared/houses';
@@ -316,6 +317,43 @@ describe('POST /vote /strategy /pledge — per-user lock + repeat guard', () => 
     const again = await api.request('/pledge', postJson({ kind: 'stand_vigil' }));
     expect(again.status).toBe(409);
     expect(await again.json()).toEqual({ status: 'error', message: 'You already pledged today.' });
+  });
+});
+
+describe('GET /api/init — daily mission (the 100-level hook)', () => {
+  const seed = hashString('t5_test');
+
+  it('serves the deterministic mission for (user, day, worldSeed)', async () => {
+    await openUser('t2_quest', 'quester');
+    const body = (await (await api.request('/init')).json()) as InitResponse;
+    const expected = dailyChallenge('t2_quest', body.city.day, seed, await store.getContributionScore('t2_quest') ?? 0);
+    expect(body.challenge.id).toBe(expected.id);
+    expect(body.challenge.text).toBe(expected.text);
+    expect(body.challenge.level).toBeGreaterThanOrEqual(1);
+    expect(body.challenge.target).toBeGreaterThanOrEqual(1);
+    expect(body.challenge.done).toBe(false);
+  });
+
+  it('awards the completion bonus exactly once, even across repeated inits', async () => {
+    // find a user whose mission today is the crisis vote (cheap to complete)
+    let uid = '';
+    for (let i = 0; i < 200 && !uid; i++) {
+      if (dailyChallenge(`t2_v${i}`, 1, seed, 0).kind === 'vote') uid = `t2_v${i}`;
+    }
+    expect(uid).not.toBe('');
+
+    await openUser(uid, 'votequester');
+    expect((await api.request('/vote', postJson({ crisisId: 'first_light', optionId: 'a' }))).status).toBe(200);
+    const before = (await store.getContributionScore(uid)) ?? 0;
+
+    const first = (await (await api.request('/init')).json()) as InitResponse;
+    expect(first.challenge.done).toBe(true);
+    const afterFirst = (await store.getContributionScore(uid)) ?? 0;
+    expect(afterFirst).toBe(before + first.challenge.reward);
+
+    // a second init must NOT award again
+    expect((await api.request('/init')).status).toBe(200);
+    expect((await store.getContributionScore(uid)) ?? 0).toBe(afterFirst);
   });
 });
 

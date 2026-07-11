@@ -40,7 +40,7 @@
 | Dawn Report | Yesterday's summary + your personal impact |
 | Demo/judge seed | Mod menu action "seed demo state" |
 | Live / demo / offline modes | Honest state: demo only on localhost; production API failure → explicit offline + retry |
-| Minimal sound + mute | Local SFX cues on key events + a global mute toggle persisted in localStorage; fail-silent. Ships with procedurally-generated placeholder tones — swap in Kenney CC0 files anytime (see `docs/ATTRIBUTION.md`). |
+| Sound + music, each muteable | Kenney CC0 SFX cues on key events + three CC0 ambient tracks that follow the game state (music defaults off); separate persisted toggles, fail-silent (see `docs/ATTRIBUTION.md`). |
 | One redditor, one house | Each unique contributor raises one automatic personal house in first-contribution order; the first contributor is the founder. |
 
 ## ❌ Not in V1 (cut or hidden — do not advertise)
@@ -60,7 +60,7 @@ These were reviewed and are **not fully wired into the live 3D client**, so they
 - **Free-placement city building** (drag/drop/custom layouts) — V1 uses **shared ordered unlocks** plus one automatic house per contributor; freeform placement is post-V1.
 - Deeper building trees, per-building upgrade levels, and richer construction visuals.
 - Live scavenge/mission flow wired into the 3D town.
-- Replace placeholder tones with Kenney CC0 audio (or a richer sound set); optional ambient/music.
+- A richer, custom-composed soundtrack and per-event sound design pass.
 - Avatar look editor (skin/hair/outfit) and rendering the player's avatar in-world.
 - City **trait** + **active law** surfaced in the CITY tab.
 - Live raid-aftermath visualization (wall damage, sky tint from the timeline).

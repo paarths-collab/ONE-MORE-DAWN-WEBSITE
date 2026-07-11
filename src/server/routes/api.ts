@@ -5,6 +5,7 @@ import { getCrisis } from '../../shared/crises';
 import { HOUSE_CAP, NAMED_HOUSE_LIMIT, tierForContribution } from '../../shared/houses';
 import type {
   ActionRequest,
+  ActionType,
   ActionResponse,
   ApiError,
   AvatarRequest,
@@ -32,9 +33,10 @@ import type {
   WorldResponse,
 } from '../../shared/types';
 import { hashString } from '../../shared/rng';
+import { challengeProgress, dailyChallenge } from '../../shared/challenges';
 import { cityNameFromSeed } from '../../shared/cityName';
 import { clampAvatar, isValidAvatar } from '../../shared/avatar';
-import { validateAction, validateRoleChange } from '../game/actionRules';
+import { ACTION_TYPES, validateAction, validateRoleChange } from '../game/actionRules';
 import { buildStatus } from '../game/building';
 import { buildDrama } from '../game/drama';
 import { pickMarked } from '../game/marked';
@@ -395,6 +397,34 @@ api.get('/init', async (c) => {
   const standing = buildStanding(city, contributionRank);
   const houses = await buildHouseSummary(store, user.userId);
 
+  // Daily personal mission (the 100-level hook). The pick is deterministic
+  // from (userId, day, worldSeed) — nothing stored — and progress is provable
+  // from state this handler already loaded. Level rides the same lifetime
+  // contribution score that drives house tiers. The completion bonus is
+  // awarded exactly once via an NX claim key (cycle-scoped, 3-day TTL).
+  const lifetimeScore = (await store.getContributionScore(user.userId)) ?? 0;
+  const challengeDef = dailyChallenge(user.userId, city.day, city.worldSeed, lifetimeScore);
+  const cleanActions: Partial<Record<ActionType, number>> = {};
+  for (const a of ACTION_TYPES) {
+    const v = (yourActionsToday as Partial<Record<string, number>>)[a];
+    if (typeof v === 'number') cleanActions[a] = v;
+  }
+  const chState = challengeProgress(challengeDef, {
+    actionsToday: cleanActions,
+    voted: !!yourCrisisVote,
+    backedPlan: !!yourStrategyVote,
+    pledged: pledge.usedToday,
+  });
+  if (chState.done && city.status === 'alive') {
+    const claimed = await redisLike.set(
+      KEYS.challengeDone(city.cycle, city.day, user.userId),
+      '1',
+      { nx: true, expiration: 3 * 24 * 3600 },
+    );
+    if (claimed) await store.addContribution(user.userId, challengeDef.reward);
+  }
+  const challenge = { ...challengeDef, progress: chState.progress, done: chState.done };
+
   // World of Cities (Plan 2): keep this sub's global-registry record fresh.
   // Cheap on the common path (one cached-meta read for sub-gate subs; one
   // global hSet when eligible) and never throws.
@@ -441,6 +471,7 @@ api.get('/init', async (c) => {
     type: 'init',
     postId,
     cityName: cityNameFromSeed(city.worldSeed),
+    challenge,
     city,
     player,
     effectiveEnergy: effectiveEnergy(player, city.day),
