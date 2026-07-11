@@ -513,7 +513,7 @@ async function splashSmoke(url) {
       screenOrientation: { type: 'portraitPrimary', angle: 0 },
     });
     await cdp.call('Page.reload', { ignoreCache: true });
-    await cdp.waitFor('document.body.innerText.includes("ONE MORE DAWN")', 'feed splash boot');
+    await cdp.waitFor('document.body?.innerText.includes("ONE MORE DAWN")', 'feed splash boot');
     await cdp.waitFor('document.querySelector(".snoo")?.complete && document.querySelector(".snoo")?.naturalWidth > 0', 'feed splash survivor art');
     const splash = await cdp.eval(`(() => {
       const cta = document.querySelector('#start-button');
@@ -654,9 +654,50 @@ async function portraitSmoke(url) {
     assert(portrait.gatePosition === 'fixed', 'Portrait advisory should remain visible without taking layout space.');
     assert(portrait.fabPointer === 'auto', `CITY fab should remain tappable in portrait, got pointer-events:${portrait.fabPointer}.`);
     assert(!portrait.overflowX, 'Portrait viewport should not overflow horizontally.');
+    assert(!(await cdp.eval(`document.querySelector('.dash')?.classList.contains('on')`)), 'CITY drawer should start closed in portrait so actions remain reachable.');
+    await cdp.eval(`document.querySelector('.dash-fab')?.click()`);
+    await cdp.waitFor(`document.querySelector('.dash')?.classList.contains('on')`, 'portrait CITY drawer open');
+    const coveredActions = await cdp.eval(`getComputedStyle(document.querySelector('.hotbar')).pointerEvents`);
+    assert(coveredActions === 'none', 'Portrait actions behind the open CITY drawer must not remain clickable.');
   } finally {
     await close();
   }
+}
+
+async function optionalNameFailureSmoke(url) {
+  const { cdp, close } = await openPage(url);
+  try {
+    await cdp.waitFor('document.body.innerText.includes("CHOOSE YOUR ROLE")', 'optional-name onboarding');
+    await cdp.clickSelectorContaining('.ob-role', 'GUARD');
+    await cdp.clickButton('ENTER THE CITY');
+    await cdp.waitFor('!document.body.innerText.includes("CHOOSE YOUR ROLE")', 'role accepted despite avatar failure');
+    const text = await cdp.eval(`document.body.innerText`);
+    assert(!text.includes('could not set your role'), 'Optional name failure must not report the accepted role as failed.');
+  } finally { await close(); }
+}
+
+async function refreshFailureSmoke(url) {
+  const { cdp, close } = await openPage(url);
+  try {
+    await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("VAELMAR")', 'refresh-failure city boot');
+    await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'refresh-failure loader exit');
+    await cdp.clickSelectorContaining('.act', 'GUARD');
+    await cdp.waitFor('document.body.innerText.includes("your work lands at the next dawn")', 'accepted action feedback');
+    await cdp.waitFor(`[...document.querySelectorAll('.act')].find((b) => b.textContent.includes('GUARD'))?.textContent.includes('✓ ×1 today')`, 'accepted action remains recorded');
+    const text = await cdp.eval(`document.body.innerText`);
+    assert(!text.includes('the action failed, try again'), 'A committed action must not be reported as failed when refresh fails.');
+  } finally { await close(); }
+}
+
+async function leaderboardFailureSmoke(url) {
+  const { cdp, close } = await openPage(url);
+  try {
+    await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("VAELMAR")', 'leaderboard-failure city boot');
+    await cdp.eval(`[...document.querySelectorAll('.dash-tab')].find((b) => b.textContent.includes('TOP'))?.click()`);
+    await cdp.waitFor('document.body.innerText.includes("city ledger could not be reached")', 'honest leaderboard failure');
+    const text = await cdp.eval(`document.querySelector('.dash')?.innerText || ''`);
+    assert(!text.includes('saltcedar'), 'Live leaderboard failure must not expose fictional demo rankings.');
+  } finally { await close(); }
 }
 
 async function firstHouseSmoke(url) {
@@ -682,5 +723,8 @@ await withServer('mock-live portrait fallback', 4644, {}, portraitSmoke);
 await withServer('mock-live first house feedback', 4645, { MOCK_NO_HOUSE: '1' }, firstHouseSmoke);
 await withServer('mock-live landscape layout', 4646, {}, landscapeLayoutSmoke);
 await withServer('feed splash', 4647, {}, splashSmoke);
+await withServer('mock-live refresh failure', 4648, { MOCK_INIT_FAIL_AFTER_MUTATION: '1' }, refreshFailureSmoke);
+await withServer('mock-live leaderboard failure', 4649, { MOCK_LEADERBOARD_FAIL: '1' }, leaderboardFailureSmoke);
+await withServer('mock-live optional name failure', 4650, { MOCK_ROLE_NULL: '1', MOCK_AVATAR_FAIL: '1' }, optionalNameFailureSmoke);
 
 console.log('client smoke passed');

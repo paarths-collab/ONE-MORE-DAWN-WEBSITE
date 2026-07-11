@@ -159,6 +159,7 @@ let mockStrategyVote = INIT.yourStrategyVote;
 let mockActions = INIT.yourActionsToday;
 let mockMarked = INIT.marked;
 let mockPledge = INIT.pledge;
+let mockMutationDone = false;
 const currentHouses = () => (mockHasHouse ? INIT.houses : NO_HOUSE);
 const currentInit = () => ({
   ...INIT,
@@ -178,17 +179,20 @@ const readBody = (req) => new Promise((r) => { let b = ''; req.on('data', (c) =>
 const mockApi = () => ({
   name: 'mock-devvit-api',
   configureServer(server) {
-    const send = (res, obj) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(obj)); };
+    const send = (res, obj, status = 200) => { res.statusCode = status; res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(obj)); };
     // Root middleware matching only exact /api/<name> paths (a `.use('/api')`
     // mount would also swallow the client's own /api.ts module → app never loads).
     server.middlewares.use(async (req, res, next) => {
       const path = (req.url ?? '').split('?')[0];
+      if (path === '/api/init' && process.env.MOCK_INIT_FAIL_AFTER_MUTATION && mockMutationDone) return send(res, { status: 'error', message: 'mock refresh failure' }, 503);
       if (path === '/api/init') return send(res, currentInit());
       if (path === '/api/world') return send(res, WORLD);
+      if (path === '/api/leaderboard' && process.env.MOCK_LEADERBOARD_FAIL) return send(res, { status: 'error', message: 'mock leaderboard failure' }, 503);
       if (path === '/api/leaderboard') return send(res, LEADERBOARD);
       if (path === '/api/action') {
         const b = await readBody(req);
         mockHasHouse = true;
+        mockMutationDone = true;
         // build_city is energy-gated too; echo it in yourActionsToday so the
         // client's re-fetch path is exercised. Other actions keep the old shape.
         const acts = b.action === 'build_city' ? { grow_food: 1, build_city: 1 } : { grow_food: 1, guard_wall: 1 };
@@ -214,6 +218,7 @@ const mockApi = () => ({
         return send(res, { type: 'strategy', strategyVotes: mockStrategyVotes, yourStrategyVote: mockStrategyVote });
       }
       if (path === '/api/role') { const b = await readBody(req); return send(res, { type: 'role', player: { ...PLAYER_V, role: b.role ?? 'guard', roleChangedDay: 6 } }); }
+      if (path === '/api/avatar' && process.env.MOCK_AVATAR_FAIL) return send(res, { status: 'error', message: 'mock avatar failure' }, 503);
       if (path === '/api/avatar') { const b = await readBody(req); return send(res, { type: 'avatar', player: { ...PLAYER_V, avatar: b.avatar ?? null } }); }
       return next();
     });
