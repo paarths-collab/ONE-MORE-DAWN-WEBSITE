@@ -45,6 +45,27 @@ only** (avoid CC-BY-NC / Sampling+ / unclear); [OpenGameArt](https://opengameart
 
 _Last updated: 2026-07-09 · current sfx = generated placeholders (CC0-equivalent)._
 
+## Background music (V1)
+
+Three ambient loops shipped in `public/assets/music/`, selected via `deep-research`
+against OpenGameArt.org's CC0 filter and adversarially verified (license text +
+direct-download URL both confirmed by an independent second agent). All three
+are **CC0 / Creative Commons Zero (public domain dedication)** — no attribution
+required, but the authors are credited here as a courtesy.
+
+| File | Track | Artist | Duration | Size | Source | License |
+|---|---|---|---|---|---|---|
+| `dusk.mp3` | *Medieval: The Old Tower Inn* | RandomMind | ~2:36 | 2.5 MB | [OpenGameArt](https://opengameart.org/content/medieval-the-old-tower-inn) | CC0 |
+| `raid.ogg` | *Loopable Dungeon Ambience* | JaggedStone | ~1:40 | 1.6 MB | [OpenGameArt](https://opengameart.org/content/loopable-dungeon-ambience) | CC0 |
+| `dawn.ogg` | *Heavenly Loop* | isaiah658 | ~1:15 | 1.2 MB | [OpenGameArt](https://opengameart.org/content/heavenly-loop) | CC0 |
+
+**When it plays:** `dusk` under most gameplay, `raid` when a raid is imminent
+(`raidDays <= 1` or `raidLikely`), `dawn` on the dawn transition. All three
+fail-silent, autoplay-blocked-safe, and gated behind a separate 🎵 toggle
+(default OFF, persisted in `omd_music_muted`). Engine: `src/client/music.ts`.
+
+_Music added 2026-07-11 · verified CC0 via workflow deep-research-omd-music._
+
 ## 3D models (villagers & wildlife)
 
 three.js example models (Soldier, Horse, Flamingo, Parrot, Stork) from

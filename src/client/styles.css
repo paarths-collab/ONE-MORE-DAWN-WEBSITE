@@ -79,6 +79,10 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .mission-chip .mi-lv { font-family: var(--pixel); font-size: 8px; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; flex: none; }
 .mission-chip .mi-tx { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mission-chip .mi-streak { font-family: var(--pixel); font-size: 8px; color: #ff9c5b; flex: none; }
+/* music fab: dimmed when off so it reads as "not currently playing" */
+.music-fab { transition: opacity 0.15s, transform 0.15s; }
+.music-fab[aria-pressed="false"] { opacity: 0.68; }
+.music-fab[aria-pressed="true"]  { opacity: 1; transform: scale(1.04); }
 .mission-chip .mi-pr { font-family: var(--pixel); font-size: 9px; color: var(--gold); flex: none; }
 .mission-chip .mi-pr.done { color: #9fd08a; }
 @media (max-width: 640px) {

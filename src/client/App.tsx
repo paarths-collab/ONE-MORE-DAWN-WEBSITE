@@ -13,6 +13,7 @@ import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postAvatar, 
 import { isLocalHarnessHost, raidNoteFromEvents, worldUnavailableMessage } from './liveUi';
 import { cityEpithet } from '../shared/cityName';
 import { isMuted, playSound, preloadSounds, toggleMuted, unlockAudio } from './sound';
+import { isMusicMuted, playTrack, stopMusic, toggleMusicMuted, unlockMusic } from './music';
 import type {
   ActionType,
   BuildingDef,
@@ -2317,6 +2318,7 @@ export function App() {
   const [cityFallen, setCityFallen] = useState(false);
   const [liveTimelineHeadline, setLiveTimelineHeadline] = useState<string | null>(null);
   const [muted, setMutedUi] = useState(isMuted()); // global SFX mute (persisted)
+  const [musicMuted, setMusicMutedUi] = useState(isMusicMuted()); // background music mute (persisted, defaults ON = muted)
   const handleRef = useRef<VillageHandle | null>(null);
   const cityFallenRef = useRef(false); // fallen state, readable inside handlers/timers
   const modeRef = useRef<Mode>('connecting'); // current mode, readable inside timers
@@ -2680,10 +2682,26 @@ export function App() {
     preloadSounds();
     // Strict webviews (Reddit app) gate playback behind a user gesture — prime
     // audio on pointerdown until one sticks (unlockAudio self-resets on failure).
-    const prime = () => unlockAudio();
+    const prime = () => {
+      unlockAudio();
+      unlockMusic();
+    };
     window.addEventListener('pointerdown', prime, { passive: true });
     return () => window.removeEventListener('pointerdown', prime);
   }, []);
+  // Background music track selection: raid-tension when a raid is imminent,
+  // dawn-hope stinger on the dawn transition, otherwise the calm dusk theme.
+  useEffect(() => {
+    if (mode !== 'live') return;
+    if (cityFallen) { stopMusic(); return; }
+    if (liveRaidLikely || (raidDays >= 0 && raidDays <= 1)) {
+      playTrack('raid');
+    } else if (time === 'dawn') {
+      playTrack('dawn');
+    } else {
+      playTrack('dusk');
+    }
+  }, [mode, cityFallen, liveRaidLikely, raidDays, time]);
   // Boolean state → the effect only re-fires on a real transition (no repeat on poll).
   useEffect(() => {
     if (cityFallen) playSound('city_fallen');
@@ -2695,6 +2713,11 @@ export function App() {
     const next = toggleMuted();
     setMutedUi(next);
     if (!next) playSound('button_click'); // give audible feedback only when unmuting
+  }, []);
+  const onToggleMusic = useCallback(() => {
+    const next = toggleMusicMuted();
+    setMusicMutedUi(next);
+    if (!next) playSound('button_click'); // audible feedback when turning music on
   }, []);
 
   // WORLD map (live): real cities from /api/world; any failure or an
@@ -3757,6 +3780,16 @@ export function App() {
           title={muted ? 'Sound off' : 'Sound on'}
         >
           {muted ? '🔇' : '🔊'}
+        </button>
+        <button
+          type="button"
+          className="mute-fab card-bit music-fab"
+          onClick={onToggleMusic}
+          aria-pressed={!musicMuted}
+          aria-label={musicMuted ? 'Play background music' : 'Stop background music'}
+          title={musicMuted ? 'Music off' : 'Music on'}
+        >
+          {musicMuted ? '🎵' : '🎶'}
         </button>
         <button
           type="button"

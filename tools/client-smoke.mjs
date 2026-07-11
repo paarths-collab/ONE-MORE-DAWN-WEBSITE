@@ -274,6 +274,13 @@ async function liveSmoke(url) {
     assert(!boot.upgradeVisible, 'Live mode must not show demo-only UPGRADE.');
     assert(!boot.playableScavenge, 'Live V1 must not show a playable scavenge action.');
     assert(boot.muteControl, 'V1 must show a global mute control.');
+    // Background music: fab renders, defaults off, and toggling persists.
+    const musicBefore = await cdp.eval(`(() => { const f = document.querySelector('.music-fab'); return f ? { pressed: f.getAttribute('aria-pressed'), stored: localStorage.getItem('omd_music_muted') } : null; })()`);
+    assert(musicBefore && musicBefore.pressed === 'false', `music fab should render default-off, saw ${JSON.stringify(musicBefore)}.`);
+    await cdp.eval(`document.querySelector('.music-fab')?.click()`);
+    await cdp.waitFor(`document.querySelector('.music-fab')?.getAttribute('aria-pressed') === 'true'`, 'music fab toggles on');
+    assert((await cdp.eval(`localStorage.getItem('omd_music_muted')`)) === '0', 'music mute state persists to localStorage');
+    await cdp.eval(`document.querySelector('.music-fab')?.click()`); // restore off
     // Daily mission chip: the 100-level hook must show level + progress.
     const mission = await cdp.eval(`(() => { const m = document.querySelector('.mission-chip'); return m ? m.textContent.replace(/\\s+/g, ' ') : ''; })()`);
     assert(/LV 7/.test(mission) && /1\/2/.test(mission), `mission chip should show level and progress, saw "${mission}".`);
