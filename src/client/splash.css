@@ -23,7 +23,7 @@ body {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  background: #100d0b;
+  background: linear-gradient(rgba(16, 13, 11, 0.45), rgba(16, 13, 11, 0.8)), url('splash-art.jpg') center / cover no-repeat, #100d0b;
   color: var(--ink);
   font-family: var(--mono);
   border-top: 2px solid var(--line);
@@ -60,7 +60,7 @@ body {
 
 .eyebrow {
   margin-bottom: 10px;
-  color: #89a868;
+  color: var(--gold);
   font: 400 clamp(8px, 1.4vw, 11px)/1.4 var(--pixel);
   letter-spacing: 1px;
 }
