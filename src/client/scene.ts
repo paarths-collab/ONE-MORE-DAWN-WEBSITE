@@ -267,9 +267,10 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   controls.screenSpacePanning = false;
   controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
   controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+  let cameraMinX = -52;
   let cameraMinZ = -52;
   controls.addEventListener('change', () => {
-    controls.target.x = THREE.MathUtils.clamp(controls.target.x, -52, 52);
+    controls.target.x = THREE.MathUtils.clamp(controls.target.x, cameraMinX, 52);
     controls.target.z = THREE.MathUtils.clamp(controls.target.z, cameraMinZ, 52);
     controls.target.y = 0;
   });
@@ -432,7 +433,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   const insidePlateau = (x: number, z: number, margin = 0) =>
     Math.hypot(x, z) < plateauR(Math.atan2(z, x)) - margin;
   type ParcelDef = { id: string; d0: number; d1: number; top: number; half: number };
-  const PARCEL_ANGLE = -Math.PI / 2;
+  const PARCEL_ANGLE = Math.PI; // visible western frontier, clear of the right-side HUD
   const PARCEL_DEFS: ParcelDef[] = [
     { id: 'outer_fields', d0: 0, d1: 11, top: 0.02, half: 0.46 },
     { id: 'river_ward', d0: 11, d1: 20, top: 0.02, half: 0.38 },
@@ -580,7 +581,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     // The city is part of a broad mainland. The old dark abyss + vertical skirt
     // made every unlock read as another floating shelf; this low field keeps the
     // core, frontier, expansion districts, and distant settlements connected.
-    const mainland = new THREE.Mesh(new THREE.CircleGeometry(360, 72), lam(0x26351f));
+    const mainland = new THREE.Mesh(new THREE.CircleGeometry(360, 72), lam(0x496c32));
     mainland.name = 'continuous-mainland';
     mainland.rotation.x = -Math.PI / 2;
     mainland.position.y = -0.17;
@@ -2449,8 +2450,8 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       const frontier = new THREE.Group();
       frontier.name = `frontier-${def.id}`;
       const tiles: [number, number][] = [];
-      for (let ix = -46; ix <= 46; ix++) {
-        for (let iz = -104; iz <= -32; iz++) {
+      for (let ix = -104; ix <= 104; ix++) {
+        for (let iz = -104; iz <= 104; iz++) {
           if (parcelBandAt(ix, iz) === def) tiles.push([ix, iz]);
         }
       }
@@ -2503,9 +2504,13 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
           developed.add(hutAt(hx, hz, def.top, ry));
         }
         const [bx, bz] = spot(0, 15.2);
-        developed.add(box(1.6, 0.1, 2.8, MAT.timber, bx, def.top + 0.14, bz));
-        developed.add(box(0.08, 0.3, 2.8, MAT.timberDark, bx - 0.72, def.top + 0.32, bz));
-        developed.add(box(0.08, 0.3, 2.8, MAT.timberDark, bx + 0.72, def.top + 0.32, bz));
+        const bridge = new THREE.Group();
+        bridge.add(box(1.6, 0.1, 2.8, MAT.timber, 0, def.top + 0.14, 0));
+        bridge.add(box(0.08, 0.3, 2.8, MAT.timberDark, -0.72, def.top + 0.32, 0));
+        bridge.add(box(0.08, 0.3, 2.8, MAT.timberDark, 0.72, def.top + 0.32, 0));
+        bridge.position.set(bx, 0, bz);
+        bridge.rotation.y = Math.PI / 2 - PARCEL_ANGLE;
+        developed.add(bridge);
       } else {
         // The keep sits on a low connected hill whose base meets the mainland.
         const [kx, kz] = spot(0, 25.0);
@@ -2576,7 +2581,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
         parcel.frontier.visible = !open;
         if (open) unlockedLandIds.add(parcel.def.id);
       }
-      cameraMinZ = ids.has('high_keep') ? -94 : ids.has('river_ward') ? -84 : ids.has('outer_fields') ? -74 : -52;
+      cameraMinX = ids.has('high_keep') ? -94 : ids.has('river_ward') ? -84 : ids.has('outer_fields') ? -74 : -52;
+      cameraMinZ = -52;
+      controls.target.x = THREE.MathUtils.clamp(controls.target.x, cameraMinX, 52);
       controls.target.z = THREE.MathUtils.clamp(controls.target.z, cameraMinZ, 52);
 
       // Open a pass through the frontier ridge for each developed district.
