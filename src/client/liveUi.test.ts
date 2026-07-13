@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLocalHarnessHost, raidNoteFromEvents, worldUnavailableMessage } from './liveUi';
+import { isLocalHarnessHost, raidNoteFromEvents, raidOutcomeFromTimeline, worldUnavailableMessage } from './liveUi';
 
 describe('live UI helpers', () => {
   it('only treats localhost hosts as demo-harness safe', () => {
@@ -22,5 +22,12 @@ describe('live UI helpers', () => {
       .toMatch(/Red Signal/);
     expect(raidNoteFromEvents([], true)).toMatch(/forecast/);
     expect(raidNoteFromEvents([], false)).toBeNull();
+  });
+
+  it('turns a resolved raid into a clear held or breached payoff', () => {
+    const events = ['Raiders reached the wall before dawn.'];
+    expect(raidOutcomeFromTimeline(events, 0)?.title).toBe('THE WALL HELD');
+    expect(raidOutcomeFromTimeline(events, -4)?.title).toBe('THE WALL WAS BREACHED');
+    expect(raidOutcomeFromTimeline(['A quiet night.'], -4)).toBeNull();
   });
 });

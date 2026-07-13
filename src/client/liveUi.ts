@@ -26,3 +26,17 @@ export const raidNoteFromEvents = (
   const line = events?.find((e) => /raid|red signal/i.test(e)) ?? null;
   return line ?? (raidLikely ? '⚠ Red Signal forecast: raiders may move at dawn.' : null);
 };
+
+export type RaidOutcome = { title: 'THE WALL HELD' | 'THE WALL WAS BREACHED'; line: string };
+
+export const raidOutcomeFromTimeline = (
+  events: readonly string[] | undefined,
+  populationDelta: number | undefined,
+): RaidOutcome | null => {
+  const line = events?.find((event) => /raid|red signal/i.test(event));
+  if (!line) return null;
+  return {
+    title: (populationDelta ?? 0) < 0 ? 'THE WALL WAS BREACHED' : 'THE WALL HELD',
+    line,
+  };
+};

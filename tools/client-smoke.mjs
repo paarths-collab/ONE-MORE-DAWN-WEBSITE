@@ -23,6 +23,21 @@ const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
 
+async function completeContextLesson(cdp, title) {
+  const expected = JSON.stringify(title);
+  await cdp.waitFor(
+    `(document.querySelector('.coach .co-head span')?.textContent || '').includes(${expected})`,
+    `${title} contextual advisor lesson`,
+  );
+  assert((await cdp.eval(`document.querySelector('.coach .co-step')?.textContent || ''`)).includes('1/1'), `${title} should be a single contextual lesson.`);
+  let guard = 0;
+  while (guard++ < 4 && (await cdp.eval(`!!document.querySelector('.coach')`))) {
+    await cdp.eval(`document.querySelector('.coach .co-next')?.click()`);
+    await sleep(100);
+  }
+  await cdp.waitFor(`!document.querySelector('.coach') && !document.querySelector('.coach-ring')`, `${title} lesson closes`);
+}
+
 async function removeTempDir(path) {
   for (let i = 0; i < 8; i++) {
     try {
@@ -119,65 +134,94 @@ class CdpPage {
       returnByValue: true,
     });
     if (result.exceptionDetails) {
-      throw new Error(result.exceptionDetails.text ?? 'Runtime.evaluate failed');
+      throw new Error(
+        result.exceptionDetails.exception?.description
+          ?? result.exceptionDetails.text
+          ?? 'Runtime.evaluate failed',
+      );
     }
     return result.result.value;
   }
 
   async waitFor(expression, label, timeoutMs = 20_000) {
     const started = Date.now();
+    let lastError = null;
     while (Date.now() - started < timeoutMs) {
-      if (await this.eval(expression)) return;
+      // A transient eval throw (mid-navigation / mid-render DOM) means "not
+      // yet", not "broken" — only surface it if the condition never comes true.
+      try {
+        if (await this.eval(expression)) return;
+        lastError = null;
+      } catch (err) {
+        lastError = err;
+      }
       await sleep(250);
     }
-    throw new Error(`Timed out waiting for ${label}`);
+    const detail = lastError ? ` (last eval error: ${lastError.message})` : '';
+    throw new Error(`Timed out waiting for ${label}${detail}`);
+  }
+
+  /** Retry a click expression until the target is present AND enabled.
+   *  A found-but-disabled button (React state not yet flushed, busy flags)
+   *  would otherwise no-op silently and surface as a downstream timeout —
+   *  the flake this guards against. */
+  async #clickWithRetry(expression, failMessage, timeoutMs = 5_000) {
+    const started = Date.now();
+    for (;;) {
+      const state = await this.eval(expression); // 'clicked' | 'disabled' | 'missing'
+      if (state === 'clicked') return;
+      if (Date.now() - started >= timeoutMs) {
+        assert(false, `${failMessage} (last state: ${state})`);
+      }
+      await sleep(150);
+    }
   }
 
   async clickButton(text) {
     const escaped = JSON.stringify(text);
-    const ok = await this.eval(`
+    await this.#clickWithRetry(`
       (() => {
         const wanted = ${escaped};
         const btn = [...document.querySelectorAll('button')]
           .find((b) => (b.textContent || '').replace(/\\s+/g, ' ').trim() === wanted);
-        if (!btn) return false;
+        if (!btn) return 'missing';
+        if (btn.disabled) return 'disabled';
         btn.click();
-        return true;
+        return 'clicked';
       })()
-    `);
-    assert(ok, `Button not found: ${text}`);
+    `, `Button not clickable: ${text}`);
   }
 
   async clickButtonContaining(text) {
     const escaped = JSON.stringify(text);
-    const ok = await this.eval(`
+    await this.#clickWithRetry(`
       (() => {
         const wanted = ${escaped};
         const btn = [...document.querySelectorAll('button')]
           .find((b) => (b.textContent || '').replace(/\\s+/g, ' ').trim().includes(wanted));
-        if (!btn) return false;
+        if (!btn) return 'missing';
+        if (btn.disabled) return 'disabled';
         btn.click();
-        return true;
+        return 'clicked';
       })()
-    `);
-    assert(ok, `Button containing text not found: ${text}`);
+    `, `Button containing text not clickable: ${text}`);
   }
 
   async clickSelectorContaining(selector, text) {
     const escapedSelector = JSON.stringify(selector);
     const escapedText = JSON.stringify(text);
-    const ok = await this.eval(`
+    await this.#clickWithRetry(`
       (() => {
         const selector = ${escapedSelector};
         const wanted = ${escapedText};
         const el = [...document.querySelectorAll(selector)]
           .find((node) => (node.textContent || '').replace(/\\s+/g, ' ').trim().includes(wanted));
-        if (!el) return false;
+        if (!el) return 'missing';
+        if (el.disabled) return 'disabled';
         el.click();
-        return true;
+        return 'clicked';
       })()
-    `);
-    assert(ok, `${selector} containing text not found: ${text}`);
+    `, `${selector} containing text not clickable: ${text}`);
   }
 
   close() {
@@ -269,32 +313,11 @@ async function liveSmoke(url) {
     }))()`);
     assert(!boot.staleCommentClaim, 'Live V1 must not claim SAY HI posts to Reddit comments.');
     assert(!boot.blockingReport, 'Dawn Report must not block first interaction.');
-    assert(boot.teaser, 'Dawn Report teaser should be visible in mock-live.');
+    assert(!boot.teaser, 'Dawn Report teaser should wait until first-run advisor guidance is complete.');
     assert(!boot.buildVisible, 'Live mode must not show demo-only BUILD.');
     assert(!boot.upgradeVisible, 'Live mode must not show demo-only UPGRADE.');
     assert(!boot.playableScavenge, 'Live V1 must not show a playable scavenge action.');
-    assert(boot.muteControl, 'V1 must show a global mute control.');
-    // Background music: fab renders, defaults off, and toggling persists.
-    const musicBefore = await cdp.eval(`(() => { const f = document.querySelector('.music-fab'); return f ? { pressed: f.getAttribute('aria-pressed'), stored: localStorage.getItem('omd_music_muted') } : null; })()`);
-    assert(musicBefore && musicBefore.pressed === 'false', `music fab should render default-off, saw ${JSON.stringify(musicBefore)}.`);
-    await cdp.eval(`document.querySelector('.music-fab')?.click()`);
-    await cdp.waitFor(`document.querySelector('.music-fab')?.getAttribute('aria-pressed') === 'true'`, 'music fab toggles on');
-    assert((await cdp.eval(`localStorage.getItem('omd_music_muted')`)) === '0', 'music mute state persists to localStorage');
-    await cdp.eval(`document.querySelector('.music-fab')?.click()`); // restore off
-    // Daily mission chip: the 100-level hook must show level + progress.
-    const mission = await cdp.eval(`(() => { const m = document.querySelector('.mission-chip'); return m ? m.textContent.replace(/\\s+/g, ' ') : ''; })()`);
-    assert(/LV 7/.test(mission) && /1\/2/.test(mission), `mission chip should show level and progress, saw "${mission}".`);
-    // REKINDLE (streak insurance): the fixture player lapsed a 12-day streak, so
-    // the offer must show with its standing cost, and accepting must restore it.
-    const rekindle = await cdp.eval(`(() => { const r = document.querySelector('.rekindle-chip'); return r ? r.textContent.replace(/\\s+/g, ' ') : ''; })()`);
-    assert(/12-day flame/.test(rekindle) && /24/.test(rekindle), `rekindle chip should offer the 12-day flame for 24 standing, saw "${rekindle}".`);
-    await cdp.eval(`document.querySelector('.rekindle-chip .rk-btn')?.click()`);
-    await cdp.waitFor(`!document.querySelector('.rekindle-chip')`, 'rekindle chip resolves after accepting');
-    await cdp.waitFor(`document.body.innerText.includes('the flame burns again')`, 'rekindle success notif');
-    assert(mission.includes('🔥 3d'), `mission chip should surface the 3-day streak, saw "${mission}".`);
-    // Dawn countdown: the appointment mechanic must be visible in the day pill.
-    const eta = await cdp.eval(`document.querySelector('.dp-eta')?.textContent || ''`);
-    assert(/dawn in \d/.test(eta), `day pill should count down to dawn, saw "${eta}".`);
+    assert(!boot.muteControl, 'Secondary controls should stay hidden while the first-run advisor speaks.');
     assert(!boot.overflowX, 'Desktop page should not overflow horizontally.');
 
     // Sound is a live V1 promise: every local cue must resolve to a non-empty
@@ -327,7 +350,42 @@ async function liveSmoke(url) {
       return true;
     })()`);
 
-    // Mute toggle: flips aria-pressed, persists, and plays feedback when unmuted.
+    // Advisor onboarding teaches four essentials up front. Deeper lessons are
+    // delayed until the player opens the matching surface.
+    await cdp.waitFor(`!!document.querySelector('.coach')`, 'advisor coach appears on first visit');
+    await cdp.waitFor(`(document.querySelector('.title .sub')?.textContent || '').includes('r/meadowbrook')`, 'top bar identifies the real subreddit city');
+    await cdp.waitFor(`[...document.querySelectorAll('.h-owner')].some((el) => (el.textContent || '').includes('u/mock_user'))`, 'current player house uses the real Reddit username');
+    const coachHead = await cdp.eval(`document.querySelector('.coach .co-head span')?.textContent || ''`);
+    assert(coachHead.includes('ADVISOR'), 'coach chip is framed as the ADVISOR');
+    await cdp.waitFor(`!!document.querySelector('.coach-ring')`, 'advisor highlight ring anchors to the UI');
+    // Each step may take TWO taps: the first completes Maren's typewriter line,
+    // the second advances — so the guard allows 2× the step count plus slack.
+    let tourGuard = 0;
+    const introTitles = new Set();
+    while (tourGuard++ < 12 && (await cdp.eval(`!!document.querySelector('.coach')`))) {
+      introTitles.add(await cdp.eval(`document.querySelector('.coach .co-head span')?.textContent || ''`));
+      await cdp.eval(`document.querySelector('.coach .co-next')?.click()`);
+      await sleep(150);
+    }
+    for (const title of ['WELCOME, SURVIVOR', 'THE VITALS', 'THE DAY', 'YOUR ENERGY']) {
+      assert([...introTitles].some((head) => head.includes(title)), `Opening advisor primer should include ${title}.`);
+    }
+    assert(![...introTitles].some((head) => head.includes('MY TASK FOR YOU')), 'Opening advisor primer must stop before contextual lessons.');
+    await cdp.waitFor(`!document.querySelector('.coach') && !document.querySelector('.coach-ring')`, 'four-step primer + ring dismiss after GOT IT');
+    assert((await cdp.eval(`window.localStorage.getItem('omd_coach_v1')`)) === '1', 'advisor primer marks itself seen');
+    await cdp.waitFor(`!!document.querySelector('.dawn-teaser')`, 'Dawn Report teaser appears after advisor primer');
+
+    // Secondary controls become available after the primer. Sound and music
+    // live in the compact settings menu instead of crowding the first screen.
+    await cdp.waitFor(`!!document.querySelector('.gear-fab')`, 'settings control appears after advisor primer');
+    await cdp.eval(`document.querySelector('.gear-fab')?.click()`);
+    await cdp.waitFor(`!!document.querySelector('.mute-fab') && !!document.querySelector('.music-fab')`, 'sound controls open from settings');
+    const musicBefore = await cdp.eval(`(() => { const f = document.querySelector('.music-fab'); return f ? { pressed: f.getAttribute('aria-pressed'), stored: localStorage.getItem('omd_music_muted') } : null; })()`);
+    assert(musicBefore && musicBefore.pressed === 'false', `music control should render default-off, saw ${JSON.stringify(musicBefore)}.`);
+    await cdp.eval(`document.querySelector('.music-fab')?.click()`);
+    await cdp.waitFor(`document.querySelector('.music-fab')?.getAttribute('aria-pressed') === 'true'`, 'music toggles on');
+    assert((await cdp.eval(`localStorage.getItem('omd_music_muted')`)) === '0', 'music mute state persists to localStorage');
+    await cdp.eval(`document.querySelector('.music-fab')?.click()`); // restore off
     const muteBefore = await cdp.eval(`document.querySelector('.mute-fab')?.getAttribute('aria-pressed')`);
     await cdp.eval(`document.querySelector('.mute-fab')?.click()`);
     await cdp.waitFor(`document.querySelector('.mute-fab')?.getAttribute('aria-pressed') !== ${JSON.stringify(muteBefore)}`, 'mute toggles state');
@@ -335,23 +393,13 @@ async function liveSmoke(url) {
     assert(stored === '0' || stored === '1', 'mute state persists to localStorage');
     await cdp.eval(`document.querySelector('.mute-fab')?.click()`); // restore + audible feedback
     await cdp.waitFor(`window.__omdAudioPlays.some((src) => src.includes('button_click.wav'))`, 'unmute sound feedback');
+    await cdp.eval(`document.querySelector('.gear-fab')?.click()`);
 
-    // Advisor guided tour: appears once on a first visit, anchors a highlight
-    // ring to real UI, drives the dashboard tabs, and persists when finished.
-    await cdp.waitFor(`!!document.querySelector('.coach')`, 'advisor coach appears on first visit');
-    const coachHead = await cdp.eval(`document.querySelector('.coach .co-head span')?.textContent || ''`);
-    assert(coachHead.includes('ADVISOR'), 'coach chip is framed as the ADVISOR');
-    await cdp.waitFor(`!!document.querySelector('.coach-ring')`, 'advisor highlight ring anchors to the UI');
-    // Each step may take TWO taps: the first completes Maren's typewriter line,
-    // the second advances — so the guard allows 2× the step count plus slack.
-    let tourGuard = 0;
-    while (tourGuard++ < 24 && (await cdp.eval(`!!document.querySelector('.coach')`))) {
-      await cdp.eval(`document.querySelector('.coach .co-next')?.click()`);
-      await sleep(150);
-    }
-    assert(tourGuard >= 8, `advisor tour should cover the full surface (walked ${tourGuard - 1} taps).`);
-    await cdp.waitFor(`!document.querySelector('.coach') && !document.querySelector('.coach-ring')`, 'tour + ring dismiss after GOT IT');
-    assert((await cdp.eval(`window.localStorage.getItem('omd_coach_v1')`)) === '1', 'coach marks itself seen');
+    const eta = await cdp.eval(`document.querySelector('.dp-eta')?.textContent || ''`);
+    assert(/dawn in \d/.test(eta), `day pill should count down to dawn, saw "${eta}".`);
+
+    await cdp.eval(`document.querySelector('.dash-fab')?.click()`);
+    await completeContextLesson(cdp, 'THE CITY PANEL');
 
     // The Dawn Report teaser and full ledger are both visible commands, so
     // exercise their open and close controls before changing dashboard tabs.
@@ -359,15 +407,42 @@ async function liveSmoke(url) {
     await cdp.waitFor('!!document.querySelector(".stats-modal.dawn-report.on")', 'dawn report opens');
     await cdp.eval(`document.querySelector('button[aria-label="Close dawn report"]')?.click()`);
     await cdp.waitFor('!document.querySelector(".stats-modal.dawn-report.on")', 'dawn report closes');
+    await cdp.waitFor(`!!document.querySelector('.rekindle-chip')`, 'rekindle offer follows the dawn report');
+    const rekindle = await cdp.eval(`document.querySelector('.rekindle-chip')?.textContent.replace(/\\s+/g, ' ') || ''`);
+    assert(/12-day flame/.test(rekindle) && /24/.test(rekindle), `rekindle chip should offer the 12-day flame for 24 standing, saw "${rekindle}".`);
+    await cdp.eval(`document.querySelector('.rekindle-chip .rk-btn')?.click()`);
+    await cdp.waitFor(`!document.querySelector('.rekindle-chip')`, 'rekindle chip resolves after accepting');
+    await cdp.waitFor(`document.body.innerText.includes('the flame burns again')`, 'rekindle success notif');
+    await cdp.waitFor(`!!document.querySelector('.mission-chip')`, 'daily mission follows the rekindle offer');
+    const mission = await cdp.eval(`document.querySelector('.mission-chip')?.textContent.replace(/\\s+/g, ' ') || ''`);
+    assert(/LV 7/.test(mission) && /1\/2/.test(mission), `mission chip should show level and progress, saw "${mission}".`);
+    assert(mission.includes('🔥 12d'), `mission chip should surface the rekindled 12-day streak, saw "${mission}".`);
+    await cdp.eval(`document.querySelector('.mission-chip .p-x')?.click()`);
     await cdp.eval(`document.querySelector('.stats-fab')?.click()`);
     await cdp.waitFor('document.querySelector(".stats-modal.on h2")?.textContent.includes("CITY LEDGER")', 'stats ledger opens');
+    const ledgerWorld = await cdp.eval(`(() => {
+      const rows = [...document.querySelectorAll('.stats-modal.on .st')];
+      return rows.at(-1)?.textContent || '';
+    })()`);
+    assert(ledgerWorld.includes('r/meadowbrook') && ledgerWorld.includes('r/ironhollow'), 'Live ledger should list real registered subreddit cities.');
+    assert(!/ashfall|deepwater|saltmere|thornwick/i.test(ledgerWorld), 'Live ledger must not backfill fictional subreddit cities.');
     await cdp.eval(`document.querySelector('button[aria-label="Close stats"]')?.click()`);
     await cdp.waitFor('!document.querySelector(".stats-modal.on")', 'stats ledger closes');
 
     for (const label of ['CITY', 'LIVE', 'TOP 🏆', 'MAP', 'WORLD', 'TOWN']) {
       await cdp.clickButton(label);
+      if (label === 'CITY') await completeContextLesson(cdp, 'WE BUILD TOGETHER');
+      if (label === 'LIVE') await completeContextLesson(cdp, 'WE DECIDE TOGETHER');
+      if (label === 'TOP 🏆') await completeContextLesson(cdp, 'THE RECORD');
       if (label === 'LIVE') {
-        await cdp.waitFor('document.body.innerText.includes("CITY CHATTER")', 'LIVE tab labels SAY HI as city chatter');
+        await cdp.waitFor('document.body.innerText.includes("VILLAGER VOICES")', 'LIVE tab identifies scripted villager dialogue');
+        const livePanel = await cdp.eval(`document.querySelector('.dash')?.innerText || ''`);
+        assert(!livePanel.includes('SAY HI'), 'Scripted villager dialogue must not masquerade as Reddit participation.');
+        assert(livePanel.includes('REDDIT COUNCIL THREAD'), 'Real Reddit discussion must be clearly separated from villager dialogue.');
+        const comments = await cdp.eval(`(() => { const b = document.querySelector('.council-comments'); return b ? { text: b.closest('.council-thread')?.textContent || '', url: b.dataset.commentsUrl || '' } : null; })()`);
+        assert(comments && /OPEN CRISIS DISCUSSION/.test(comments.text), 'LIVE tab offers the real Reddit crisis discussion.');
+        assert(comments.text.includes('First Light'), 'Reddit discussion CTA must name the crisis being debated.');
+        assert(comments.url.endsWith('/comments/mock'), `council thread should target the current post, saw "${comments.url}".`);
       }
       if (label === 'WORLD') {
         await cdp.waitFor('document.querySelectorAll(".wm-city").length >= 2', 'multiple world cities render');
@@ -375,8 +450,9 @@ async function liveSmoke(url) {
           count: document.querySelectorAll('.wm-city').length,
           names: [...document.querySelectorAll('.wm-name')].map((n) => n.textContent || '')
         }))()`);
-        assert(world.count >= 2, 'WORLD view should render multiple cities in mock-live.');
+        assert(world.count === 2, `LIVE world should render exactly its two registered cities, saw ${world.count}.`);
         assert(world.names.includes('r/meadowbrook') && world.names.includes('r/ironhollow'), 'WORLD view should include your city and a rival city.');
+        assert(!world.names.some((name) => /ashfall|deepwater|saltmere|thornwick/i.test(name)), 'LIVE world map must not backfill fictional subreddit cities.');
         // Multi-city travel: selecting a REAL rival city offers a TRAVEL button
         // (fictional filler settlements must not). Assert presence, never click —
         // it would navigate the page out of the test.
@@ -389,10 +465,13 @@ async function liveSmoke(url) {
     await cdp.clickButton('LIVE');
     await cdp.clickButtonContaining('Prepare for Raid');
     await cdp.waitFor('[...document.querySelectorAll("button.co-plan")].some((b) => b.disabled && (b.textContent || "").includes("Prepare for Raid"))', 'council strategy lock after submit');
+    await cdp.waitFor('document.body.innerText.includes("of the council backs it")', 'strategy confirmation reports community support');
+    await completeContextLesson(cdp, 'MY TASK FOR YOU');
     await cdp.clickButtonContaining('Fortify first');
     await cdp.waitFor('document.body.innerText.includes("Fortify first") && document.querySelectorAll(".cr-opt:disabled").length >= 3', 'vote lock after submit');
+    await cdp.waitFor('document.body.innerText.includes("of the city backs this choice")', 'crisis confirmation reports community support');
     await cdp.clickButtonContaining('Stand Vigil');
-    await cdp.waitFor('document.body.innerText.includes("26/40") || document.body.innerText.includes("26")', 'pledge update');
+    await cdp.waitFor('[...document.querySelectorAll(".mk-pledge")].every((b) => b.disabled) && document.body.innerText.includes("you pledged for Mira")', 'pledge locks and confirms');
     await cdp.clickSelectorContaining('.act', 'GUARD');
     await cdp.waitFor('[...document.querySelectorAll(".act")].some((b) => (b.textContent || "").includes("GUARD") && (b.textContent || "").includes("×1 today"))', 'action update');
     await cdp.waitFor(`window.__omdAudioPlays.some((src) => src.includes('action_confirm.wav'))`, 'accepted action sound');
@@ -431,7 +510,7 @@ async function liveSmoke(url) {
     // computed style directly.
     const fabPe = await cdp.eval(`(() => {
       const pe = (s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).pointerEvents : 'missing'; };
-      return { board: pe('.board-fab'), stats: pe('.stats-fab'), mute: pe('.mute-fab'), city: pe('.dash-fab') };
+      return { board: pe('.board-fab'), stats: pe('.stats-fab'), gear: pe('.gear-fab'), city: pe('.dash-fab') };
     })()`);
     for (const [name, pe] of Object.entries(fabPe)) {
       assert(pe === 'auto', `${name} fab must be clickable (pointer-events:auto), got "${pe}".`);
@@ -526,16 +605,15 @@ async function splashSmoke(url) {
     });
     await cdp.call('Page.reload', { ignoreCache: true });
     await cdp.waitFor('document.body?.innerText.includes("ONE MORE DAWN")', 'feed splash boot');
-    await cdp.waitFor('document.querySelector(".snoo")?.complete && document.querySelector(".snoo")?.naturalWidth > 0', 'feed splash survivor art');
+    await cdp.waitFor(`document.body && getComputedStyle(document.body).backgroundImage.includes('splash-art.jpg')`, 'feed splash kingdom art');
     const splash = await cdp.eval(`(() => {
       const cta = document.querySelector('#start-button');
       const rect = cta?.getBoundingClientRect();
-      const image = document.querySelector('.snoo');
       return {
         buttonCount: document.querySelectorAll('button').length,
         ctaText: cta?.textContent || '',
         ctaHeight: rect?.height || 0,
-        imageLoaded: image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+        imageLoaded: getComputedStyle(document.body).backgroundImage.includes('splash-art.jpg'),
         staleLinks: /Docs|r\\/Devvit|Discord/.test(document.body.innerText),
         sharedCity: document.body.innerText.includes('ONE SHARED CITY'),
         overflowX: document.body.scrollWidth > document.documentElement.clientWidth,
@@ -545,7 +623,7 @@ async function splashSmoke(url) {
     assert(splash.buttonCount === 1, `Feed splash should have one primary command, saw ${splash.buttonCount}.`);
     assert(splash.ctaText.includes('ENTER THE CITY'), 'Feed splash should expose the Enter the City CTA.');
     assert(splash.ctaHeight >= 44, `Feed splash CTA needs 44px touch height, saw ${splash.ctaHeight}.`);
-    assert(splash.imageLoaded, 'Feed splash survivor art must load from the local bundle.');
+    assert(splash.imageLoaded, 'Feed splash kingdom art must load from the local bundle.');
     assert(!splash.staleLinks, 'Feed splash must not expose stock Devvit template links.');
     assert(splash.sharedCity, 'Feed splash should state the shared-city premise.');
     assert(!splash.overflowX && !splash.overflowY, 'Feed splash should fit a 390×520 Reddit card without scrolling.');
@@ -598,7 +676,15 @@ async function campSmoke(url) {
   try {
     await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("VAELMAR")', 'camp city boot');
     await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'camp loader exit');
+    // The first-run primer clears the stage (fabs hidden while Maren speaks),
+    // so walk through it before exercising fab-driven surfaces.
+    let campPrimerGuard = 0;
+    while (campPrimerGuard++ < 12 && (await cdp.eval(`!!document.querySelector('.coach')`))) {
+      await cdp.eval(`document.querySelector('.coach .co-next')?.click()`);
+      await sleep(100);
+    }
     await cdp.clickButton('CITY');
+    await completeContextLesson(cdp, 'WE BUILD TOGETHER');
     await cdp.waitFor('!!document.querySelector(".build-panel")', 'camp build panel renders');
     const camp = await cdp.eval(`(() => {
       const text = document.body.innerText;
@@ -684,7 +770,7 @@ async function optionalNameFailureSmoke(url) {
     await cdp.waitFor('document.body.innerText.includes("CHOOSE YOUR ROLE")', 'optional-name onboarding');
     await cdp.clickSelectorContaining('.ob-role', 'GUARD');
     await cdp.clickButton('ENTER THE CITY');
-    await cdp.waitFor('!document.body.innerText.includes("CHOOSE YOUR ROLE")', 'role accepted despite avatar failure');
+    await cdp.waitFor('!document.body.innerText.includes("CHOOSE YOUR ROLE")', 'role accepted despite avatar failure', 30_000);
     const text = await cdp.eval(`document.body.innerText`);
     assert(!text.includes('could not set your role'), 'Optional name failure must not report the accepted role as failed.');
   } finally { await close(); }
@@ -719,8 +805,16 @@ async function firstHouseSmoke(url) {
   try {
     await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("VAELMAR")', 'first-house city boot');
     await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'first-house loader exit');
+    // Complete the four essentials so the first contribution can reveal its
+    // house lesson instead of competing with first-run onboarding.
+    let primerGuard = 0;
+    while (primerGuard++ < 12 && (await cdp.eval(`!!document.querySelector('.coach')`))) {
+      await cdp.eval(`document.querySelector('.coach .co-next')?.click()`);
+      await sleep(100);
+    }
     await cdp.clickSelectorContaining('.act', 'GUARD');
     await cdp.waitFor('document.body.innerText.includes("Your house now stands in the city. Build order #3.")', 'first contribution house feedback');
+    await completeContextLesson(cdp, 'YOUR HOUSE');
     await sleep(200);
     const count = await cdp.eval(`(document.body.innerText.match(/Your house now stands in the city/g) || []).length`);
     assert(count === 1, `First-house feedback should appear once, saw ${count}.`);

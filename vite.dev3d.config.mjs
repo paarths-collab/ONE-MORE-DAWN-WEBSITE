@@ -58,7 +58,7 @@ const CITY = {
   cityLevel: 1, buildProgress: 12, unlockedBuildings: ['shelter'],
 };
 const PLAYER = {
-  userId: 't2_mock', username: 'you', role: 'guard', roleChangedDay: 1, faction: null, factionRep: 0,
+  userId: 't2_mock', username: 'mock_user', role: 'guard', roleChangedDay: 1, faction: null, factionRep: 0,
   roleRep: {}, title: 'Wall-Warden', avatar: null, energyUsedToday: 1, lastActiveDay: 6,
   injuredUntilDay: 0, totalContribution: 14, streak: 3, lapsedStreak: 12,
 };
@@ -119,17 +119,13 @@ const WORLD = {
   cities: [
     { subreddit: 'r/ironhollow', cycle: 3, day: 22, survivalDays: 22, status: 'thriving', threat: 30, population: 240, savedCount: 5, activePlayers: 18, isYou: false },
     { subreddit: 'r/meadowbrook', cycle: 1, day: 6, survivalDays: 6, status: 'holding', threat: 64, population: 143, savedCount: 1, activePlayers: 7, isYou: true },
-    { subreddit: 'r/saltmere', cycle: 2, day: 14, survivalDays: 14, status: 'holding', threat: 55, population: 180, savedCount: 3, activePlayers: 9, isYou: false },
-    { subreddit: 'r/thornwick', cycle: 1, day: 9, survivalDays: 9, status: 'strained', threat: 78, population: 96, savedCount: 0, activePlayers: 4, isYou: false },
-    { subreddit: 'r/ashfall', cycle: 1, day: 3, survivalDays: 3, status: 'under_raid', threat: 92, population: 60, savedCount: 0, activePlayers: 5, isYou: false },
-    { subreddit: 'r/deepwater', cycle: 2, day: 0, survivalDays: 11, status: 'fallen', threat: 100, population: 8, savedCount: 2, activePlayers: 0, isYou: false },
   ],
 };
 const LEADERBOARD = {
   type: 'leaderboard',
   contributors: [
     { username: 'ashen_fox', score: 142 }, { username: 'saltcedar', score: 118 },
-    { username: 'you', score: 96 }, { username: 'quiet_marrow', score: 74 }, { username: 'palewick', score: 51 },
+    { username: 'mock_user', score: 96 }, { username: 'quiet_marrow', score: 74 }, { username: 'palewick', score: 51 },
   ],
   scouts: [{ username: 'quiet_marrow', score: 7 }],
   factions: { builders: { rep: 12, standing: 2 }, wardens: { rep: 20, standing: 1 }, seekers: { rep: 4, standing: 4 }, hearth: { rep: 9, standing: 3 } },

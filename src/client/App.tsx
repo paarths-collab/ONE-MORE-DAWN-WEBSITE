@@ -10,7 +10,7 @@ import {
   type VillageHooks,
 } from './scene';
 import { ApiFailure, getInit, getLeaderboard, getWorld, postAction, postAvatar, postPledge, postRekindle, postRole, postStrategy, postVote } from './api';
-import { isLocalHarnessHost, raidNoteFromEvents, worldUnavailableMessage } from './liveUi';
+import { isLocalHarnessHost, raidNoteFromEvents, raidOutcomeFromTimeline, worldUnavailableMessage } from './liveUi';
 import { BALANCE } from '../shared/balance';
 import { cityEpithet } from '../shared/cityName';
 import { navigateTo } from '@devvit/web/client';
@@ -202,9 +202,11 @@ const PLEDGE_KINDS: PledgeKind[] = ['stand_vigil', 'share_rations', 'run_message
 const ACTION_IDS: ActionType[] = ['grow_food', 'repair_power', 'treat_sick', 'guard_wall'];
 const MARKED_ICONS: Record<Marked['kind'], string> = { person: '🧒', place: '🏚️', symbol: '🕯️' };
 
-// Advisor coachmarks — a 3-step guided tour shown once after onboarding (and
-// replayable from the 🧭 fab). Persisted so it never nags a returning player.
+// Advisor coachmarks: four essentials after onboarding, then one-time lessons
+// when the player first opens a deeper surface. The compass replays all ten.
 const COACH_KEY = 'omd_coach_v1';
+const COACH_CONTEXT_KEY = 'omd_coach_context_v1';
+const INTRO_COACH_STEPS = 4;
 const coachSeen = (): boolean => {
   try {
     return window.localStorage.getItem(COACH_KEY) === '1';
@@ -215,6 +217,20 @@ const coachSeen = (): boolean => {
 const markCoachSeen = (): void => {
   try {
     window.localStorage.setItem(COACH_KEY, '1');
+  } catch {
+    /* storage unavailable */
+  }
+};
+const contextualCoachSeen = (step: number): boolean => {
+  try {
+    return window.localStorage.getItem(`${COACH_CONTEXT_KEY}:${step}`) === '1';
+  } catch {
+    return true; // storage unavailable — never nag
+  }
+};
+const markContextualCoachSeen = (step: number): void => {
+  try {
+    window.localStorage.setItem(`${COACH_CONTEXT_KEY}:${step}`, '1');
   } catch {
     /* storage unavailable */
   }
@@ -306,6 +322,7 @@ type CoachStep = {
   anchor?: string;
   go?: { open?: boolean; tab?: DashTab };
 };
+type CoachFlow = 'intro' | 'context' | 'full';
 const COACH_STEPS: CoachStep[] = [
   {
     icon: '🕯️',
@@ -366,7 +383,7 @@ const COACH_STEPS: CoachStep[] = [
   {
     icon: '🏆',
     title: 'THE RECORD',
-    text: 'Those who give the most are remembered here. 📋 DASH keeps the ledger, 📊 STATS the full numbers, 🔊 the sound. You now know every control I know.',
+    text: 'Those who give the most are remembered here. 📋 DASH keeps the ledger, 📊 STATS the full numbers, ⚙ the sound, music, and my guide. You now know every control I know.',
     anchor: '.fab-bar',
     go: { open: true, tab: 'top' },
   },
@@ -529,7 +546,7 @@ const DRAMA: { icon: string; text: string }[] = [
   { icon: '🌅', text: 'Dawn broke over the city, day 5, still standing.' },
 ];
 
-// Scripted replies to SAY HI — rotates each use.
+// Scripted villager replies — rotates each use.
 const HI_REPLIES: { who: string; text: string }[] = [
   { who: 'u/ashen_fox', text: 'hii 👋 welcome to the wall' },
   { who: 'u/quiet_marrow', text: 'gm 🌅' },
@@ -765,6 +782,8 @@ type LiveState = {
   hiCooldown: boolean;
   onSayHi: () => void;
   villager: string | null;
+  commentsUrl: string | null;
+  onOpenComments: () => void;
   crisisVotes: Record<CrisisOptId, number>;
   myCrisisVote: CrisisOptId | null;
   onCrisisVote: (id: CrisisOptId) => void;
@@ -783,6 +802,8 @@ function LiveTab({
   hiCooldown,
   onSayHi,
   villager,
+  commentsUrl,
+  onOpenComments,
   crisisVotes,
   myCrisisVote,
   onCrisisVote,
@@ -842,7 +863,7 @@ function LiveTab({
         </div>
       </div>
 
-      <div className="p-sec">CITY CHATTER</div>
+      <div className="p-sec">VILLAGER VOICES</div>
       <div className="talk">
         {talk.map((m) => (
           <div key={m.key} className={m.you ? 'tk you' : 'tk'}>
@@ -851,9 +872,24 @@ function LiveTab({
           </div>
         ))}
         <button type="button" className="say-hi" disabled={hiCooldown} onClick={onSayHi}>
-          {hiCooldown ? '…' : villager ? `👋 SAY HI to @${villager}` : '👋 SAY HI'}
+          {hiCooldown ? '…' : villager ? `💬 TALK TO ${villager}` : '💬 TALK TO A VILLAGER'}
         </button>
       </div>
+
+      {liveData && commentsUrl && (
+        <div className="council-thread">
+          <div className="ct-title">REDDIT COUNCIL THREAD</div>
+          <div className="mini-cap">Debate today's crisis with your subreddit, then cast the binding vote below.</div>
+          <button
+            type="button"
+            className="say-hi council-comments"
+            data-comments-url={commentsUrl}
+            onClick={onOpenComments}
+          >
+            💬 OPEN CRISIS DISCUSSION · {liveData.crisisTitle}
+          </button>
+        </div>
+      )}
 
       <div className="p-sec">TODAY'S CRISIS</div>
       <div className="crisis">
@@ -1117,8 +1153,7 @@ function MiniMap({
 // ---------- MAP tab: world map of rival subreddit-cities ----------
 // A parchment-style terrain map: sea → continent → mountains/forests/river →
 // curved trade routes → hut-cluster settlements with status flags. Demo shows
-// the fictional set; live maps real /api/world cities onto the same 6 slots,
-// backfilling any slot without a real city with its fictional settlement.
+// the fictional set; live mode only renders cities returned by /api/world.
 type WmCity = { id: string; name: string; status: WorldStatus; x: number; y: number; info?: string; real?: boolean };
 
 /** Open another city's subreddit — every city on the world map IS a community.
@@ -1153,25 +1188,18 @@ function WorldMap({
   const unavailable = liveMode && liveCities === null;
   if (liveCities) {
     // your city → the center slot; the top 5 others (already ranked) → the
-    // remaining slots. Slots without a real city keep their fictional
-    // settlement so the known world is always fully drawn — never a single
-    // isolated city on an empty continent.
+    // remaining slots. Empty slots stay empty until a real subreddit arrives.
     const you = liveCities.find((c) => c.isYou) ?? null;
     const others = liveCities.filter((c) => !c.isYou).slice(0, 5);
     const info = (c: WorldCity) => `${c.survivalDays} dawns · ${c.population} souls`;
     cities = [];
     const center = WORLD_CITIES[0]!;
-    if (you) cities.push({ id: 'you', name: you.subreddit, status: you.status, x: center.x, y: center.y, info: info(you) });
-    else cities.push({ ...center, status: youStatus });
+    if (you) cities.push({ id: 'you', name: you.subreddit, status: you.status, x: center.x, y: center.y, info: info(you), real: true });
     others.forEach((c, i) => {
       const slot = WORLD_CITIES[i + 1];
       if (!slot) return;
       cities.push({ id: slot.id, name: c.subreddit, status: c.status, x: slot.x, y: slot.y, info: info(c), real: true });
     });
-    for (let i = others.length + 1; i < WORLD_CITIES.length; i++) {
-      const slot = WORLD_CITIES[i]!;
-      cities.push({ ...slot, info: 'Beyond the trade routes, rumors only.' });
-    }
   } else {
     cities = WORLD_CITIES.map((c) => (c.id === 'you' ? { ...c, status: youStatus } : c));
   }
@@ -1571,7 +1599,7 @@ function VillagerChip({
         👋 WAVE
       </button>
       <button type="button" className="hi-btn" disabled={hiCooldown} onClick={onSayHi}>
-        👋 SAY HI
+        💬 TALK
       </button>
     </div>
   );
@@ -1747,6 +1775,9 @@ function StatsModal({
   lbUnavailable,
   liveRaidLikely,
   liveRaidNote,
+  worldCities,
+  worldLive,
+  worldNote,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1763,11 +1794,21 @@ function StatsModal({
   lbUnavailable: boolean;
   liveRaidLikely: boolean;
   liveRaidNote: string | null;
+  worldCities: WorldCity[] | null;
+  worldLive: boolean;
+  worldNote: string | null;
 }) {
   const ranked = Object.entries(contribs)
     .sort((a, b) => b[1].score - a[1].score)
     .map(([name, c], i) => ({ name, c, rank: i }));
-  const worldRows = WORLD_CITIES.map((c) => (c.id === 'you' ? { ...c, status: youStatus } : c));
+  const worldRows = worldLive
+    ? (worldCities ?? []).map((c, index) => ({
+        id: c.isYou ? 'you' : `live-${index}`,
+        name: c.subreddit,
+        status: c.status,
+        note: `${c.survivalDays} dawns · ${c.population} souls`,
+      }))
+    : WORLD_CITIES.map((c) => ({ ...c, status: c.id === 'you' ? youStatus : c.status, note: WORLD_STATUS[c.status].flavor }));
   return (
     <div className={open ? 'hud stats-modal on' : 'hud stats-modal'}>
       <div className="stats-back" onClick={onClose} />
@@ -1953,7 +1994,11 @@ function StatsModal({
             </tr>
           </thead>
           <tbody>
-            {worldRows.map((c) => {
+            {worldRows.length === 0 ? (
+              <tr>
+                <td colSpan={3}>{worldNote ?? 'No real subreddit cities are registered yet.'}</td>
+              </tr>
+            ) : worldRows.map((c) => {
               const st = WORLD_STATUS[c.status];
               return (
                 <tr key={c.id} className={c.id === 'you' ? 'me' : undefined}>
@@ -1963,7 +2008,7 @@ function StatsModal({
                       {st.icon} {st.label}
                     </span>
                   </td>
-                  <td>{st.flavor}</td>
+                  <td>{c.note}</td>
                 </tr>
               );
             })}
@@ -2343,7 +2388,9 @@ export function App() {
   const [pois, setPois] = useState<PoiInfo[]>([]);
   const [time, setTimeState] = useState<TimeOfDay>('dawn');
   const [dashOpen, setDashOpen] = useState(
-    () => !window.matchMedia('(orientation: portrait) and (max-width: 640px)').matches,
+    // Phones (portrait or landscape) start with the drawer closed so the city
+    // and the hotbar own the first screen; desktop keeps the drawer open.
+    () => !window.matchMedia('(max-width: 640px), (max-height: 500px)').matches,
   );
   const [dashTab, setDashTab] = useState<DashTab>('map');
   const [mapView, setMapView] = useState<MapViewMode>('town');
@@ -2406,6 +2453,9 @@ export function App() {
   const [dawnReport, setDawnReport] = useState<DawnReport | null>(null);
   const [dawnOpen, setDawnOpen] = useState(false);
   const [dawnTeaserOpen, setDawnTeaserOpen] = useState(false);
+  // One temporary HUD message at a time: per-item dismissals advance the queue.
+  const [hudDismissed, setHudDismissed] = useState<{ raid?: boolean; mission?: boolean; rekindle?: boolean }>({});
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [worldCities, setWorldCities] = useState<WorldCity[] | null>(null);
   const [worldNote, setWorldNote] = useState<string | null>(null);
   const [liveLb, setLiveLb] = useState<LeaderboardEntry[] | null>(null);
@@ -2426,6 +2476,7 @@ export function App() {
   const [onboardBusy, setOnboardBusy] = useState(false);
   const [liveUsername, setLiveUsername] = useState(''); // Reddit username (prefills the survivor name)
   const [liveCityName, setLiveCityName] = useState<string | null>(null); // this city's ancient name (per-subreddit)
+  const [livePostId, setLivePostId] = useState<string | null>(null);
   const [liveChallenge, setLiveChallenge] = useState<InitResponse['challenge'] | null>(null); // today's personal mission
   const challengeDoneRef = useRef(false); // last seen done-state, for the completion cheer
   const [liveStreak, setLiveStreak] = useState(0); // consecutive-day streak (server-tracked)
@@ -2442,8 +2493,9 @@ export function App() {
   const [floats, setFloats] = useState<{ key: number; text: string }[]>([]);
   const floatKeyRef = useRef(0);
   const [liveTraitId, setLiveTraitId] = useState<string | null>(null); // founding trait → the name's epithet
-  // Advisor coachmarks: a guided tour after onboarding, replayable from the fab bar.
+  // Advisor coachmarks: a short primer plus contextual lessons, replayable in full.
   const [coachStep, setCoachStep] = useState<number | null>(null);
+  const [coachFlow, setCoachFlow] = useState<CoachFlow | null>(null);
   const [coachRing, setCoachRing] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   // Where Maren looks/points, derived from the highlighted element's position.
   const [coachAim, setCoachAim] = useState<{ face: 'left' | 'right' | 'front'; point: 'up' | 'side' | null }>({ face: 'front', point: null });
@@ -2546,6 +2598,34 @@ export function App() {
     notifTimersRef.current.push(window.setTimeout(() => setNotifs((prev) => prev.filter((n) => n.key !== key)), 5000));
   }, []);
 
+  const startIntroCoach = useCallback(() => {
+    setCoachFlow('intro');
+    setCoachStep(0);
+  }, []);
+  const openContextCoach = useCallback(
+    (step: number) => {
+      if (coachStep !== null || !coachSeen() || contextualCoachSeen(step)) return;
+      setCoachFlow('context');
+      setCoachStep(step);
+    },
+    [coachStep],
+  );
+  const setDashboardOpen = useCallback(
+    (open: boolean) => {
+      setDashOpen(open);
+      if (open) openContextCoach(5);
+    },
+    [openContextCoach],
+  );
+  const setDashboardTab = useCallback(
+    (tab: DashTab) => {
+      setDashTab(tab);
+      const lesson = tab === 'city' ? 6 : tab === 'live' ? 7 : tab === 'top' ? 8 : null;
+      if (lesson !== null) openContextCoach(lesson);
+    },
+    [openContextCoach],
+  );
+
   // ---- contribution helpers ----
   // merge a patch into a user's contribution record and recompute their score
   const addContrib = useCallback((user: string, patch: ContribPatch) => {
@@ -2628,6 +2708,7 @@ export function App() {
       setLiveEnergy({ effective: init.effectiveEnergy, used: init.player.energyUsedToday });
       setLiveUsername(init.player.username ?? '');
       setLiveCityName(init.cityName || null);
+      setLivePostId(init.postId || null);
       // Daily mission: track completion transitions so finishing mid-session
       // cheers exactly once (never on boot, never again on later polls).
       const ch = init.challenge ?? null;
@@ -2684,8 +2765,8 @@ export function App() {
         setNeedsOnboard(true);
         setOnboardOpen(true);
       } else if (first && !coachSeen()) {
-        // returning player who never saw the advisor — walk them in once
-        setCoachStep(0);
+        // returning player who never saw the essentials — walk them in once
+        startIntroCoach();
       }
       raidDaysRef.current = init.raidInDays;
       setRaidDays(init.raidInDays);
@@ -2712,14 +2793,17 @@ export function App() {
         pushEvent('🌅', `Dawn broke over the city, day ${city.day}, still standing.`);
         // last night's raid, if the timeline recorded one
         const t = init.timelinePreview;
-        if (t && (t.deltas.population ?? 0) < 0 && t.events.some((e) => /raid|red signal/i.test(e))) {
-          const line = t.events.find((e) => /raid|red signal/i.test(e)) ?? 'Raiders came in the night.';
-          pushNotif('⚔', line, 'bad');
-          pushEvent('⚔', line);
+        const raidOutcome = raidOutcomeFromTimeline(t?.events, t?.deltas.population);
+        if (raidOutcome) {
+          const breached = raidOutcome.title === 'THE WALL WAS BREACHED';
+          showEpic(raidOutcome.title, raidOutcome.line);
+          pushNotif('⚔', raidOutcome.line, breached ? 'bad' : 'good');
+          pushEvent('⚔', raidOutcome.line);
+          playSound(breached ? 'raid_warning' : 'dawn_report');
         }
       }
     },
-    [pushEvent, pushNotif, showEpic],
+    [pushEvent, pushNotif, showEpic, startIntroCoach],
   );
 
   // Boot: one real /api/init decides the mode. Success = LIVE (the shared city
@@ -2939,11 +3023,14 @@ export function App() {
       const yours = init.houses?.yours ?? null;
       if (!before && yours) {
         pushNotif('🏠', `Your house now stands in the city. Build order #${yours.index + 1}.`, 'good');
+        openContextCoach(9);
+      } else {
+        openContextCoach(4);
       }
     } catch {
       popToast('Saved. City refresh delayed.');
     }
-  }, [applyInit, popToast, pushNotif]);
+  }, [applyInit, openContextCoach, popToast, pushNotif]);
 
   // REKINDLE — streak insurance: burn standing to restore the dead streak.
   const onRekindle = useCallback(() => {
@@ -2970,7 +3057,9 @@ export function App() {
           setLiveCrisisVotes(res.crisisVotes);
           setLiveMyVote(res.yourCrisisVote);
           playSound('vote_cast');
-          pushNotif('🗳️', 'your vote is in', 'good');
+          const tally = Object.values(res.crisisVotes).reduce((a, b) => a + b, 0);
+          const share = tally > 0 ? Math.round(((res.crisisVotes[optionId as CrisisOptId] ?? 0) / tally) * 100) : 100;
+          pushNotif('🗳️', `your vote is in, ${share}% of the city backs this choice`, 'good');
           await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'vote failed, try again'))
@@ -3012,7 +3101,9 @@ export function App() {
           setLiveStrategyVotes(res.strategyVotes);
           setLiveMyPlan(res.yourStrategyVote);
           playSound('vote_cast');
-          pushNotif('📜', 'the council heard you', 'good');
+          const tally = Object.values(res.strategyVotes).reduce((a, b) => a + b, 0);
+          const share = tally > 0 ? Math.round(((res.strategyVotes[plan] ?? 0) / tally) * 100) : 100;
+          pushNotif('📜', `plan locked, ${share}% of the council backs it`, 'good');
           await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'the council is busy, try again'))
@@ -3045,7 +3136,7 @@ export function App() {
           pushNotif('🫡', `role set, ${roleLabel}`, 'good');
           setOnboardOpen(false);
           setNeedsOnboard(false);
-          if (!coachSeen()) setCoachStep(0); // the advisor picks up where onboarding ends
+          if (!coachSeen()) startIntroCoach(); // the advisor picks up where onboarding ends
           // pull fresh player-derived state from the server
           try {
             const init = await getInit();
@@ -3060,7 +3151,7 @@ export function App() {
           mutatingRef.current = false;
         });
     },
-    [onboardBusy, applyInit, popToast, pushNotif, toastFailure],
+    [onboardBusy, applyInit, popToast, pushNotif, startIntroCoach, toastFailure],
   );
   const dismissOnboard = useCallback(() => {
     setOnboardOpen(false);
@@ -3138,7 +3229,7 @@ export function App() {
   );
 
   // scene reports a clicked villager (null = clicked empty ground), selection
-  // drives the bottom-left chip and re-targets SAY HI.
+  // drives the bottom-left chip and re-targets villager dialogue.
   const onVillager = useCallback((name: string | null) => {
     villagerRef.current = name;
     setVillager(name);
@@ -3219,18 +3310,17 @@ export function App() {
     };
   }, [mode, liveHouses, demoHouseTotal, demoYourContribution]);
   useEffect(() => {
-    handleRef.current?.setHouses?.(houses);
-  }, [houses, loaded]);
+    handleRef.current?.setHouses?.(houses ? { ...houses, currentUsername: liveUsername || 'you' } : null);
+  }, [houses, liveUsername, loaded]);
 
-  // Horizon: relabel the 3D scene's distant neighbor settlements with real
-  // world-map cities (rank order, minus your own). No data (demo mode, gate,
-  // registry down) keeps the scene's fictional defaults.
+  // Horizon: live mode shows only real registry cities. Demo keeps its authored
+  // fictional neighbors; missing live data leaves the horizon unlabelled.
   useEffect(() => {
-    if (!worldCities) return;
+    if (mode !== 'live' && !worldCities) return;
     handleRef.current?.setDistantCities?.(
-      worldCities.filter((c) => !c.isYou).slice(0, 5).map((c) => ({ name: c.subreddit, status: c.status })),
+      (worldCities ?? []).filter((c) => !c.isYou).slice(0, 5).map((c) => ({ name: c.subreddit, status: c.status })),
     );
-  }, [worldCities, loaded]);
+  }, [mode, worldCities, loaded]);
 
   // Declutter: the floating in-world district/house banner labels are redundant
   // (and overlap in a narrow webview) while the CITY dashboard panel is open, so
@@ -3338,7 +3428,7 @@ export function App() {
     setCrisisVotes((v) => ({ ...v, [id]: v[id] + 1 }));
   }, []);
 
-  // SAY HI, local city chatter only: wave in the scene and get a scripted reply.
+  // Local villager dialogue: wave in the scene and get a scripted reply.
   // With a villager selected the greeting is tagged and THEY answer; otherwise
   // the old random-reply rotation plays out.
   const onSayHi = useCallback(() => {
@@ -3348,7 +3438,7 @@ export function App() {
     const target = villagerRef.current;
     if (hiReplyTimerRef.current !== null) window.clearTimeout(hiReplyTimerRef.current);
     if (target) {
-      pushTalk('u/you', `@${target} hii 👋`, true);
+      pushTalk('u/you', `${target}, hii 👋`, true);
       handleRef.current?.sayTo?.(target, 'hii 👋');
       hiReplyTimerRef.current = window.setTimeout(() => {
         pushTalk(target, 'hii 👋 good to see you');
@@ -3372,6 +3462,17 @@ export function App() {
       setHiCooldown(false);
     }, 6000);
   }, [pushTalk, pushNotif]);
+
+  const commentsUrl = useMemo(() => {
+    const id = livePostId?.replace(/^t3_/, '').trim();
+    return id ? `https://www.reddit.com/comments/${id}` : null;
+  }, [livePostId]);
+
+  const onOpenComments = useCallback(() => {
+    if (!commentsUrl) return;
+    playSound('button_click');
+    navigateTo(commentsUrl);
+  }, [commentsUrl]);
 
   // villager chip actions, wave at / deselect the clicked villager
   const onWaveAt = useCallback(() => {
@@ -3738,8 +3839,9 @@ export function App() {
 
   // ---- derived render values (live vs demo) ----
   const isLive = mode === 'live';
+  const liveSubreddit = worldCities?.find((city) => city.isYou)?.subreddit ?? null;
   const subtitle = isLive
-    ? `${cityEpithet(liveTraitId ?? 'standard')} · ${liveStanding?.rankLabel ?? `cycle ${liveCycle}`}`
+    ? `${liveSubreddit ? `${liveSubreddit} · ` : ''}${cityEpithet(liveTraitId ?? 'standard')} · ${liveStanding?.rankLabel ?? `cycle ${liveCycle}`}`
     : mode === 'demo'
       ? '3D town · demo mode'
       : mode === 'offline'
@@ -3833,25 +3935,66 @@ export function App() {
         onVillager={onVillager}
       />
       <TopBar vitals={vitals} population={population} subtitle={subtitle} cityName={liveCityName} />
-      {isLive && !cityFallen && liveChallenge && (
-        <div className="hud mission-chip card-bit" title="Your personal mission for today">
-          <span className="mi-ic">{liveChallenge.icon}</span>
-          <span className="mi-lv">LV {liveChallenge.level}</span>
-          {liveStreak >= 2 && <span className="mi-streak">🔥 {liveStreak}d</span>}
-          <span className="mi-tx">{liveChallenge.text}</span>
-          <span className={liveChallenge.done ? 'mi-pr done' : 'mi-pr'}>
-            {liveChallenge.done ? `✓ +${liveChallenge.reward}` : `${liveChallenge.progress}/${liveChallenge.target}`}
-          </span>
-        </div>
-      )}
-      {isLive && !cityFallen && liveLapsed >= BALANCE.rekindle.minStreak && liveLapsed > liveStreak && (
-        <div className="hud rekindle-chip card-bit">
-          <span className="rk-tx">🔥 Your {liveLapsed}-day flame went out while you were away.</span>
-          <button type="button" className="rk-btn" disabled={rekindleBusy} onClick={onRekindle}>
-            REKINDLE · {liveLapsed * BALANCE.rekindle.costPerDay} ⭐
-          </button>
-        </div>
-      )}
+      {/* Progressive disclosure: ONE temporary HUD message at a time. Priority:
+          dawn report teaser, urgent raid, the daily mission, then the rekindle
+          offer. Dismissing one advances to the next. While the advisor speaks,
+          the stage clears except the element she anchors. */}
+      {(() => {
+        if (!isLive || cityFallen || showOnboard) return null;
+        const coachAnchor = coachStep !== null ? (COACH_STEPS[coachStep]?.anchor ?? null) : null;
+        const missionAnchored = coachAnchor === '.mission-chip';
+        if (coachStep !== null && !missionAnchored) return null;
+        const teaserUp = dawnTeaserOpen && !dawnOpen && dawnReport !== null;
+        const rekindleReady = liveLapsed >= BALANCE.rekindle.minStreak && liveLapsed > liveStreak && !hudDismissed.rekindle;
+        const missionUp = liveChallenge !== null && !hudDismissed.mission;
+        let slot: 'raid' | 'mission' | 'rekindle' | null = null;
+        if (missionAnchored) slot = 'mission'; // the tour needs its target rendered
+        else if (teaserUp) slot = null; // the dawn teaser (rendered below) owns the slot
+        else if (raidDays <= 1 && !hudDismissed.raid) slot = 'raid';
+        else if (rekindleReady) slot = 'rekindle';
+        else if (missionUp) slot = 'mission';
+        if (slot === 'raid') {
+          return (
+            <div className="hud mission-chip card-bit urgent">
+              <span className="mi-ic">⚔</span>
+              <span className="mi-tx">Raiders reach the wall at dawn. Spend energy on GUARD WALL.</span>
+              <button type="button" className="p-x" onClick={() => setHudDismissed((d) => ({ ...d, raid: true }))} aria-label="Dismiss raid warning">
+                ✕
+              </button>
+            </div>
+          );
+        }
+        if (slot === 'mission' && liveChallenge) {
+          return (
+            <div className="hud mission-chip card-bit" title="Your personal mission for today">
+              <span className="mi-ic">{liveChallenge.icon}</span>
+              <span className="mi-lv">LV {liveChallenge.level}</span>
+              {liveStreak >= 2 && <span className="mi-streak">🔥 {liveStreak}d</span>}
+              <span className="mi-tx">{liveChallenge.text}</span>
+              <span className={liveChallenge.done ? 'mi-pr done' : 'mi-pr'}>
+                {liveChallenge.done ? `✓ +${liveChallenge.reward}` : `${liveChallenge.progress}/${liveChallenge.target}`}
+              </span>
+              <button type="button" className="p-x" onClick={() => setHudDismissed((d) => ({ ...d, mission: true }))} aria-label="Dismiss mission chip">
+                ✕
+              </button>
+            </div>
+          );
+        }
+        if (slot === 'rekindle') {
+          return (
+            <div className="hud rekindle-chip card-bit">
+              <span className="rk-tx">🔥 Your {liveLapsed}-day flame went out while you were away.</span>
+              <button type="button" className="rk-btn" disabled={rekindleBusy} onClick={onRekindle}>
+                REKINDLE · {liveLapsed * BALANCE.rekindle.costPerDay} ⭐
+              </button>
+              <button type="button" className="p-x" onClick={() => setHudDismissed((d) => ({ ...d, rekindle: true }))} aria-label="Dismiss rekindle offer">
+                ✕
+              </button>
+            </div>
+          );
+        }
+        return null;
+      })()}
       <DayPill time={time} day={day} raidSoon={raidDays <= 1} raidActive={raidPhase === 'incoming'} dawnEta={dawnEta} />
       {floats.length > 0 && (
         <div className="floats" aria-hidden="true">
@@ -3871,9 +4014,9 @@ export function App() {
       <NotifStack notifs={notifs} />
       <CityDashboard
         open={dashOpen}
-        setOpen={setDashOpen}
+        setOpen={setDashboardOpen}
         tab={dashTab}
-        setTab={setDashTab}
+        setTab={setDashboardTab}
         mapView={mapView}
         setMapView={setMapView}
         mapData={mapData}
@@ -3898,6 +4041,8 @@ export function App() {
           hiCooldown,
           onSayHi,
           villager,
+          commentsUrl,
+          onOpenComments,
           crisisVotes,
           myCrisisVote,
           onCrisisVote,
@@ -3915,75 +4060,102 @@ export function App() {
         buildCtaLabel={buildCtaLabel}
       />
       {/* One flex bar so the fabs never overlap; the .hud wrapper (pointer-events:
-          none) lets .hud * re-enable pointer events on the buttons inside. */}
-      <div className="hud fab-bar">
-        <button
-          type="button"
-          className="board-fab card-bit"
-          onClick={() => setBoardOpen((o) => !o)}
-          aria-expanded={boardOpen}
-        >
-          📋 DASH
-        </button>
-        <button
-          type="button"
-          className="stats-fab card-bit"
-          onClick={() => setStatsOpen((o) => !o)}
-          aria-expanded={statsOpen}
-        >
-          📊 STATS
-        </button>
-        <button
-          type="button"
-          className="mute-fab card-bit"
-          onClick={onToggleMute}
-          aria-pressed={muted}
-          aria-label={muted ? 'Unmute sound' : 'Mute sound'}
-          title={muted ? 'Sound off' : 'Sound on'}
-        >
-          {muted ? '🔇' : '🔊'}
-        </button>
-        <button
-          type="button"
-          className="mute-fab card-bit music-fab"
-          onClick={onToggleMusic}
-          aria-pressed={!musicMuted}
-          aria-label={musicMuted ? 'Play background music' : 'Stop background music'}
-          title={musicMuted ? 'Music off' : 'Music on'}
-        >
-          {musicMuted ? '🎵' : '🎶'}
-        </button>
-        <button
-          type="button"
-          className="mute-fab card-bit"
-          onClick={() => setCoachStep(0)}
-          aria-label="Open the advisor guide"
-          title="Advisor guide"
-        >
-          🧭
-        </button>
-      </div>
+          none) lets .hud * re-enable pointer events on the buttons inside.
+          Sound, music, and the guide replay live in one ⚙ menu so the first
+          screen stays uncluttered. Hidden while the advisor speaks, unless she
+          is pointing at it. */}
+      {(coachStep === null || COACH_STEPS[coachStep]?.anchor === '.fab-bar') && (
+        <div className="hud fab-bar">
+          <button
+            type="button"
+            className="board-fab card-bit"
+            onClick={() => setBoardOpen((o) => !o)}
+            aria-expanded={boardOpen}
+          >
+            📋 DASH
+          </button>
+          <button
+            type="button"
+            className="stats-fab card-bit"
+            onClick={() => setStatsOpen((o) => !o)}
+            aria-expanded={statsOpen}
+          >
+            📊 STATS
+          </button>
+          <div className="gear-wrap">
+            {settingsOpen && (
+              <div className="settings-pop card-bit">
+                <button
+                  type="button"
+                  className="mute-fab"
+                  onClick={onToggleMute}
+                  aria-pressed={muted}
+                  aria-label={muted ? 'Unmute sound' : 'Mute sound'}
+                >
+                  {muted ? '🔇' : '🔊'} SOUND {muted ? 'OFF' : 'ON'}
+                </button>
+                <button
+                  type="button"
+                  className="mute-fab music-fab"
+                  onClick={onToggleMusic}
+                  aria-pressed={!musicMuted}
+                  aria-label={musicMuted ? 'Play background music' : 'Stop background music'}
+                >
+                  {musicMuted ? '🎵' : '🎶'} MUSIC {musicMuted ? 'OFF' : 'ON'}
+                </button>
+                <button
+                  type="button"
+                  className="mute-fab guide-fab"
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    setCoachFlow('full');
+                    setCoachStep(0);
+                  }}
+                  aria-label="Open the advisor guide"
+                >
+                  🧭 GUIDE
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              className="gear-fab card-bit"
+              onClick={() => setSettingsOpen((o) => !o)}
+              aria-expanded={settingsOpen}
+              aria-label="Sound, music, and guide settings"
+              title="Settings"
+            >
+              ⚙
+            </button>
+          </div>
+        </div>
+      )}
       {coachStep !== null && !showOnboard && !showFallen && coachRing && (
         <div className="coach-ring" style={{ left: coachRing.left, top: coachRing.top, width: coachRing.width, height: coachRing.height }} />
       )}
       {coachStep !== null && !showOnboard && !showFallen && COACH_STEPS[coachStep] && (
         <CoachDialogue
           step={COACH_STEPS[coachStep]}
-          stepIndex={coachStep}
-          total={COACH_STEPS.length}
+          stepIndex={coachFlow === 'context' ? 0 : coachStep}
+          total={coachFlow === 'intro' ? INTRO_COACH_STEPS : coachFlow === 'context' ? 1 : COACH_STEPS.length}
           cityName={liveCityName ?? 'the last city'}
           aim={coachAim}
           onNext={() => {
-            if (coachStep + 1 < COACH_STEPS.length) {
+            const lastStep = coachFlow === 'intro' ? INTRO_COACH_STEPS - 1 : COACH_STEPS.length - 1;
+            if (coachFlow !== 'context' && coachStep < lastStep) {
               setCoachStep(coachStep + 1);
             } else {
-              markCoachSeen();
+              if (coachFlow === 'context') markContextualCoachSeen(coachStep);
+              else markCoachSeen();
               setCoachStep(null);
+              setCoachFlow(null);
             }
           }}
           onDismiss={() => {
-            markCoachSeen();
+            if (coachFlow === 'context') markContextualCoachSeen(coachStep);
+            else if (coachFlow === 'intro') markCoachSeen();
             setCoachStep(null);
+            setCoachFlow(null);
           }}
         />
       )}
@@ -4003,6 +4175,9 @@ export function App() {
         lbUnavailable={isLive && liveLbUnavailable}
         liveRaidLikely={liveRaidLikely}
         liveRaidNote={liveRaidNote}
+        worldCities={worldCities}
+        worldLive={isLive}
+        worldNote={worldNote}
       />
       <GameDashboard
         open={boardOpen}
@@ -4042,7 +4217,7 @@ export function App() {
       {showActionSurfaces && (
         <DawnReportTeaser
           report={dawnReport}
-          show={dawnTeaserOpen && !dawnOpen}
+          show={dawnTeaserOpen && !dawnOpen && coachStep === null}
           onDismiss={() => setDawnTeaserOpen(false)}
           onOpen={() => {
             setDawnTeaserOpen(false);
