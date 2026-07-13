@@ -826,10 +826,12 @@ async function firstHouseSmoke(url) {
     }
     await cdp.clickSelectorContaining('.act', 'GUARD');
     await cdp.waitFor('document.body.innerText.includes("Your house now stands in the city. Build order #3.")', 'first contribution house feedback');
-    await completeContextLesson(cdp, 'YOUR HOUSE');
+    // Count while the toast is on screen — it expires within seconds, and the
+    // lesson walk below can take longer than that on a slow CI runner.
     await sleep(200);
     const count = await cdp.eval(`(document.body.innerText.match(/Your house now stands in the city/g) || []).length`);
     assert(count === 1, `First-house feedback should appear once, saw ${count}.`);
+    await completeContextLesson(cdp, 'YOUR HOUSE');
   } finally {
     await close();
   }
