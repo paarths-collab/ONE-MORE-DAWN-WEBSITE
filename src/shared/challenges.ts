@@ -83,12 +83,12 @@ export type Challenge = {
 };
 
 /** Target count scaling: levels 1-19 ask 1, 20-59 ask 2, 60+ ask 3 (capped by daily energy). */
-const targetForLevel = (level: number, kind: ChallengeKind): number => {
-  if (kind === 'civic' || kind === 'devout') return 2; // two civic acts, always
-  if (kind !== 'action' && kind !== 'any_action') return 1;
-  if (level >= 60) return 3;
-  if (level >= 20) return 2;
-  return 1;
+const targetForLevel = (level: number, template: Template, maxActions: number): number => {
+  if (template.kind === 'civic' || template.kind === 'devout') return 2;
+  if (template.kind !== 'action' && template.kind !== 'any_action') return 1;
+  if (template.action === 'build_city') return 1;
+  const scaled = level >= 60 ? 3 : level >= 20 ? 2 : 1;
+  return Math.max(1, Math.min(scaled, maxActions));
 };
 
 /** Completion bonus grows gently with level (contribution points). */
@@ -100,11 +100,12 @@ export const dailyChallenge = (
   day: number,
   worldSeed: number,
   totalContribution: number,
+  maxActions = 3,
 ): Challenge => {
   const level = levelForContribution(totalContribution);
   const roll = hashString(`${userId}:${day}:${worldSeed}:mission`);
   const t = TEMPLATES[roll % TEMPLATES.length]!;
-  const target = targetForLevel(level, t.kind);
+  const target = targetForLevel(level, t, maxActions);
   const text = t.text
     .replace(/\{n\}/g, String(target))
     .replace(/\{act\}/g, t.action ? ACTION_LABEL[t.action] : '');
@@ -118,6 +119,20 @@ export const dailyChallenge = (
     level,
     reward: rewardForLevel(level),
   };
+};
+
+export const isChallenge = (value: unknown): value is Challenge => {
+  if (typeof value !== 'object' || value === null) return false;
+  return (
+    'id' in value && typeof value.id === 'string' &&
+    'icon' in value && typeof value.icon === 'string' &&
+    'text' in value && typeof value.text === 'string' &&
+    'kind' in value && typeof value.kind === 'string' &&
+    'action' in value && (value.action === null || typeof value.action === 'string') &&
+    'target' in value && typeof value.target === 'number' && value.target >= 1 &&
+    'level' in value && typeof value.level === 'number' && value.level >= 1 && value.level <= CHALLENGE_LEVELS &&
+    'reward' in value && typeof value.reward === 'number' && value.reward >= 0
+  );
 };
 
 /** Progress toward the mission, provable from state the server already keeps. */

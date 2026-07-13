@@ -34,6 +34,7 @@ export const KEYS = {
   // pledgers hash doubles as the one-pledge-per-day lock (watch target).
   dayMarked: (day: number) => `day:${day}:marked`,
   dayPledgers: (day: number) => `day:${day}:pledgers`,
+  dayChallenges: (cycle: number, day: number) => `cycle:${cycle}:day:${day}:challenges`,
   // Cycle-namespaced so a mod reset (which can't enumerate per-player keys)
   // doesn't resurrect last cycle's faction rep for returning players.
   playerFactions: (cycle: number, userId: string) => `player:${cycle}:${userId}:factions`,

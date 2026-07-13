@@ -88,6 +88,15 @@ export const makeFakeRedis = (): FakeRedis => {
         async multi() { return undefined; },
         async hSet(k, fv) { queued.push(() => hSetImpl(k, fv)); return undefined; },
         async hIncrBy(k, f, by) { queued.push(() => hIncrByImpl(k, f, by)); return undefined; },
+        async zIncrBy(k, m, by) {
+          queued.push(() => {
+            const next = (zset(k).get(m) ?? 0) + by;
+            zset(k).set(m, next);
+            bump(k);
+            return next;
+          });
+          return undefined;
+        },
         async incrBy(k, by) { queued.push(() => incrByImpl(k, by)); return undefined; },
         async unwatch() { snapshot.clear(); return undefined; },
         async exec() {
@@ -305,6 +314,16 @@ describe('Store', () => {
     await store.appendTimeline({ day: 2, cycle: 1, headline: 'Day 2', events: [], deltas: {}, crisisId: 'refugee_convoy', winningOptionId: 'a' });
     const entries = await store.getTimeline(10);
     expect(entries.map((e) => e.day)).toEqual([2, 1]);
+  });
+
+  it('keeps same-numbered days from different cycles in the chronicle', async () => {
+    const store = new Store(makeFakeRedis());
+    await store.appendTimeline({ day: 1, cycle: 1, headline: 'First camp', events: [], deltas: {}, crisisId: 'first_light', winningOptionId: null });
+    await store.appendTimeline({ day: 1, cycle: 2, headline: 'From the ashes', events: [], deltas: {}, crisisId: 'first_light', winningOptionId: null });
+    expect((await store.getTimeline(10)).map((entry) => entry.headline)).toEqual([
+      'From the ashes',
+      'First camp',
+    ]);
   });
 
   it('skips malformed timeline entries', async () => {

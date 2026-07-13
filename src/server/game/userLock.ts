@@ -24,6 +24,7 @@ export type LockTx = {
   multi(): Promise<unknown>;
   hSet(key: string, fieldValues: Record<string, string>): Promise<unknown>;
   hIncrBy(key: string, field: string, value: number): Promise<unknown>;
+  zIncrBy(key: string, member: string, value: number): Promise<unknown>;
   incrBy(key: string, value: number): Promise<unknown>;
   unwatch(): Promise<unknown>;
   exec(): Promise<unknown[]>;

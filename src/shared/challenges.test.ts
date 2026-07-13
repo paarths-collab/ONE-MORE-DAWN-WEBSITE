@@ -51,13 +51,29 @@ describe('dailyChallenge', () => {
     for (let d = 1; d <= 40; d++) {
       const low = dailyChallenge('t2_scale', d, 7, 0); // level 1
       const high = dailyChallenge('t2_scale', d, 7, 9801); // level 100
-      if (low.kind === 'action' || low.kind === 'any_action') {
+      if ((low.kind === 'action' && low.action !== 'build_city') || low.kind === 'any_action') {
         expect(low.target).toBe(1);
         expect(high.target).toBe(3);
         return;
       }
     }
     throw new Error('no action mission found in 40 days — template mix broken');
+  });
+
+  it('never assigns more labor than the once-per-day build control allows', () => {
+    for (let d = 1; d <= 200; d++) {
+      const challenge = dailyChallenge('t2_builder', d, 7, 9801);
+      if (challenge.action === 'build_city') expect(challenge.target).toBe(1);
+    }
+  });
+
+  it('caps action targets to the energy available to an injured survivor', () => {
+    for (let d = 1; d <= 200; d++) {
+      const challenge = dailyChallenge('t2_injured', d, 7, 9801, 2);
+      if (challenge.kind === 'action' || challenge.kind === 'any_action') {
+        expect(challenge.target).toBeLessThanOrEqual(2);
+      }
+    }
   });
 });
 

@@ -404,7 +404,17 @@ api.get('/init', async (c) => {
   // contribution score that drives house tiers. The completion bonus is
   // awarded exactly once via an NX claim key (cycle-scoped, 3-day TTL).
   const lifetimeScore = (await store.getContributionScore(user.userId)) ?? 0;
-  const challengeDef = dailyChallenge(user.userId, city.day, city.worldSeed, lifetimeScore);
+  let challengeDef = await store.getDailyChallenge(city.cycle, city.day, user.userId);
+  if (!challengeDef) {
+    challengeDef = dailyChallenge(
+      user.userId,
+      city.day,
+      city.worldSeed,
+      lifetimeScore,
+      effectiveEnergy(player, city.day),
+    );
+    await store.setDailyChallenge(city.cycle, city.day, user.userId, challengeDef);
+  }
   const cleanActions: Partial<Record<ActionType, number>> = {};
   for (const a of ACTION_TYPES) {
     const v = (yourActionsToday as Partial<Record<string, number>>)[a];
@@ -874,14 +884,11 @@ api.post('/rekindle', async (c) => {
   const updated = { ...player, streak: lapsed, lapsedStreak: 0 };
   const committed = await lock.commit(async (tx) => {
     await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(updated) });
+    await tx.zIncrBy(KEYS.lbContribution, user.userId, -cost);
   });
   if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy — try again' }, 409);
   }
-  // The burn: standing depletes by exactly the cost (post-commit, same pattern
-  // as /action's contribution mirror — the profile write is the guarded part).
-  await store.addContribution(user.userId, -cost);
-
   return c.json<RekindleResponse>({ type: 'rekindle', player: updated, cost });
 });
 
