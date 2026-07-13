@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Store, type RedisLike } from './store';
 import type { LockableRedis, LockTx } from '../game/userLock';
 import type { CityState, PlayerProfile } from '../../shared/types';
+import { KEYS } from './redisKeys';
 
 /**
  * Minimal in-memory fake covering the subset Store uses, PLUS a real model of
@@ -179,11 +180,23 @@ describe('Store', () => {
     expect(await store.getCityState()).toBeUndefined();
   });
 
+  // getPlayer/getAllPlayers backfill the Coin economy on read — pre-economy
+  // saves come back broke, not broken. Explicit stored fields always win.
+  const revived = (p: PlayerProfile): PlayerProfile => ({
+    coins: 0,
+    coinsEarnedToday: 0,
+    coinsEarnedCycle: 0,
+    coinsEarnedDay: 0,
+    ownedCosmetics: [],
+    equippedCosmetics: {},
+    ...p,
+  });
+
   it('round-trips player profiles in the players hash', async () => {
     const store = new Store(makeFakeRedis());
     expect(await store.getPlayer('t2_abc')).toBeUndefined();
     await store.savePlayer(player);
-    expect(await store.getPlayer('t2_abc')).toEqual(player);
+    expect(await store.getPlayer('t2_abc')).toEqual(revived(player));
   });
 
   it('skips malformed stored player JSON', async () => {
@@ -192,7 +205,7 @@ describe('Store', () => {
     await store.savePlayer(player);
     await redis.hSet('players', { t2_bad: '{bad' });
     expect(await store.getPlayer('t2_bad')).toBeUndefined();
-    expect(await store.getAllPlayers()).toEqual([player]);
+    expect(await store.getAllPlayers()).toEqual([revived(player)]);
   });
 
   it('backfills roleRep/title when reading legacy player JSON', async () => {
@@ -202,7 +215,7 @@ describe('Store', () => {
     const { roleRep: _rr, title: _t, ...legacy } = player;
     await redis.hSet('players', { t2_abc: JSON.stringify(legacy) });
     const loaded = await store.getPlayer('t2_abc');
-    expect(loaded).toEqual({ ...legacy, roleRep: {}, title: null });
+    expect(loaded).toEqual(revived({ ...legacy, roleRep: {}, title: null }));
   });
 
   it('getAllPlayers returns every saved profile, legacy JSON backfilled', async () => {
@@ -215,8 +228,8 @@ describe('Store', () => {
     const all = await store.getAllPlayers();
     expect(all).toHaveLength(2);
     const byId = Object.fromEntries(all.map((p) => [p.userId, p]));
-    expect(byId['t2_abc']).toEqual(player);
-    expect(byId['t2_old']).toEqual({ ...legacy, roleRep: {}, title: null });
+    expect(byId['t2_abc']).toEqual(revived(player));
+    expect(byId['t2_old']).toEqual(revived({ ...legacy, roleRep: {}, title: null }));
   });
 
   it('does not clobber stored roleRep/title when present', async () => {
@@ -234,7 +247,7 @@ describe('Store', () => {
     const { avatar: _av, ...legacy } = player;
     await redis.hSet('players', { t2_abc: JSON.stringify(legacy) });
     const loaded = await store.getPlayer('t2_abc');
-    expect(loaded).toEqual({ ...legacy, avatar: null });
+    expect(loaded).toEqual(revived({ ...legacy, avatar: null }));
   });
 
   it('round-trips a saved avatar', async () => {
@@ -243,6 +256,53 @@ describe('Store', () => {
     await store.savePlayer({ ...player, avatar });
     const loaded = await store.getPlayer('t2_abc');
     expect(loaded?.avatar).toEqual(avatar);
+  });
+
+  it('preserves valid economy data and rejects malformed balances and inventory', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    await store.savePlayer({
+      ...player,
+      coins: 14,
+      coinsEarnedToday: 3,
+      coinsEarnedCycle: 2,
+      coinsEarnedDay: 6,
+      ownedCosmetics: ['hearth_lantern', 'slate_roof'],
+      equippedCosmetics: { light: 'hearth_lantern', roof: 'slate_roof' },
+    });
+    expect(await store.getPlayer(player.userId)).toMatchObject({
+      coins: 14,
+      coinsEarnedToday: 3,
+      coinsEarnedCycle: 2,
+      coinsEarnedDay: 6,
+      ownedCosmetics: ['hearth_lantern', 'slate_roof'],
+      equippedCosmetics: { light: 'hearth_lantern', roof: 'slate_roof' },
+    });
+
+    await redis.hSet(KEYS.players, {
+      t2_bad_economy: JSON.stringify({
+        ...player,
+        userId: 't2_bad_economy',
+        coins: -99,
+        coinsEarnedToday: 'five',
+        coinsEarnedCycle: -2,
+        coinsEarnedDay: 4.5,
+        ownedCosmetics: ['hearth_lantern', 'unknown', 'hearth_lantern'],
+        equippedCosmetics: {
+          light: 'hearth_lantern',
+          roof: 'hearth_lantern',
+          yard: 'unknown',
+        },
+      }),
+    });
+    expect(await store.getPlayer('t2_bad_economy')).toMatchObject({
+      coins: 0,
+      coinsEarnedToday: 0,
+      coinsEarnedCycle: 0,
+      coinsEarnedDay: 0,
+      ownedCosmetics: ['hearth_lantern'],
+      equippedCosmetics: { light: 'hearth_lantern' },
+    });
   });
 
   it('records actions into aggregate and per-user logs', async () => {

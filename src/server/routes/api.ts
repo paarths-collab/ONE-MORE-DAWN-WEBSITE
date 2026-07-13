@@ -34,6 +34,7 @@ import type {
   WorldResponse,
 } from '../../shared/types';
 import { hashString } from '../../shared/rng';
+import { economyOf } from '../../shared/shop';
 import { challengeProgress, dailyChallenge } from '../../shared/challenges';
 import { cityNameFromSeed } from '../../shared/cityName';
 import { clampAvatar, isValidAvatar } from '../../shared/avatar';
@@ -45,6 +46,7 @@ import { buildPledgeInfo, isPledgeKind, type PledgerEntry } from '../game/pledge
 import { buildStanding } from '../game/standing';
 import { buildVillagers, buildZones, maskName } from '../game/village';
 import { bumpRoleRep, effectiveEnergy, freshPlayer, resetPlayerForDay } from '../game/dayLogic';
+import { awardContributionCoin } from '../game/economy';
 import { runLazyResolution, utcDateString } from '../game/lazyResolve';
 import { resolveDay } from '../game/resolver';
 import { beginUserLock } from '../game/userLock';
@@ -483,6 +485,7 @@ api.get('/init', async (c) => {
     postId,
     cityName: cityNameFromSeed(city.worldSeed),
     challenge,
+    economy: economyOf(player, city.cycle, city.day),
     city,
     player,
     effectiveEnergy: effectiveEnergy(player, city.day),
@@ -638,7 +641,10 @@ api.post('/action', async (c) => {
   // validateAction guarantees a role. Compute every whole-profile field before
   // exec so no stale save can run after the per-user lock has been released.
   const repped = bumpRoleRep(factionUpdated, factionUpdated.role!, BALANCE.roleRepPerAction);
-  const finalPlayer = repped.player;
+  // Coin award rides the SAME commit as the accepted action: a 409'd retry
+  // re-runs the whole computation, so it can never mint twice.
+  const coined = awardContributionCoin(repped.player, city.cycle, city.day);
+  const finalPlayer = coined.player;
   // Personal action history is a JSON blob, so its read-modify-write must ride
   // the SAME per-user lock as the energy spend — done post-commit it raced a
   // second tab and lost actions (breaking mission progress).
@@ -678,6 +684,8 @@ api.post('/action', async (c) => {
     effectiveEnergy: effectiveEnergy(finalPlayer, city.day),
     yourActionsToday: mine,
     unlockedTitle: repped.unlockedTitle,
+    coinsGained: coined.coinsGained,
+    economy: coined.economy,
   });
 });
 
@@ -712,14 +720,22 @@ api.post('/vote', async (c) => {
   // which false-409'd every concurrent voter in the post-dawn burst.
   const votersKey = KEYS.dayVoters(city.day);
   const lock = await beginUserLock(redis, user.userId);
+  const voter = await store.getPlayer(user.userId);
+  if (!voter) {
+    await lock.abort();
+    return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
+  }
   const existing = await store.getVoterChoice(city.day, user.userId);
   if (existing) {
     await lock.abort();
     return c.json<ApiError>({ status: 'error', message: 'You already voted today.' }, 409);
   }
+  // Coin award rides the vote's own commit (accepted contribution = 1 Coin).
+  const voterCoined = awardContributionCoin(voter, city.cycle, city.day);
   const committed = await lock.commit(async (tx) => {
     await tx.hSet(votersKey, { [user.userId]: body.optionId });
     await tx.hIncrBy(KEYS.dayVotes(city.day), body.optionId, 1);
+    await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(voterCoined.player) });
   });
   if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
@@ -730,6 +746,8 @@ api.post('/vote', async (c) => {
     type: 'vote',
     crisisVotes: await store.getVoteTally(city.day),
     yourCrisisVote: body.optionId,
+    coinsGained: voterCoined.coinsGained,
+    economy: voterCoined.economy,
   });
 });
 
@@ -753,14 +771,22 @@ api.post('/strategy', async (c) => {
   // Per-user optimistic lock (see /vote): different backers never false-conflict.
   const votersKey = KEYS.dayStrategyVoters(city.day);
   const lock = await beginUserLock(redis, user.userId);
+  const backer = await store.getPlayer(user.userId);
+  if (!backer) {
+    await lock.abort();
+    return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
+  }
   const existing = await store.getStrategyChoice(city.day, user.userId);
   if (existing) {
     await lock.abort();
     return c.json<ApiError>({ status: 'error', message: 'You already backed a plan today.' }, 409);
   }
+  // Coin award rides the plan's own commit (accepted contribution = 1 Coin).
+  const backerCoined = awardContributionCoin(backer, city.cycle, city.day);
   const committed = await lock.commit(async (tx) => {
     await tx.hSet(votersKey, { [user.userId]: body.planId });
     await tx.hIncrBy(KEYS.dayStrategyPlan(city.day), body.planId, 1);
+    await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(backerCoined.player) });
   });
   if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
@@ -771,6 +797,8 @@ api.post('/strategy', async (c) => {
     type: 'strategy',
     strategyVotes: await store.getStrategyTally(city.day),
     yourStrategyVote: body.planId,
+    coinsGained: backerCoined.coinsGained,
+    economy: backerCoined.economy,
   });
 });
 
@@ -811,10 +839,16 @@ api.post('/pledge', async (c) => {
     at: Date.now(),
     contribution: player.totalContribution,
   };
-  const updated = {
-    ...player,
-    totalContribution: player.totalContribution + BALANCE.contributionPerPledge,
-  };
+  // Coin award rides the pledge's own commit (accepted contribution = 1 Coin).
+  const coined = awardContributionCoin(
+    {
+      ...player,
+      totalContribution: player.totalContribution + BALANCE.contributionPerPledge,
+    },
+    city.cycle,
+    city.day,
+  );
+  const updated = coined.player;
   const committed = await lock.commit(async (tx) => {
     await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(updated) });
     await tx.hSet(pledgersKey, { [user.userId]: JSON.stringify(entry) });
@@ -848,6 +882,8 @@ api.post('/pledge', async (c) => {
     marked,
     pledge: buildPledgeInfo(pledgers, user.userId),
     player: updated,
+    coinsGained: coined.coinsGained,
+    economy: coined.economy,
   });
 });
 

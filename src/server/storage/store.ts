@@ -3,6 +3,7 @@ import type {
 } from '../../shared/types';
 import { isPledgeKind, type PledgerEntry } from '../game/pledges';
 import { isChallenge, type Challenge } from '../../shared/challenges';
+import { normalizeEconomyFields } from '../../shared/shop';
 import { KEYS } from './redisKeys';
 
 /** The subset of the Devvit redis client the store uses. Tests provide a fake. */
@@ -139,6 +140,7 @@ export class Store {
       roleRep: parsed.roleRep ?? {},
       title: parsed.title ?? null,
       avatar: parsed.avatar ?? null,
+      ...normalizeEconomyFields(parsed),
     };
   }
 
