@@ -19,6 +19,11 @@ const CHROME_CANDIDATES = [
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// CI runners software-render the three.js canvas on 2 vCPUs and run several
+// times slower than a dev machine — scale every wait ceiling in one place
+// instead of tuning individual call sites. Override with SMOKE_TIME_SCALE.
+const TIME_SCALE = Math.max(1, Number(process.env.SMOKE_TIME_SCALE ?? (process.env.CI ? 4 : 1)) || 1);
+
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
@@ -59,8 +64,9 @@ const findChrome = () => {
 
 async function waitForHttp(url, label, timeoutMs = 30_000) {
   const started = Date.now();
+  const deadline = timeoutMs * TIME_SCALE;
   let last = '';
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < deadline) {
     try {
       const res = await fetch(url);
       if (res.ok) return;
@@ -123,7 +129,7 @@ class CdpPage {
         if (!this.pending.has(id)) return;
         this.pending.delete(id);
         reject(new Error(`CDP timeout: ${method}`));
-      }, 10_000);
+      }, 10_000 * TIME_SCALE);
     });
   }
 
@@ -145,8 +151,9 @@ class CdpPage {
 
   async waitFor(expression, label, timeoutMs = 20_000) {
     const started = Date.now();
+    const deadline = timeoutMs * TIME_SCALE;
     let lastError = null;
-    while (Date.now() - started < timeoutMs) {
+    while (Date.now() - started < deadline) {
       // A transient eval throw (mid-navigation / mid-render DOM) means "not
       // yet", not "broken" — only surface it if the condition never comes true.
       try {
@@ -167,10 +174,11 @@ class CdpPage {
    *  the flake this guards against. */
   async #clickWithRetry(expression, failMessage, timeoutMs = 5_000) {
     const started = Date.now();
+    const deadline = timeoutMs * TIME_SCALE;
     for (;;) {
       const state = await this.eval(expression); // 'clicked' | 'disabled' | 'missing'
       if (state === 'clicked') return;
-      if (Date.now() - started >= timeoutMs) {
+      if (Date.now() - started >= deadline) {
         assert(false, `${failMessage} (last state: ${state})`);
       }
       await sleep(150);
@@ -245,7 +253,7 @@ async function openPage(url) {
   try {
     const portFile = join(userDir, 'DevToolsActivePort');
     let debugPort = '';
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 80 * TIME_SCALE; i++) {
       if (existsSync(portFile)) {
         debugPort = (await readFile(portFile, 'utf8')).split(/\r?\n/)[0] ?? '';
         if (debugPort) break;
@@ -255,7 +263,7 @@ async function openPage(url) {
     assert(debugPort, 'Chrome did not expose a DevTools port.');
 
     let target;
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 80 * TIME_SCALE; i++) {
       const list = await fetch(`http://127.0.0.1:${debugPort}/json/list`).then((r) => r.json());
       target = list.find((t) => t.type === 'page' && t.url.startsWith(url));
       if (target?.webSocketDebuggerUrl) break;
@@ -818,10 +826,12 @@ async function firstHouseSmoke(url) {
     }
     await cdp.clickSelectorContaining('.act', 'GUARD');
     await cdp.waitFor('document.body.innerText.includes("Your house now stands in the city. Build order #3.")', 'first contribution house feedback');
-    await completeContextLesson(cdp, 'YOUR HOUSE');
+    // Count while the toast is on screen — it expires within seconds, and the
+    // lesson walk below can take longer than that on a slow CI runner.
     await sleep(200);
     const count = await cdp.eval(`(document.body.innerText.match(/Your house now stands in the city/g) || []).length`);
     assert(count === 1, `First-house feedback should appear once, saw ${count}.`);
+    await completeContextLesson(cdp, 'YOUR HOUSE');
   } finally {
     await close();
   }

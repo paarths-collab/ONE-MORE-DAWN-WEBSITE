@@ -3060,6 +3060,10 @@ export function App() {
           const tally = Object.values(res.crisisVotes).reduce((a, b) => a + b, 0);
           const share = tally > 0 ? Math.round(((res.crisisVotes[optionId as CrisisOptId] ?? 0) / tally) * 100) : 100;
           pushNotif('🗳️', `your vote is in, ${share}% of the city backs this choice`, 'good');
+          // Mutation committed — release the single-flight guard BEFORE the
+          // read-only refresh so a quick next tap is never silently swallowed
+          // while /init is still in flight (slow devices hit this for real).
+          mutatingRef.current = false;
           await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'vote failed, try again'))
@@ -3081,6 +3085,10 @@ export function App() {
           playSound('pledge');
           pushNotif('🕯️', `you pledged for ${res.marked.name}`, 'good');
           handleRef.current?.pulseMarked?.();
+          // Mutation committed — release the single-flight guard BEFORE the
+          // read-only refresh so a quick next tap is never silently swallowed
+          // while /init is still in flight (slow devices hit this for real).
+          mutatingRef.current = false;
           await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'pledge failed, try again'))
@@ -3104,6 +3112,10 @@ export function App() {
           const tally = Object.values(res.strategyVotes).reduce((a, b) => a + b, 0);
           const share = tally > 0 ? Math.round(((res.strategyVotes[plan] ?? 0) / tally) * 100) : 100;
           pushNotif('📜', `plan locked, ${share}% of the council backs it`, 'good');
+          // Mutation committed — release the single-flight guard BEFORE the
+          // read-only refresh so a quick next tap is never silently swallowed
+          // while /init is still in flight (slow devices hit this for real).
+          mutatingRef.current = false;
           await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'the council is busy, try again'))
@@ -3173,6 +3185,10 @@ export function App() {
           setLiveActions(res.yourActionsToday);
           playSound('action_confirm');
           pushNotif('🔨', `you added a day's labor to the ${nextName}`, 'good');
+          // Mutation committed — release the single-flight guard BEFORE the
+          // read-only refresh so a quick next tap is never silently swallowed
+          // while /init is still in flight (slow devices hit this for real).
+          mutatingRef.current = false;
           await refreshAfterContribution();
         })
         .catch((err) => toastFailure(err, 'could not add labor, try again'))
@@ -3535,6 +3551,10 @@ export function App() {
             const liveFrags = ACTION_FLASH[id] ?? [];
             const liveHit = poisRef.current.find((p) => liveFrags.some((f) => p.name.toUpperCase().includes(f)));
             if (liveHit) handleRef.current?.flashDistrict?.(liveHit.name);
+            // Mutation committed — release the single-flight guard BEFORE the
+            // read-only refresh so a quick next tap is never silently swallowed
+            // while /init is still in flight (slow devices hit this for real).
+            mutatingRef.current = false;
             await refreshAfterContribution();
           })
           .catch((err) => toastFailure(err, 'the action failed, try again'))

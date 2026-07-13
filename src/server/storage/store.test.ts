@@ -334,6 +334,43 @@ describe('Store', () => {
     expect((await store.getTimeline(10)).map((e) => e.day)).toEqual([1]);
   });
 
+  it('rejects valid JSON of the wrong shape everywhere state is parsed', async () => {
+    // safeParse only catches broken JSON — "7" and "\"hello\"" parse fine but
+    // must never impersonate a city, player, pledge, outcome, or timeline.
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+
+    await redis.set('city:state', '7');
+    expect(await store.getCityState()).toBeUndefined();
+    await redis.set('city:state', '"hello"');
+    expect(await store.getCityState()).toBeUndefined();
+
+    await redis.hSet('players', { t2_bad: '"hello"', t2_num: '7', t2_arr: '[1,2]' });
+    expect(await store.getPlayer('t2_bad')).toBeUndefined();
+    expect(await store.getPlayer('t2_num')).toBeUndefined();
+    expect(await store.getAllPlayers()).toEqual([]);
+
+    await redis.hSet('day:3:userActions', { t2_bad: '"guard_wall"' });
+    expect(await store.getUserActions(3, 't2_bad')).toEqual({});
+    expect(await store.getAllUserActions(3)).toEqual({});
+    // recordAction heals the corrupt blob instead of crashing on it
+    await store.recordAction(3, 't2_bad', 'guard_wall');
+    expect(await store.getUserActions(3, 't2_bad')).toEqual({ guard_wall: 1 });
+
+    await redis.hSet('day:3:pledgers', { t2_bad: '{"kind":"nope"}', t2_num: '7' });
+    expect(await store.getPledger(3, 't2_bad')).toBeUndefined();
+    expect(await store.getPledgers(3)).toEqual({});
+
+    await redis.hSet('marked:outcomes', { '3': '17', '4': '{"name":"Mira"}' });
+    expect(await store.getMarkedOutcome(3)).toBeNull();
+    expect(await store.getMarkedOutcome(4)).toBeNull();
+    expect(await store.countMarkedSaved()).toBe(0);
+
+    await store.appendTimeline({ day: 2, cycle: 1, headline: 'Real day', events: [], deltas: {}, crisisId: 'first_light', winningOptionId: null });
+    await redis.hSet('timeline', { wrongShape: '"hello"', numeric: '7' });
+    expect((await store.getTimeline(10)).map((e) => e.day)).toEqual([2]);
+  });
+
   it('returns top contributors highest-first, capped at the limit', async () => {
     const store = new Store(makeFakeRedis());
     await store.addContribution('t2_a', 30);

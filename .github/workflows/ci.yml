@@ -32,3 +32,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # ubuntu-latest ships Google Chrome; the smoke harness honors CHROME_PATH.
+      - name: Client smoke (headless Chrome)
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm run test:client
