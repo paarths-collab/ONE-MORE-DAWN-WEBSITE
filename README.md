@@ -13,7 +13,7 @@ is a **three.js 3D town** with a **React HUD**.
 ## What it is
 
 Every subreddit gets a dying city. Each real day is one game day. Choose a role,
-take one meaningful action, **vote** on the day's crisis, back a **council** plan,
+spend three energy on meaningful actions, **vote** on the day's crisis, back a **council** plan,
 and **pledge** to save tonight's **Marked** survivor — then come back at dawn to
 see what the community's choices did to the city. Frostpunk-style resource
 pressure filtered through a subreddit's daily rhythm, resolved **async** so nobody
@@ -54,7 +54,8 @@ The client runs in three honest modes, decided by one `/api/init` call:
    contributor raises their own house** — the first contributor founds the city
    and the town fills one redditor at a time.
 5. **Decide together** — vote on the day's **crisis**, back a **council** plan,
-   and **pledge** to save **The Marked**.
+   and **pledge** to save **The Marked**. Open the current post's real Reddit
+   comments to debate first; binding decisions remain in-game.
 6. **Brace** — watch the **raid countdown**; raids resolve at dawn.
 7. **Return** — the **Dawn Report** shows what the community's choices did, and the
    city timeline remembers it. If the city falls, a memorial holds for the day,
@@ -64,7 +65,8 @@ The client runs in three honest modes, decided by one `/api/init` call:
 ## Why it's Reddit-native
 
 - **The subreddit is the parliament** — the community casts the daily crisis vote
-  and council plan; the game *uses* a real community instead of simulating one.
+  and council plan, with the current post's comments one tap away for debate;
+  the game *uses* a real community instead of simulating one.
 - **Consequences are collective and delayed** — food, threat, and the raid clock
   carry overnight; come back tomorrow for the fallout.
 - **No realtime needed** — everything is async through shared Redis state. One app

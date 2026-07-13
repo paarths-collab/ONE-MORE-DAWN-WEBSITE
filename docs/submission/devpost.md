@@ -23,10 +23,10 @@ personal houses in first-contribution order. Everyone wants the city to survive
 
 ## Inspiration
 
-Most Devvit games are mini-games with a Reddit skin — a puzzle you happen
-to launch from a post. We wanted the opposite: a game that could only exist
-on Reddit, because it uses Reddit's own comment-and-vote culture as the
-core mechanic. Frostpunk-style resource pressure, filtered through a
+We wanted a game that treats a subreddit as a real place rather than a login
+provider. One More Dawn opens the current post's Reddit comments for council
+debate, then turns each member's binding in-game actions, votes, pledges, and
+personal house into shared city state. Frostpunk-style resource pressure, filtered through a
 subreddit's daily rhythm, resolved async so nobody has to be online at the
 same time.
 
@@ -45,6 +45,8 @@ simulation.
   vote — one each per player per day, locked once cast.
 - Three **energy** points a day on city actions — Grow Food, Repair Power, Treat
   Sick, Guard Wall, or add labor toward the next shared building.
+- A stable daily **personal mission**, 100 contribution levels, return streaks,
+  and a standing-cost **Rekindle** option when a hard-earned streak lapses.
 - **One redditor, one house** — the first accepted contribution raises your
   house in first-contribution order; the first contributor is the founder.
 - **Six roles** (Scout, Engineer, Medic, Farmer, Guard, Speaker) with a 3-day
@@ -58,6 +60,10 @@ simulation.
   change, and raid pressure that reddens as danger nears.
 - A **live drama feed**, a permanent **timeline**, and a **World of Cities** map
   ranking participating subreddits against each other.
+- A real **Open Reddit Comments** council path for discussion before players
+  cast the binding crisis and strategy votes in the game.
+- **Phoenix Dawn**: a fallen city starts a new cycle as a Camp while preserving
+  long-term identity, titles, and contribution history.
 - Server-side faction pressure from what players do, with richer law display
   intentionally left for post-V1.
 - A mod-only admin menu with **force-resolve**, **reset**, and a rich
@@ -95,8 +101,10 @@ simulation.
 signal is a caught throw or an empty result array, not a null return. Our
 original `exec() === null` guard was dead code; conflicts were being
 silently ignored. Discovered by reading the actual
-`@devvit/redis/RedisClient.js` sources and fixed with a shared
-`execOrConflict` helper used across every atomic write path.
+`@devvit/redis/RedisClient.js` sources and fixed with conflict-aware
+transaction guards: an `execOrConflict` helper on the mission path and a
+shared `beginUserLock` watch/multi/exec wrapper on every per-player
+mutation route (`/action`, `/vote`, `/strategy`, `/pledge`, `/rekindle`).
 
 **Async multiplayer without websockets.** Devvit Web doesn't support them
 and the runtime is request/response only. We made the resolver the ONLY
@@ -149,8 +157,7 @@ food and power pressure.
 
 ## What's next for One More Dawn
 
-- Comment-write integration for scout reports and council rallies — turn in-game
-  events into first-class Reddit threads after V1.
+- Deeper comment integration for event summaries after V1.
 - A cohesive custom icon set to replace the remaining emoji.
 - Marked portrait art with saved/lost states.
 - City-vs-city Olympics season mode on top of the World map.
@@ -173,7 +180,7 @@ Devvit, Devvit Web, Devvit Redis, **React**, Three.js, TypeScript, Hono, Vite,
 
 ---
 
-## Video pitch (2 min)
+## Video pitch (under 1 min)
 
 See `docs/submission/video-script.md` in the repo for the shot list and
 narration.

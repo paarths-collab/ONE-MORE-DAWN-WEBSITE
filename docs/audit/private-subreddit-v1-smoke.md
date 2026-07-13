@@ -11,7 +11,7 @@ mock can prove.
 > These authenticate as you. Run them yourself; never script them.
 
 - [ ] `npm run login` — auth the Devvit CLI (browser popup)
-- [ ] Verify the exact Devvit app identity is **one-more-dawn** and the expected app account is selected.
+- [ ] Verify the exact Devvit app identity is **onemoredawn-v01** (see `devvit.json`) and the expected app account is selected.
 - [ ] Verify the target subreddit name before running playtest.
 - [ ] In target subreddit mod tools, verify the app account is **not banned**.
 - [ ] `npx devvit init` — register/select the app only if needed; do **not** use `--force` unless the app identity is proven wrong.
@@ -24,15 +24,15 @@ If `npm run dev -- <sub>` (or install) fails with
 `Error inviting app account with ID t2_… to be a moderator … it appears to be
 banned from the subreddit`, do **not** change any moderation state. This is
 almost always a Reddit account/subreddit **trust** block, not a repo or
-app-identity bug — the app slug is `one-more-dawn`, the app-account ID appears
+app-identity bug — the app slug is `onemoredawn-v01`, the app-account ID appears
 nowhere in this repo, and the mod-invite is a Devvit-platform step the code
 never performs.
 
-- [ ] Confirm the app identity is still **one-more-dawn** and the app-account ID in the error is the expected one.
+- [ ] Confirm the app identity is still **onemoredawn-v01** and the app-account ID in the error is the expected one.
 - [ ] Open the target subreddit **while logged out** — if it 404s or shows "banned", the sub itself was auto-actioned by Reddit (common for a brand-new account's brand-new private sub). That auto-action is what blocks the app-account mod invite.
 - [ ] Retry on a **different** private test subreddit owned/moderated by an **established, in-good-standing** Reddit account (avoid a brand-new account + brand-new sub).
 - [ ] Do **not** try to "unban" the app account or edit mod state to force the invite.
-- [ ] If it still fails on a trusted account + sub, contact Devvit support (r/Devvit / Devvit Discord) with the app slug `one-more-dawn`, the app-account ID, and the subreddit name — treat it as a platform/account-trust issue, not a code fix.
+- [ ] If it still fails on a trusted account + sub, contact Devvit support (r/Devvit / Devvit Discord) with the app slug `onemoredawn-v01`, the app-account ID, and the subreddit name — treat it as a platform/account-trust issue, not a code fix.
 
 Create a game post (mod menu **"One More Dawn: create game post"**), then run the
 checks below **inside that post's webview**.
@@ -43,7 +43,7 @@ checks below **inside that post's webview**.
 |---|---|---|
 | Open the game post | Town loads; subtitle is **not** "demo mode" (i.e. it's live) | [ ] |
 | Onboarding appears | "CHOOSE YOUR ROLE" panel with the loop intro + 6 roles | [ ] |
-| Loop is understandable | You grasp: shared city, one daily action, vote, pledge, dawn, return — in ~60s | [ ] |
+| Loop is understandable | You grasp: shared city, three energy, vote, pledge, dawn, return - in ~60s | [ ] |
 | Pick a role + name → "ENTER THE CITY" | Overlay closes; "role set" notification | [ ] |
 
 ## 2. Role / name persistence
@@ -58,7 +58,8 @@ checks below **inside that post's webview**.
 | Check | Expected result | Pass |
 |---|---|---|
 | Take one action (e.g. Grow Food) | "lands at next dawn" notification; energy decrements | [ ] |
-| Try the same action again | Blocked (✓ done / out of energy) | [ ] |
+| Take two more standard actions | Each is accepted until all three energy are spent; a fourth is blocked | [ ] |
+| Read the daily mission | Target and reward remain unchanged after contributing; progress updates | [ ] |
 
 ## 4. Build contribution / start-from-zero
 
@@ -83,6 +84,7 @@ checks below **inside that post's webview**.
 |---|---|---|
 | Back a council plan | Notification; plan locks | [ ] |
 | Try again | Disabled | [ ] |
+| Tap **OPEN REDDIT COMMENTS** | The current game post's Reddit comments open; returning preserves game state | [ ] |
 
 ## 7. The Marked pledge
 
@@ -105,6 +107,7 @@ checks below **inside that post's webview**.
 | Run mod menu **"seed demo state"** | A populated mid-run city loads | [ ] |
 | Run mod menu **"force-resolve day"** | Day advances; a **Dawn Report** is available | [ ] |
 | Open the Dawn Report | Yesterday's summary + your personal impact | [ ] |
+| Resolve a raid dawn | A clear **THE WALL HELD** or **THE WALL WAS BREACHED** payoff appears | [ ] |
 
 ## 10. World view
 
@@ -124,6 +127,7 @@ checks below **inside that post's webview**.
 |---|---|---|
 | Drive the city to fall (or seed a near-fall + force-resolve) | Terminal "THE CITY HAS FALLEN" screen; actions disabled | [ ] |
 | Mod **"reset city"** | New cycle begins; screen clears | [ ] |
+| Trigger Phoenix Dawn after a fall | Day resets cleanly; players are not stuck with prior-cycle energy/injury/day fields | [ ] |
 
 ## 13. Persistence & refresh
 

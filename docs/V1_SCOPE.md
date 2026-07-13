@@ -7,14 +7,14 @@
 
 ## The core V1 promise (one sentence)
 
-**Each subreddit builds one shared city: it starts as an empty camp, everyone gets one meaningful action a day, and the community builds it — dawn by dawn — from campfire to surviving city, or watches it fall.**
+**Each subreddit builds one shared city: it starts as an empty camp, everyone gets three energy a day, and the community builds it - dawn by dawn - from campfire to surviving city, or watches it fall.**
 
 ## The 60-second first-user experience
 
 1. Open the game post → the 3D town loads; this subreddit **is** the city. A brand-new city is only a **camp** — no wall, no farm, everything still to build.
 2. A first-run panel: **pick your role** (and optionally name your survivor) → **Enter the City**.
 3. See the city's live vitals (food, power, medicine, morale, threat, defense), the day, and the **build stage** (Camp → Settlement → … → Surviving City).
-4. Take **one daily action** — Grow Food / Repair / Treat / Guard, or **add labor to the next building**. It counts toward tomorrow's dawn.
+4. Spend up to **three daily energy** on Grow Food / Repair / Treat / Guard; one of those energy can instead **add labor to the next building**. It counts toward tomorrow's dawn.
 5. **Vote** on today's crisis, **pledge** to save The Marked, and see the **raid countdown**.
 6. Understand the hook: *come back at dawn to see what the community built and what the choices did.*
 
@@ -27,13 +27,16 @@
 | Three.js city/town view | The living 3D town + React HUD |
 | Onboarding — role + name | 6 roles; optional survivor name (see exclusions for "look") |
 | City vitals | FOOD, POWER, MEDICINE, MORALE, THREAT, DEFENSE (+ souls) |
-| Daily actions | Grow Food, Repair Power, Treat the Sick, Guard the Wall (energy-gated, once-each/day) |
+| Daily actions | Grow Food, Repair Power, Treat the Sick, Guard the Wall (three energy; standard actions may repeat) |
+| Daily mission + streak | One stable personal mission per day, contribution levels, return streak, and standing-cost Rekindle |
 | Build from zero (shared unlocks) | Every city starts as a **Camp** and grows through community labor: a daily **Add Labor** action fills a shared progress bar; at dawn, buildings unlock in order (Shelter → Farm → Clinic → Watchtower → Storehouse → Wall → Council Hall), each applying a modest effect and appearing in the 3D town. **Community-built, not individually owned** — no free placement. |
 | Crisis voting | One vote per day, visible tradeoffs |
 | Council strategy voting | Back a plan |
+| Reddit council thread | Opens the current game post's real Reddit comments for discussion; binding votes remain in-game |
 | The Marked pledge | One-tap, one-per-day, low/no energy |
 | Raid countdown / status | Server threat + `raidInDays` forecast; RAID WATCH |
 | Fallen city state | Terminal memorial screen; actions disabled |
+| Phoenix Dawn | Fallen cities begin a fresh cycle as a Camp; long-term identity and contribution history persist |
 | World view | World-of-Cities map with 5 statuses (thriving/holding/strained/under_raid/fallen) |
 | Leaderboard / TOP view | Contribution leaderboard (username + score) |
 | Chronicle / live feed | The events/drama feed (visible, seeded from the server) |

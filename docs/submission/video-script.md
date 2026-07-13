@@ -1,46 +1,51 @@
-# Demo Video Script — One More Dawn
+# Demo Video Script - One More Dawn
 
-Target length: 2:00. Reference: judges will watch the video FIRST — this
-is the pitch, not a walkthrough.
-
-Recording: OBS screen capture at 1080p, landscape (the game is
-landscape-first; portrait phones show a "rotate to landscape" advisory
-but stay playable). Record on desktop for stability; a mobile
-playtest is a nice-to-have B-roll.
+Target length: **55 seconds**. The Games with a Hook optional video must stay
+under one minute. Record the real Reddit post at 1080p landscape; use quick cuts,
+large cursor movement, and no setup narration.
 
 ## Shot list
 
-**0:00 – 0:10 · Title card**
-[Splash screen "ONE MORE DAWN" fills the frame.]
-Narration: "The city is out of time. And the subreddit is what's left of the government."
+**0:00-0:05 - Hook**
 
-**0:10 – 0:25 · Dashboard establishing shot**
-[Dashboard view showing city day, resources, crisis, council panel, and build stage.]
-Narration: "Every real day is one game day. Food. Power. Morale. Threat. A crisis to vote on. A strategy to align on. All shared. All persistent."
+[Kingdom splash, then enter the 3D Camp.]
 
-**0:25 – 0:45 · Role + Action**
-[RoleSelect → pick Scout → Dashboard → Spend Energy → Grow Food (or Repair) → toast.]
-Narration: "You pick a role, earn its titles, and your faction's voice grows in the city. Every action helps one shared city survive."
+Narration: "The subreddit is the last city, and every real day decides whether it sees another dawn."
 
-**0:45 – 1:15 · The Marked + raid pressure**
-[Live panel → pledge to The Marked → raid watch → city vitals changing.]
-Narration: "Anyone can help with one tap. Pledge to save tonight's Marked survivor, watch the raid clock, and decide whether the city spends today feeding people or holding the wall."
+**0:05-0:14 - One obvious loop**
 
-**1:15 – 1:35 · Vote + Council**
-[Vote scene — cast crisis vote + council plan.]
-Narration: "One moral crisis vote. One strategic council vote. This is where the subreddit makes a decision together."
+[Choose a role, show the daily mission, take Grow Food. The personal house appears.]
 
-**1:35 – 1:50 · Force-resolve → new day**
-[Mod menu → force-resolve → Dashboard shows Day+1 with different resources, build progress, a new crisis, timeline entry visible.]
-Narration: "The city remembers. What everyone did today shows up tomorrow — in the food stores, in whose faction is winning, in whether the raid comes."
+Narration: "Choose your survivor, spend three energy, complete a personal mission, and your first contribution raises your house forever."
 
-**1:50 – 2:00 · Close**
-[Timeline scene scrolling past a few days including a raid entry in red.]
-Narration: "One more dawn. Can your community survive it?"
-[End card: game name + Reddit logo + "built on Reddit with Devvit" — swap in the public subreddit name once the app is live and publicly playable.]
+**0:14-0:25 - Reddit decides**
 
-## Alternate lines / backup B-roll
+[Open LIVE. Briefly show Open Reddit Comments, cast a crisis vote, select a council strategy, pledge to The Marked.]
 
-- "Not a daily puzzle. A persistent city."
-- "The subreddit is the city."
-- Show two players' phones side-by-side spending energy on the same city (if human can arrange).
+Narration: "Debate in the Reddit thread, then lock in the community's crisis, strategy, and who it refuses to lose."
+
+**0:25-0:35 - Shared construction**
+
+[Open CITY, add labor, show Camp-to-Shelter progress and several contributor houses.]
+
+Narration: "Every Redditor gets one house. Together, their labor turns an empty camp into a fortified town."
+
+**0:35-0:47 - Dawn payoff**
+
+[Force-resolve from the mod menu. Show the wall-held or wall-breached banner, Dawn Report, and unlocked building.]
+
+Narration: "At dawn the server resolves every action. The wall holds, breaks, or the city falls, and the chronicle remembers why."
+
+**0:47-0:55 - Retention close**
+
+[Show streak, World map, then a Phoenix Dawn rebirth frame.]
+
+Narration: "Build your streak. Outlive rival cities. If yours falls, rise from the ashes and try for one more dawn."
+
+[End card: One More Dawn - built on Reddit with Devvit - public play link.]
+
+## Recording gate
+
+- Replace the play-link placeholder before export.
+- Show only real live UI; do not use the demo-only raid animation.
+- Keep the final encoded duration at 59 seconds or less.
