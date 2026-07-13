@@ -351,8 +351,10 @@ async function liveSmoke(url) {
     }
     await cdp.eval(`(() => {
       window.__omdAudioPlays = [];
+      window.__omdAudioEvents = [];
       HTMLMediaElement.prototype.play = function () {
         window.__omdAudioPlays.push(this.currentSrc || this.src || 'unknown');
+        window.__omdAudioEvents.push({ src: this.currentSrc || this.src || 'unknown', volume: this.volume });
         return Promise.resolve();
       };
       return true;
@@ -387,7 +389,19 @@ async function liveSmoke(url) {
     // live in the compact settings menu instead of crowding the first screen.
     await cdp.waitFor(`!!document.querySelector('.gear-fab')`, 'settings control appears after advisor primer');
     await cdp.eval(`document.querySelector('.gear-fab')?.click()`);
-    await cdp.waitFor(`!!document.querySelector('.mute-fab') && !!document.querySelector('.music-fab')`, 'sound controls open from settings');
+    await cdp.waitFor(`!!document.querySelector('.mute-fab') && !!document.querySelector('.music-fab') && !!document.querySelector('.volume-slider')`, 'sound controls and volume open from settings');
+    const volumeBefore = await cdp.eval(`(() => { const slider = document.querySelector('.volume-slider'); return slider ? { value: slider.value, label: slider.closest('.volume-control')?.textContent || '' } : null; })()`);
+    assert(volumeBefore && volumeBefore.value === '100' && volumeBefore.label.includes('100%'), `master volume should default to 100%, saw ${JSON.stringify(volumeBefore)}.`);
+    await cdp.eval(`(() => {
+      const slider = document.querySelector('.volume-slider');
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      if (!slider || !setter) return false;
+      setter.call(slider, '35');
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+      slider.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    })()`);
+    await cdp.waitFor(`localStorage.getItem('omd_master_volume') === '0.35' && document.querySelector('.volume-slider')?.value === '35'`, 'master volume persists and updates');
     const musicBefore = await cdp.eval(`(() => { const f = document.querySelector('.music-fab'); return f ? { pressed: f.getAttribute('aria-pressed'), stored: localStorage.getItem('omd_music_muted') } : null; })()`);
     assert(musicBefore && musicBefore.pressed === 'false', `music control should render default-off, saw ${JSON.stringify(musicBefore)}.`);
     await cdp.eval(`document.querySelector('.music-fab')?.click()`);
@@ -401,6 +415,18 @@ async function liveSmoke(url) {
     assert(stored === '0' || stored === '1', 'mute state persists to localStorage');
     await cdp.eval(`document.querySelector('.mute-fab')?.click()`); // restore + audible feedback
     await cdp.waitFor(`window.__omdAudioPlays.some((src) => src.includes('button_click.wav'))`, 'unmute sound feedback');
+    const volumeEvent = await cdp.eval(`window.__omdAudioEvents.filter((event) => event.src.includes('button_click.wav')).at(-1)`);
+    assert(volumeEvent && Math.abs(volumeEvent.volume - 0.175) < 0.01, `SFX should honor 35% master volume, saw ${JSON.stringify(volumeEvent)}.`);
+    await cdp.eval(`(() => {
+      const slider = document.querySelector('.volume-slider');
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      if (!slider || !setter) return false;
+      setter.call(slider, '100');
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+      slider.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    })()`);
+    await cdp.waitFor(`localStorage.getItem('omd_master_volume') === '1'`, 'master volume restores after assertion');
     await cdp.eval(`document.querySelector('.gear-fab')?.click()`);
 
     const eta = await cdp.eval(`document.querySelector('.dp-eta')?.textContent || ''`);
@@ -746,6 +772,9 @@ async function portraitSmoke(url) {
       screenOrientation: { type: 'portraitPrimary', angle: 0 },
     });
     await cdp.call('Page.reload', { ignoreCache: true });
+    await cdp.waitFor(`location.protocol === 'http:'`, 'portrait page origin');
+    await cdp.eval(`localStorage.setItem('omd_coach_v1', '1')`);
+    await cdp.call('Page.reload', { ignoreCache: true });
     await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("VAELMAR")', 'portrait city boot');
     await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'portrait loader exit');
     const portrait = await cdp.eval(`(() => {
@@ -769,6 +798,28 @@ async function portraitSmoke(url) {
     assert(!(await cdp.eval(`document.querySelector('.dash')?.classList.contains('on')`)), 'CITY drawer should start closed in portrait so actions remain reachable.');
     await cdp.eval(`document.querySelector('.dash-fab')?.click()`);
     await cdp.waitFor(`document.querySelector('.dash')?.classList.contains('on')`, 'portrait CITY drawer open');
+    await cdp.waitFor(`!!document.querySelector('.coach')`, 'portrait contextual advisor appears');
+    const stagedDrawer = await cdp.eval(`(() => {
+      const dash = document.querySelector('.dash');
+      const coach = document.querySelector('.coach');
+      const cityFab = document.querySelector('.dash-fab');
+      const style = dash ? getComputedStyle(dash) : null;
+      const overlaps = (a, b) => {
+        if (!a || !b) return true;
+        const ar = a.getBoundingClientRect();
+        const br = b.getBoundingClientRect();
+        return !(ar.right <= br.left || br.right <= ar.left || ar.bottom <= br.top || br.bottom <= ar.top);
+      };
+      return {
+        active: dash?.classList.contains('coach-active') || false,
+        opacity: style?.opacity || '',
+        pointer: style?.pointerEvents || '',
+        coachHitsCityControl: overlaps(coach, cityFab),
+      };
+    })()`);
+    assert(stagedDrawer.active && stagedDrawer.opacity === '0' && stagedDrawer.pointer === 'none' && !stagedDrawer.coachHitsCityControl, `Portrait advisor must not overlap the CITY drawer or its control, saw ${JSON.stringify(stagedDrawer)}.`);
+    await completeContextLesson(cdp, 'THE CITY PANEL');
+    await cdp.waitFor(`getComputedStyle(document.querySelector('.dash')).opacity === '1'`, 'portrait drawer reveals after advisor');
     const coveredActions = await cdp.eval(`getComputedStyle(document.querySelector('.hotbar')).pointerEvents`);
     assert(coveredActions === 'none', 'Portrait actions behind the open CITY drawer must not remain clickable.');
   } finally {

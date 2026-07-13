@@ -362,8 +362,13 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 /* ⚙ settings: sound, music, and the guide replay in one popover. */
 .gear-wrap { position: relative; }
 .gear-fab { font-size: 15px; line-height: 1; padding: 9px 12px; border-radius: 12px; cursor: pointer; min-height: 44px; min-width: 44px; color: var(--gold); }
-.settings-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 8; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 12px; min-width: 138px; }
+.settings-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 8; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 12px; min-width: 196px; }
 .settings-pop .mute-fab { display: block; width: 100%; text-align: left; font-family: var(--pixel); font-size: 8.5px; letter-spacing: 1px; color: var(--ink); background: rgba(232, 195, 74, 0.06); border: 1px solid var(--line); min-height: 40px; }
+.volume-control { display: block; padding: 9px 10px 7px; border: 1px solid var(--line); border-radius: 8px; background: rgba(232, 195, 74, 0.06); color: var(--ink); }
+.volume-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-family: var(--pixel); font-size: 7.5px; letter-spacing: 0.5px; white-space: nowrap; }
+.volume-head output { color: var(--gold); font-family: var(--mono); font-size: 9px; font-weight: 700; }
+.volume-slider { display: block; width: 100%; height: 18px; margin-top: 5px; cursor: pointer; accent-color: var(--gold); }
+.volume-slider:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .stats-modal { position: fixed; inset: 0; z-index: 20; display: none; }
 .stats-modal.on { display: block; }
 .stats-back { position: absolute; inset: 0; background: rgba(5, 4, 3, 0.7); backdrop-filter: blur(3px); cursor: pointer; }
@@ -583,6 +588,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
      horizontal row. */
   .dash-fab { top: 140px; bottom: auto; right: 10px; }
   .fab-bar { top: 182px; bottom: auto; right: 10px; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .settings-pop { top: auto; bottom: calc(100% + 8px); }
   .stats-fab { padding: 8px 10px; font-size: 9px; }
   .mute-fab { padding: 7px 9px; font-size: 12px; }
   .board-fab { padding: 8px 10px; font-size: 9px; }
@@ -590,6 +596,12 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   table.st { font-size: 9px; }
   .st th { font-size: 6px; }
   .dash { top: auto; bottom: 112px; right: 14px; width: min(250px, calc(100vw - 28px)); max-height: 55vh; }
+  /* On narrow screens, reveal the requested drawer after Maren finishes.
+     Two readable panels stacked over each other made both unusable. */
+  .dash.on.coach-active { opacity: 0; transform: translateX(12px); pointer-events: none !important; }
+  .dash.coach-active * { pointer-events: none !important; }
+  @keyframes co-in-mobile { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .coach { left: 8px; width: calc(100vw - 100px); transform: none; background: rgba(20, 16, 13, 0.98); animation-name: co-in-mobile; }
   .notifs { top: 118px; }
   .hotbar { bottom: 118px; gap: 5px; }
   .hotbar.live { bottom: 96px; }

@@ -2,8 +2,8 @@
 // global mute persisted in localStorage. Never throws into gameplay.
 //
 // Assets live in public/assets/sfx/ and are served same-origin (Devvit CSP-safe).
-// They are procedurally-generated placeholder tones (see tools/gen-sfx.mjs); swap
-// in Kenney CC0 files by dropping same-named files in and updating EXT below.
+
+import { getMasterVolume } from './audioSettings';
 
 export type SfxName =
   | 'button_click'
@@ -27,6 +27,7 @@ const NAMES: SfxName[] = [
   'error_soft',
 ];
 const MUTE_KEY = 'omd_muted';
+const SFX_VOLUME = 0.5;
 
 const hasAudio = typeof window !== 'undefined' && typeof window.Audio !== 'undefined';
 
@@ -46,7 +47,7 @@ function template(name: SfxName): HTMLAudioElement | null {
   if (!a) {
     a = new Audio(`assets/sfx/${name}.${EXT}`);
     a.preload = 'auto';
-    a.volume = 0.5;
+    a.volume = SFX_VOLUME;
     templates.set(name, a);
   }
   return a;
@@ -97,7 +98,7 @@ export function playSound(name: SfxName): void {
   if (!t) return;
   try {
     const node = t.cloneNode(true) as HTMLAudioElement;
-    node.volume = t.volume;
+    node.volume = t.volume * getMasterVolume();
     // play() returns a promise in modern browsers; swallow autoplay/decoding rejections
     void node.play().catch(() => {});
   } catch {

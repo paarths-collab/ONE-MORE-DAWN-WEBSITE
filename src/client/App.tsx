@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import {
   createVillageScene,
   MAX_VILLAGERS,
@@ -15,7 +15,8 @@ import { BALANCE } from '../shared/balance';
 import { cityEpithet } from '../shared/cityName';
 import { navigateTo } from '@devvit/web/client';
 import { isMuted, playSound, preloadSounds, toggleMuted, unlockAudio } from './sound';
-import { isMusicMuted, playTrack, stopMusic, toggleMusicMuted, unlockMusic } from './music';
+import { isMusicMuted, playTrack, refreshMusicVolume, stopMusic, toggleMusicMuted, unlockMusic } from './music';
+import { getMasterVolume, setMasterVolume } from './audioSettings';
 import type {
   ActionType,
   BuildingDef,
@@ -1390,6 +1391,7 @@ function CityDashboard({
   onAddLabor,
   buildCtaDisabled,
   buildCtaLabel,
+  coachActive,
 }: {
   open: boolean;
   setOpen: (b: boolean) => void;
@@ -1419,13 +1421,14 @@ function CityDashboard({
   onAddLabor: () => void;
   buildCtaDisabled: boolean;
   buildCtaLabel: string;
+  coachActive: boolean;
 }) {
   return (
     <>
       <button type="button" className="hud dash-fab card-bit" onClick={() => setOpen(!open)} aria-expanded={open}>
         ▦ CITY
       </button>
-      <div className={open ? 'hud dash card-bit on' : 'hud dash card-bit'}>
+      <div className={`hud dash card-bit${open ? ' on' : ''}${coachActive ? ' coach-active' : ''}`}>
         <div className="dash-sticky">
         <div className="p-head">
           <span>CITY</span>
@@ -2504,6 +2507,7 @@ export function App() {
   const [liveTimelineHeadline, setLiveTimelineHeadline] = useState<string | null>(null);
   const [muted, setMutedUi] = useState(isMuted()); // global SFX mute (persisted)
   const [musicMuted, setMusicMutedUi] = useState(isMusicMuted()); // background music mute (persisted, defaults ON = muted)
+  const [masterVolume, setMasterVolumeUi] = useState(getMasterVolume());
   const handleRef = useRef<VillageHandle | null>(null);
   const cityFallenRef = useRef(false); // fallen state, readable inside handlers/timers
   const modeRef = useRef<Mode>('connecting'); // current mode, readable inside timers
@@ -2921,6 +2925,11 @@ export function App() {
     const next = toggleMusicMuted();
     setMusicMutedUi(next);
     if (!next) playSound('button_click'); // audible feedback when turning music on
+  }, []);
+  const onVolumeChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const next = setMasterVolume(Number(event.currentTarget.value) / 100);
+    setMasterVolumeUi(next);
+    refreshMusicVolume();
   }, []);
 
   // WORLD map (live): real cities from /api/world; any failure or an
@@ -4078,6 +4087,7 @@ export function App() {
         onAddLabor={onAddLabor}
         buildCtaDisabled={buildCtaDisabled}
         buildCtaLabel={buildCtaLabel}
+        coachActive={coachStep !== null}
       />
       {/* One flex bar so the fabs never overlap; the .hud wrapper (pointer-events:
           none) lets .hud * re-enable pointer events on the buttons inside.
@@ -4105,6 +4115,23 @@ export function App() {
           <div className="gear-wrap">
             {settingsOpen && (
               <div className="settings-pop card-bit">
+                <label className="volume-control">
+                  <span className="volume-head">
+                    <span>🔉 MASTER VOLUME</span>
+                    <output>{Math.round(masterVolume * 100)}%</output>
+                  </span>
+                  <input
+                    className="volume-slider"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={Math.round(masterVolume * 100)}
+                    onChange={onVolumeChange}
+                    onPointerUp={() => playSound('button_click')}
+                    aria-label="Master volume"
+                  />
+                </label>
                 <button
                   type="button"
                   className="mute-fab"

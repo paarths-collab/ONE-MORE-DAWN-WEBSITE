@@ -6,6 +6,8 @@
 // Tracks live in public/assets/music/. If a file is missing the engine no-ops
 // silently; gameplay is never blocked by an audio failure.
 
+import { getMasterVolume } from './audioSettings';
+
 export type MusicTrack = 'dusk' | 'raid' | 'dawn';
 
 // Track table: file paths + volume + optional fadeInMs override.
@@ -89,12 +91,20 @@ export function toggleMusicMuted(): boolean {
   return muted;
 }
 
+/** Apply a changed master-volume setting to music that is already playing. */
+export function refreshMusicVolume(): void {
+  if (!currentAudio || !currentTrack || muted) return;
+  clearFade(currentAudio);
+  currentAudio.volume = targetVolume(currentTrack);
+}
+
 function startTrack(name: MusicTrack, fade: boolean): void {
   const cfg = TRACKS[name];
   if (!cfg) return;
+  const volume = targetVolume(name);
   const nextAudio = new Audio(cfg.file);
   nextAudio.loop = true;
-  nextAudio.volume = fade ? 0 : cfg.volume;
+  nextAudio.volume = fade ? 0 : volume;
   const play = nextAudio.play();
   if (play && typeof play.catch === 'function') {
     // autoplay blocked — reset unlocked so the next gesture retries.
@@ -109,10 +119,14 @@ function startTrack(name: MusicTrack, fade: boolean): void {
     fadeAudio(oldAudio, oldAudio ? oldAudio.volume : 0, 0, () => {
       try { oldAudio?.pause(); } catch { /* ignore */ }
     });
-    fadeAudio(nextAudio, 0, cfg.volume);
+    fadeAudio(nextAudio, 0, volume);
   } else if (oldAudio) {
     try { oldAudio.pause(); } catch { /* ignore */ }
   }
+}
+
+function targetVolume(name: MusicTrack): number {
+  return TRACKS[name].volume * getMasterVolume();
 }
 
 function fadeOutAndStop(): void {

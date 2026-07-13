@@ -13,6 +13,7 @@ class FakeAudio {
   loop = false;
   volume = 1;
   paused = true;
+  preload = '';
   constructor(src: string) {
     this.src = src;
     FakeAudio.instances.push(this);
@@ -24,6 +25,12 @@ class FakeAudio {
   pause(): void {
     this.paused = true;
   }
+  cloneNode(): FakeAudio {
+    const clone = new FakeAudio(this.src);
+    clone.volume = this.volume;
+    return clone;
+  }
+  load(): void {}
 }
 
 const playing = () => FakeAudio.instances.filter((a) => !a.paused);
@@ -37,7 +44,10 @@ describe('music engine crossfades', () => {
     FakeAudio.instances = [];
     vi.stubGlobal('window', {
       Audio: FakeAudio,
-      localStorage: { getItem: () => '0', setItem: () => undefined }, // pre-unmuted
+      localStorage: {
+        getItem: (key: string) => key === 'omd_music_muted' ? '0' : null,
+        setItem: () => undefined,
+      }, // pre-unmuted, full master volume
       setInterval: (fn: () => void, ms: number) => setInterval(fn, ms),
       clearInterval: (t: ReturnType<typeof setInterval>) => clearInterval(t),
     });
@@ -87,5 +97,33 @@ describe('music engine crossfades', () => {
     music.stopMusic();
     await vi.advanceTimersByTimeAsync(6000);
     expect(playing()).toHaveLength(0);
+  });
+
+  it('applies master-volume changes immediately to the current track', async () => {
+    const music = await loadMusic();
+    const audioSettings = await import('./audioSettings');
+    music.unlockMusic();
+    music.playTrack('dusk');
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    audioSettings.setMasterVolume(0.25);
+    music.refreshMusicVolume();
+
+    expect(playing()).toHaveLength(1);
+    expect(playing()[0]!.volume).toBeCloseTo(0.06);
+  });
+
+  it('scales SFX playback with the persisted master volume', async () => {
+    const audioSettings = await import('./audioSettings');
+    const sound = await import('./sound');
+    audioSettings.setMasterVolume(0.4);
+
+    sound.playSound('button_click');
+    await Promise.resolve();
+
+    const cue = FakeAudio.instances.at(-1);
+    expect(cue?.src).toContain('button_click');
+    expect(cue?.paused).toBe(false);
+    expect(cue?.volume).toBeCloseTo(0.2);
   });
 });
