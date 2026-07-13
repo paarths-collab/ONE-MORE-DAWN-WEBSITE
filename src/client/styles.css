@@ -151,11 +151,49 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .bp-cta { width: 100%; font-family: var(--pixel); font-size: 8.5px; letter-spacing: 1px; color: #0c0a0a; background: linear-gradient(180deg, #f5d76e, #c99a2e); border: 1px solid #7a6120; border-radius: 10px; padding: 8px; cursor: pointer; }
 .bp-cta:disabled { opacity: 0.5; cursor: default; }
 
-/* ---- dashboard tabs (TOWN / LIVE) ---- */
+/* ---- dashboard tabs ---- */
 .dash-tabs { display: flex; width: 100%; gap: 0; margin-bottom: 12px; border: 1px solid #2f2828; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, 0.02); }
-.dash-tab { flex: 1; min-width: 0; font-family: var(--pixel); font-size: 8px; letter-spacing: 0.5px; color: var(--mut); background: none; border: none; padding: 9px 3px; cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s; }
+.dash-tab { flex: 1; min-width: 0; font-family: var(--pixel); font-size: 7px; letter-spacing: 0.25px; color: var(--mut); background: none; border: none; padding: 9px 2px; cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s; }
 .dash-tab + .dash-tab { border-left: 1px solid #2f2828; }
 .dash-tab.on { color: var(--gold); background: rgba(232, 195, 74, 0.1); }
+
+/* ---- SHOP tab: personal cosmetics + the village-owned land fund ---- */
+.coin-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 2px 0 10px; padding-bottom: 9px; border-bottom: 1px solid #2f2828; }
+.ch-coins { font-family: var(--pixel); font-size: 10px; color: var(--gold); }
+.ch-cap { font-family: var(--mono); font-size: 8px; color: var(--mut); text-align: right; }
+.shop-seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #2f2828; border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+.shop-seg button { min-height: 34px; border: 0; background: transparent; color: var(--mut); font-family: var(--pixel); font-size: 8px; letter-spacing: 0.5px; cursor: pointer; }
+.shop-seg button + button { border-left: 1px solid #2f2828; }
+.shop-seg button.on { color: var(--gold); background: rgba(232, 195, 74, 0.1); }
+.shop-rows { display: flex; flex-direction: column; }
+.shop-row, .land-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px 2px; border-bottom: 1px solid #2a241e; }
+.shop-row:last-child, .land-row:last-child { border-bottom: 0; }
+.sr-main { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.sr-nm { font-family: var(--pixel); font-size: 8px; color: var(--ink); line-height: 1.35; }
+.sr-ds { font-family: var(--mono); font-size: 8.5px; color: var(--mut); line-height: 1.35; }
+.sr-btn { min-width: 48px; min-height: 31px; padding: 6px 7px; border: 1px solid var(--line); border-radius: 7px; background: #211a10; color: var(--gold); font-family: var(--pixel); font-size: 7px; cursor: pointer; }
+.sr-btn.buy { background: var(--gold); color: #171109; }
+.sr-btn:disabled { opacity: 0.42; cursor: default; }
+.sr-state { font-family: var(--pixel); font-size: 6.5px; color: var(--mut); }
+.sr-state.on { color: #9fd08a; }
+.sr-state.funding { color: var(--gold); }
+.land-head { display: flex; flex-direction: column; gap: 3px; margin: 2px 0 7px; }
+.land-head span { font-family: var(--pixel); font-size: 9px; color: var(--gold); }
+.land-head small { font-family: var(--mono); font-size: 7.5px; color: var(--mut); }
+.land-row.active { background: rgba(232, 195, 74, 0.045); }
+.land-row.done { opacity: 0.8; }
+.land-progress { width: 100%; height: 7px; overflow: hidden; border-radius: 4px; background: #110e0a; }
+.land-progress i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #c58b32, #e8c34a); transition: width 0.35s; }
+.lr-meta { font-family: var(--mono); font-size: 7.5px; color: var(--mut); }
+.land-donate { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.land-donate label { display: block; margin-bottom: 7px; font-family: var(--pixel); font-size: 7.5px; color: var(--ink); }
+.land-stepper { display: grid; grid-template-columns: 34px minmax(48px, 1fr) 34px 46px; gap: 5px; }
+.land-stepper button, .land-stepper input { width: 100%; min-height: 34px; border: 1px solid #3a3023; border-radius: 7px; background: #17120c; color: var(--ink); text-align: center; font-family: var(--pixel); font-size: 9px; }
+.land-stepper button { cursor: pointer; }
+.land-stepper button:disabled, .land-stepper input:disabled { opacity: 0.4; cursor: default; }
+.land-stepper .land-max { font-size: 7px; color: var(--gold); }
+.land-pledge { width: 100%; min-height: 36px; margin-top: 7px; border: 1px solid #7a6120; border-radius: 8px; background: linear-gradient(180deg, #f5d76e, #c99a2e); color: #0c0a0a; font-family: var(--pixel); font-size: 8px; cursor: pointer; }
+.land-pledge:disabled { opacity: 0.45; cursor: default; }
 
 /* ---- TOP tab: contribution leaderboard ---- */
 .lb { display: flex; flex-direction: column; gap: 7px; }

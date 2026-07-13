@@ -76,6 +76,26 @@ const economyOfMock = (p) => ({
   owned: p.ownedCosmetics ?? [],
   equipped: p.equippedCosmetics ?? {},
 });
+// Land districts mirror (authority: src/shared/shop.ts LAND_EXPANSIONS).
+// outer_fields sits 5 short of its target so the smoke can fund the unlock.
+const LAND_DEFS = [
+  { id: 'outer_fields', name: 'Outer Fields', description: 'Open connected farmland, roads, and new house plots.', target: 120, requires: null },
+  { id: 'river_ward', name: 'River Ward', description: 'Extend the city along the river with room for trade and homes.', target: 260, requires: 'outer_fields' },
+  { id: 'high_keep', name: 'High Keep', description: 'Claim the connected hill for walls and civic landmarks.', target: 450, requires: 'river_ward' },
+];
+let mockLandFunding = { outer_fields: 115, river_ward: 0, high_keep: 0 };
+const landOfMock = () => {
+  const unlocked = [];
+  const projects = LAND_DEFS.map((d) => {
+    const funded = Math.min(mockLandFunding[d.id] ?? 0, d.target);
+    const isUnlocked = funded >= d.target;
+    if (isUnlocked) unlocked.push(d.id);
+    const gate = d.requires ? LAND_DEFS.find((x) => x.id === d.requires) : null;
+    const gateOpen = !gate || (mockLandFunding[gate.id] ?? 0) >= gate.target;
+    return { ...d, funded, remaining: d.target - funded, unlocked: isUnlocked, available: !isUnlocked && gateOpen };
+  });
+  return { projects, activeProjectId: projects.find((p) => p.available)?.id ?? null, unlocked };
+};
 const CRISIS = {
   id: 'first_light', title: 'First Light',
   narrative: 'The generators cough back to life. Survivors gather at the wall, waiting to be told what this city will become.',
@@ -187,6 +207,7 @@ const currentInit = () => ({
   marked: mockMarked,
   pledge: mockPledge,
   economy: economyOfMock(mockPlayer),
+  land: landOfMock(),
   houses: currentHouses(),
   ...(process.env.MOCK_CAMP ? { build: CAMP_BUILD, houses: CAMP_HOUSES, yourActionsToday: {} } : {}),
 });
@@ -239,6 +260,24 @@ const mockApi = () => ({
         if ((mockPlayer.coins ?? 0) < price) return send(res, { status: 'error', message: 'Not enough Coins.' }, 400);
         mockPlayer = { ...mockPlayer, coins: mockPlayer.coins - price, ownedCosmetics: [...owned, b.itemId] };
         return send(res, { type: 'shop-purchase', itemId: b.itemId, economy: economyOfMock(mockPlayer), message: `purchased. ${mockPlayer.coins} Coins remain.` });
+      }
+      if (path === '/api/shop/donate') {
+        const b = await readBody(req);
+        const state = landOfMock();
+        const project = state.projects.find((p) => p.id === b.projectId);
+        if (!project || !Number.isSafeInteger(b.amount) || b.amount <= 0) return send(res, { status: 'error', message: 'Choose a valid Coin amount.' }, 400);
+        if (!project.available) return send(res, { status: 'error', message: project.unlocked ? 'Already unlocked.' : 'Expand the connected district before this one first.' }, 409);
+        const donated = Math.min(b.amount, project.remaining);
+        if ((mockPlayer.coins ?? 0) < donated) return send(res, { status: 'error', message: `You need ${donated} Coins for that pledge.` }, 400);
+        mockPlayer = { ...mockPlayer, coins: mockPlayer.coins - donated };
+        mockLandFunding = { ...mockLandFunding, [project.id]: (mockLandFunding[project.id] ?? 0) + donated };
+        const next = landOfMock();
+        const unlocked = next.unlocked.includes(project.id);
+        return send(res, {
+          type: 'land-donation', projectId: project.id, donated, unlocked,
+          economy: economyOfMock(mockPlayer), land: next,
+          message: unlocked ? `${project.name} unlocked. The city frontier expands.` : `${donated} Coins pledged to ${project.name}. ${project.remaining - donated} remain.`,
+        });
       }
       if (path === '/api/shop/equip') {
         const b = await readBody(req);

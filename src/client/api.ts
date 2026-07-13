@@ -10,6 +10,8 @@ import type {
   AvatarRequest,
   AvatarResponse,
   InitResponse,
+  LandDonationRequest,
+  LandDonationResponse,
   LeaderboardResponse,
   PledgeKind,
   PledgeRequest,
@@ -18,6 +20,10 @@ import type {
   Role,
   RoleRequest,
   RoleResponse,
+  ShopEquipRequest,
+  ShopEquipResponse,
+  ShopPurchaseRequest,
+  ShopPurchaseResponse,
   StrategyPlanId,
   StrategyRequest,
   StrategyResponse,
@@ -99,6 +105,26 @@ export const postStrategy = (planId: StrategyPlanId): Promise<StrategyResponse> 
 /** Streak insurance: burn standing to restore a lapsed streak. */
 export const postRekindle = (): Promise<RekindleResponse> =>
   request<RekindleResponse>('/api/rekindle', {});
+
+// ---- Coin economy: cosmetic shop + community land expansion ----
+
+export const postShopPurchase = (itemId: ShopPurchaseRequest['itemId']): Promise<ShopPurchaseResponse> => {
+  const body: ShopPurchaseRequest = { itemId };
+  return request<ShopPurchaseResponse>('/api/shop/purchase', body);
+};
+
+export const postShopEquip = (itemId: ShopEquipRequest['itemId']): Promise<ShopEquipResponse> => {
+  const body: ShopEquipRequest = { itemId };
+  return request<ShopEquipResponse>('/api/shop/equip', body);
+};
+
+export const postLandDonate = (
+  projectId: LandDonationRequest['projectId'],
+  amount: number,
+): Promise<LandDonationResponse> => {
+  const body: LandDonationRequest = { projectId, amount };
+  return request<LandDonationResponse>('/api/shop/donate', body);
+};
 
 export const postRole = (role: Role): Promise<RoleResponse> => {
   const body: RoleRequest = { role };

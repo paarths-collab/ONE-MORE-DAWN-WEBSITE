@@ -463,11 +463,11 @@ async function liveSmoke(url) {
     await cdp.eval(`document.querySelector('button[aria-label="Close stats"]')?.click()`);
     await cdp.waitFor('!document.querySelector(".stats-modal.on")', 'stats ledger closes');
 
-    for (const label of ['CITY', 'LIVE', 'TOP 🏆', 'MAP', 'WORLD', 'TOWN']) {
+    for (const label of ['CITY', 'LIVE', 'TOP', 'MAP', 'WORLD', 'TOWN']) {
       await cdp.clickButton(label);
       if (label === 'CITY') await completeContextLesson(cdp, 'WE BUILD TOGETHER');
       if (label === 'LIVE') await completeContextLesson(cdp, 'WE DECIDE TOGETHER');
-      if (label === 'TOP 🏆') await completeContextLesson(cdp, 'THE RECORD');
+      if (label === 'TOP') await completeContextLesson(cdp, 'THE RECORD');
       if (label === 'LIVE') {
         await cdp.waitFor('document.body.innerText.includes("VILLAGER VOICES")', 'LIVE tab identifies scripted villager dialogue');
         const livePanel = await cdp.eval(`document.querySelector('.dash')?.innerText || ''`);
@@ -541,6 +541,36 @@ async function liveSmoke(url) {
     await cdp.waitFor('!!document.querySelector(".district.on")', 'district selection');
     await cdp.clickSelectorContaining('.bp-cta', 'ADD LABOR');
     await cdp.waitFor('!!document.querySelector(".build-panel")', 'build panel survives ADD LABOR');
+
+    // SHOP — the full economy loop: the walk has earned 4 Coins so far
+    // (vote, plan, pledge, action; the labor tap hit the daily cap), so the
+    // fixture's 4 make 8. The Hearth Lantern (3) leaves 5, and the 5-Coin
+    // pledge finishes Outer Fields (fixture 115/120): the city visibly grows.
+    await cdp.clickButton('SHOP');
+    await cdp.waitFor(`(document.querySelector('.ch-coins')?.textContent || '').includes('8 COINS')`, 'coin balance after a day of contributions');
+    await cdp.eval(`(() => { const row = [...document.querySelectorAll('.shop-row')].find((r) => r.textContent.includes('Hearth Lantern')); row?.querySelector('.sr-btn')?.click(); })()`);
+    await cdp.waitFor(`document.body.innerText.includes('purchased. 5 Coins remain')`, 'purchase debits the exact catalog price once');
+    await cdp.waitFor(`(document.querySelector('.ch-coins')?.textContent || '').includes('5 COINS')`, 'coin header reflects the debit');
+    await cdp.eval(`(() => { const row = [...document.querySelectorAll('.shop-row')].find((r) => r.textContent.includes('Hearth Lantern')); row?.querySelector('.sr-btn')?.click(); })()`);
+    await cdp.waitFor(`[...document.querySelectorAll('.shop-row')].some((r) => r.textContent.includes('Hearth Lantern') && r.textContent.includes('EQUIPPED'))`, 'owned item equips onto the house');
+    await cdp.clickButton('EXPAND');
+    await cdp.waitFor(`document.body.innerText.includes('VILLAGE LAND FUND') && document.body.innerText.includes('SHARED BY THE WHOLE VILLAGE')`, 'land fund is explicitly collective');
+    const frontierBefore = await cdp.eval(`(() => {
+      const scene = window.__village?.scene;
+      return {
+        mainland: !!scene?.getObjectByName('continuous-mainland'),
+        frontier: scene?.getObjectByName('frontier-outer_fields')?.visible ?? false,
+        developed: scene?.getObjectByName('land-outer_fields')?.visible ?? false,
+      };
+    })()`);
+    assert(frontierBefore.mainland && frontierBefore.frontier && !frontierBefore.developed, `Locked land should be visible wilderness on one mainland, saw ${JSON.stringify(frontierBefore)}.`);
+    await cdp.eval(`document.querySelector('.land-max')?.click()`);
+    await cdp.waitFor(`document.querySelector('#land-donation')?.value === '5'`, 'MAX selects the affordable remaining land pledge');
+    await cdp.eval(`document.querySelector('.land-pledge')?.click()`);
+    await cdp.waitFor(`document.body.innerText.includes('Outer Fields unlocked')`, 'a community land pledge unlocks the district');
+    await cdp.waitFor(`[...document.querySelectorAll('.land-row')].some((r) => r.textContent.includes('Outer Fields') && r.textContent.includes('OPEN'))`, 'the funded district shows as open village land');
+    await cdp.waitFor(`window.__village?.scene?.getObjectByName('land-outer_fields')?.visible === true && window.__village?.scene?.getObjectByName('frontier-outer_fields')?.visible === false`, 'funding develops the frontier in the 3D scene');
+    await cdp.waitFor(`(document.querySelector('.ch-coins')?.textContent || '').includes('0 COINS')`, 'land pledge drains the pooled Coins');
 
     // Guard the pointer-events regression: the fabs carry the .hud class
     // (pointer-events:none) and must be re-enabled, or real clicks fall through

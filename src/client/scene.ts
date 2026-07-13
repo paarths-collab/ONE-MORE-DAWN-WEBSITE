@@ -1,7 +1,7 @@
 // ONE MORE DAWN — 3D town scene v3 ("the guild map").
-// A ~140-tile organic plateau ringed by mountains: seeded winding dirt roads,
-// ~240 rustic houses placed along them, 12 labeled districts (floating banner
-// labels via CSS2DRenderer), a palisade wall with gates, dense pine forest.
+// A connected mainland settlement: seeded winding dirt roads, ~240 rustic
+// houses, 12 labeled districts, a palisade, dense frontier forest, and shared
+// land districts that open outward as the subreddit funds them.
 // Same live API as v2: setTimeOfDay / setVillagers / setCompanion; the whole
 // environment lerps between night/dawn/day/dusk presets.
 
@@ -28,10 +28,18 @@ export type SceneHouses = {
 export type DistantCityStatus = 'thriving' | 'holding' | 'strained' | 'under_raid' | 'fallen';
 export type DistantCity = { name: string; status: DistantCityStatus };
 
+/** Equipped cosmetic item ids by slot (ids come from shared/shop.ts SHOP_CATALOG). */
+export type HouseCosmetics = {
+  roof?: string | undefined;
+  banner?: string | undefined;
+  light?: string | undefined;
+  yard?: string | undefined;
+};
+
 /** Snapshot the React HUD reads (via getMapData) to draw its live minimap. */
 export type MapData = {
-  radius: number;                                              // max plateau radius (scale hint)
-  outline: [number, number][];                                 // plateau boundary polygon, world XZ
+  radius: number;                                              // max developed-city radius (scale hint)
+  outline: [number, number][];                                 // developed-city boundary polygon, world XZ
   districts: { name: string; icon: string; x: number; z: number }[];
   houses: [number, number][];                                  // snapshot copy of house centers
 };
@@ -80,6 +88,21 @@ export type VillageHandle = {
   setBuildStage: (unlocked: string[]) => void;
   setHouses: (houses: SceneHouses | null) => void;
   /**
+   * Dress the current player's house (the one setHouses marks as yours) with
+   * equipped shop cosmetics. The equipped map is stored and re-applied after
+   * every setHouses remap, so cosmetics survive refreshes. Passing null clears.
+   * Unknown item ids are ignored. Never throws.
+   */
+  setHouseCosmetics: (equipped: HouseCosmetics | null) => void;
+  /**
+   * Reveal community-funded land expansions: 'outer_fields' | 'river_ward' |
+   * 'high_keep' (the shared LAND_EXPANSIONS ids, in funding order). Each id
+   * develops a visible frontier district on the same continuous mainland.
+   * Locked districts remain wilderness; unlocked districts add roads, homes,
+   * fields, and civic structures. Unknown ids are ignored. Idempotent.
+   */
+  setLandParcels: (unlocked: string[]) => void;
+  /**
    * Relabel the distant neighbor settlements on the horizon with real
    * world-map cities (rank order, your own city excluded). Slots past the end
    * of the list keep their fictional default neighbor. Idempotent.
@@ -93,7 +116,7 @@ export type VillageHandle = {
   buyHouse: (owner: string) => { x: number; z: number; quarter: string } | null;
   /** One-shot golden ring flash + scale pop on a labeled district. */
   flashDistrict: (name: string) => void;
-  /** Snapshot of the world (plateau outline, districts, house centers) for the minimap. */
+  /** Snapshot of the world (developed outline, districts, house centers) for the minimap. */
   getMapData: () => MapData;
   /** Camera ground position + look target + fov (degrees) for a minimap viewport indicator. */
   getView: () => { cx: number; cz: number; tx: number; tz: number; fov: number };
@@ -244,9 +267,10 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   controls.screenSpacePanning = false;
   controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
   controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+  let cameraMinZ = -52;
   controls.addEventListener('change', () => {
     controls.target.x = THREE.MathUtils.clamp(controls.target.x, -52, 52);
-    controls.target.z = THREE.MathUtils.clamp(controls.target.z, -52, 52);
+    controls.target.z = THREE.MathUtils.clamp(controls.target.z, cameraMinZ, 52);
     controls.target.y = 0;
   });
   controlsRef = controls; // later applyFraming calls dolly about the live target
@@ -400,13 +424,31 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     return m;
   };
 
-  // ---------- plateau shape (organic radius, ~135 tiles across) ----------
+  // ---------- historic city core + connected frontier ----------
   const PHI1 = rng() * Math.PI * 2;
   const PHI2 = rng() * Math.PI * 2;
   const plateauR = (theta: number) =>
     58 + 8 * Math.sin(3 * theta + PHI1) + 5 * Math.sin(7 * theta + PHI2);
   const insidePlateau = (x: number, z: number, margin = 0) =>
     Math.hypot(x, z) < plateauR(Math.atan2(z, x)) - margin;
+  type ParcelDef = { id: string; d0: number; d1: number; top: number; half: number };
+  const PARCEL_ANGLE = -Math.PI / 2;
+  const PARCEL_DEFS: ParcelDef[] = [
+    { id: 'outer_fields', d0: 0, d1: 11, top: 0.02, half: 0.46 },
+    { id: 'river_ward', d0: 11, d1: 20, top: 0.02, half: 0.38 },
+    { id: 'high_keep', d0: 20, d1: 30, top: 0.02, half: 0.3 },
+  ];
+  const unlockedLandIds = new Set<string>();
+  const angDist = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  const developedRadius = (angle: number) => {
+    let radius = plateauR(angle);
+    for (const parcel of PARCEL_DEFS) {
+      if (unlockedLandIds.has(parcel.id) && angDist(angle, PARCEL_ANGLE) <= parcel.half) {
+        radius = Math.max(radius, plateauR(angle) + parcel.d1);
+      }
+    }
+    return radius;
+  };
 
   // ---------- road network (polylines → rasterized dirt tiles) ----------
   const GATE_ANGLES = [Math.PI / 2, -Math.PI / 6, Math.PI + 0.5]; // S, NE, W
@@ -512,7 +554,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) if (Math.hypot(dx, dz) <= 4.4) roadTiles.add(key(dx, dz));
 
   // ---------- terrain tiles ----------
-  const SIZE = 140; // bounding grid — plateau carves an organic ~100..135-tile shape out of it
+  const SIZE = 140; // dense city-core tile grid; the broad mainland continues beyond it
   {
     const positions: [number, number, boolean][] = [];
     for (let ix = -SIZE / 2; ix <= SIZE / 2; ix++) {
@@ -535,30 +577,23 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     });
     scene.add(ground);
 
-    // dark abyss floor + cliff skirt under the plateau edge
-    const abyss = new THREE.Mesh(new THREE.CircleGeometry(600, 48), lam(C.abyss));
-    abyss.rotation.x = -Math.PI / 2;
-    abyss.position.y = -7;
-    scene.add(abyss);
-    const skirtGeo = new THREE.BoxGeometry(1, 7, 1);
-    const skirtPos: [number, number][] = [];
-    for (let ix = -SIZE / 2; ix <= SIZE / 2; ix++) {
-      for (let iz = -SIZE / 2; iz <= SIZE / 2; iz++) {
-        if (!insidePlateau(ix, iz)) continue;
-        if (!insidePlateau(ix + 1, iz) || !insidePlateau(ix - 1, iz) || !insidePlateau(ix, iz + 1) || !insidePlateau(ix, iz - 1)) {
-          skirtPos.push([ix, iz]);
-        }
-      }
-    }
-    const skirt = new THREE.InstancedMesh(skirtGeo, lam(C.cliff), skirtPos.length);
-    skirtPos.forEach(([x, z], i) => {
-      m4.setPosition(x, -3.55, z);
-      skirt.setMatrixAt(i, m4);
-    });
-    scene.add(skirt);
+    // The city is part of a broad mainland. The old dark abyss + vertical skirt
+    // made every unlock read as another floating shelf; this low field keeps the
+    // core, frontier, expansion districts, and distant settlements connected.
+    const mainland = new THREE.Mesh(new THREE.CircleGeometry(360, 72), lam(0x26351f));
+    mainland.name = 'continuous-mainland';
+    mainland.rotation.x = -Math.PI / 2;
+    mainland.position.y = -0.17;
+    mainland.receiveShadow = true;
+    scene.add(mainland);
   }
 
-  // ---------- mountain ring ----------
+  // ---------- frontier ridge ----------
+  // Rock centers + original matrices escape the block so a funded district can
+  // open a pass through the ridge without rebuilding the whole formation.
+  let mountainInst: THREE.InstancedMesh | null = null;
+  const mountainRockSpots: [number, number][] = [];
+  const mountainRockMatrices: THREE.Matrix4[] = [];
   {
     const rockGeo = new THREE.DodecahedronGeometry(1, 0);
     const rocks: { x: number; z: number; s: number; h: number; c: number }[] = [];
@@ -580,14 +615,17 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       q.setFromEuler(e);
       m4.compose(new THREE.Vector3(rk.x, rk.h * 0.25 - 2, rk.z), q, new THREE.Vector3(rk.s, rk.h, rk.s));
       inst.setMatrixAt(i, m4);
+      mountainRockMatrices.push(m4.clone());
       col.setHex(rk.c);
       inst.setColorAt(i, col);
+      mountainRockSpots.push([rk.x, rk.z]);
     });
     scene.add(inst);
+    mountainInst = inst;
   }
 
-  // ---------- distant neighbor cities (the world beyond the abyss) ----------
-  // Five rival settlement slots on mesas past the mountain ring. Demo fills all
+  // ---------- distant neighbor cities on the shared horizon ----------
+  // Five rival settlement slots on low rises across the mainland. Demo fills all
   // five; live mode hides every slot that has no real /api/world city.
   const DC_STATUS_COL: Record<DistantCityStatus, number> = {
     thriving: 0x7fd6a2, holding: 0xffcf70, strained: 0xff8a3d, under_raid: 0xff5b4d, fallen: 0x6b7089,
@@ -608,14 +646,14 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       const dist = 150 + rng() * 35;
       const g = new THREE.Group();
       g.position.set(Math.cos(a) * dist, 0, Math.sin(a) * dist);
-      // mesa rising from the abyss floor, grass on top
+      // A shallow rise embedded in the same mainland, not a detached mesa.
       const topR = 10 + rng() * 3;
-      const mesa = new THREE.Mesh(new THREE.CylinderGeometry(topR, topR * 1.4, 7, 9), lam(C.cliff, { flatShading: true }));
-      mesa.position.y = -3.5;
-      g.add(mesa);
+      const rise = new THREE.Mesh(new THREE.CylinderGeometry(topR, topR * 1.18, 0.4, 12), lam(C.dirtB, { flatShading: true }));
+      rise.position.y = -0.19;
+      g.add(rise);
       const top = new THREE.Mesh(new THREE.CircleGeometry(topR - 0.4, 9), lam(C.grassB));
       top.rotation.x = -Math.PI / 2;
-      top.position.y = 0.04;
+      top.position.y = 0.02;
       g.add(top);
       // central hall + hut cluster (chunky, so it reads as a town from 150+ units)
       g.add(box(3.6, 2.6, 3.0, MAT.plaster, 0, 1.3, 0));
@@ -1582,13 +1620,14 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
 
   // ---------- minimap data + camera read-out (React HUD draws the minimap) ----------
   function getMapData(): MapData {
-    // sample the plateau boundary at 64 even angles; radius = the sweep max
+    // Sample the developed boundary. Funded frontier districts extend the
+    // outline, so the minimap visibly grows with the shared city.
     const outline: [number, number][] = [];
     let radius = 0;
     const N = 64;
     for (let i = 0; i < N; i++) {
       const a = (i / N) * Math.PI * 2;
-      const r = plateauR(a);
+      const r = developedRadius(a);
       if (r > radius) radius = r;
       outline.push([Math.cos(a) * r, Math.sin(a) * r]);
     }
@@ -1942,6 +1981,11 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       beaconRing.scale.setScalar(1 + bp * 0.12);
       beaconLight.intensity = 5 + bp * 5;
     }
+    // crimson banner wave: cheap pivot swing, the plane is hinged at its pole
+    if (cosmeticBanner) {
+      cosmeticBanner.rotation.y = 0.35 + Math.sin(t * 2.7) * 0.3;
+      cosmeticBanner.rotation.z = Math.sin(t * 4.3) * 0.05;
+    }
     // vigil pillar: one-shot fade + gentle vertical stretch
     if (markedPulseT >= 0) {
       markedPulseT += dt;
@@ -2142,6 +2186,121 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     }
   }
 
+  // ---------- house cosmetics (setHouseCosmetics) ----------
+  // Shop cosmetics dress the CURRENT PLAYER's house only. The equipped map is
+  // stored and re-applied at the end of every setHouses call, because a refresh
+  // remaps house indices and would otherwise strand the kit on a stranger's
+  // roof. Everything lives in one child group per apply, cleared + rebuilt like
+  // the houseDecor pattern (idempotent). Item ids mirror shared/shop.ts
+  // SHOP_CATALOG; string literals on purpose, scene.ts imports nothing from
+  // ../shared and keeps it that way.
+  let equippedCosmetics: HouseCosmetics | null = null;
+  let playerHouseGroup: THREE.Group | null = null;
+  let cosmeticsGroup: THREE.Group | null = null;
+  let cosmeticBanner: THREE.Mesh | null = null; // waved in tick, no per-frame allocs
+  // light budget: the single PointLight this feature may add (no shadows, short
+  // range), created once and re-parented across applies
+  let lanternLight: THREE.PointLight | null = null;
+  // shared cosmetic materials, created once; per-apply disposal covers geometry only
+  const cosmeticRoofMat = lam(0x3a424f); // dark slate, colder than roofSlateDark
+  const cosmeticGoldMat = lam(C.roofGold);
+  const cosmeticBannerMat = lam(0x8a1f1f, { side: THREE.DoubleSide });
+  const cosmeticLeafMat = lam(C.leaf);
+  // roof material swap bookkeeping so clearing restores the original
+  let swappedRoof: { mesh: THREE.Mesh; original: THREE.Material | THREE.Material[] } | null = null;
+  // the roof is the only ConeGeometry among a house group's direct children
+  const roofMeshOf = (g: THREE.Group): THREE.Mesh | null => {
+    for (const child of g.children) {
+      const mesh = child as THREE.Mesh;
+      if (mesh.isMesh && mesh.geometry.type === 'ConeGeometry') return mesh;
+    }
+    return null;
+  };
+  const clearHouseCosmetics = () => {
+    if (swappedRoof) {
+      swappedRoof.mesh.material = swappedRoof.original;
+      swappedRoof = null;
+    }
+    cosmeticBanner = null;
+    if (cosmeticsGroup) {
+      cosmeticsGroup.removeFromParent(); // lanternLight detaches too, object is reused
+      cosmeticsGroup.traverse((c) => {
+        const mesh = c as THREE.Mesh;
+        if (mesh.isMesh) mesh.geometry?.dispose?.();
+      });
+      cosmeticsGroup = null;
+    }
+  };
+  function applyHouseCosmetics() {
+    clearHouseCosmetics();
+    const g = playerHouseGroup;
+    const eq = equippedCosmetics;
+    if (!g || !eq) return;
+    const kit = new THREE.Group();
+    if (eq.light === 'hearth_lantern') {
+      // lantern post beside the door (house doors face local +z)
+      kit.add(cyl(0.045, 0.72, MAT.timberDark, 0.62, 0.36, 1.02, 6));
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.24, 0.2), glowMat);
+      head.position.set(0.62, 0.84, 1.02); // glowMat: warm at night, dull at day
+      kit.add(head);
+      kit.add(box(0.28, 0.06, 0.28, MAT.timberDark, 0.62, 0.99, 1.02));
+      if (!lanternLight) lanternLight = new THREE.PointLight(0xffc46a, 5, 7, 2);
+      lanternLight.position.set(0.62, 1.05, 1.3);
+      kit.add(lanternLight);
+    }
+    if (eq.banner === 'crimson_banner') {
+      kit.add(cyl(0.04, 2.1, MAT.timberDark, -0.95, 1.05, 0.55, 6));
+      const flagGeo = new THREE.PlaneGeometry(0.62, 0.42);
+      flagGeo.translate(0.31, 0, 0); // hinge on the pole so the tick swing pivots there
+      const flag = new THREE.Mesh(flagGeo, cosmeticBannerMat);
+      flag.position.set(-0.95, 1.84, 0.55);
+      cosmeticBanner = flag;
+      kit.add(flag);
+    }
+    if (eq.yard === 'garden_plot') {
+      // planter box + soil + green tufts + a tiny two-rail fence beside the footprint
+      kit.add(box(1.15, 0.2, 0.8, MAT.timberDark, 1.75, 0.1, 0.35));
+      kit.add(box(1.0, 0.16, 0.66, MAT.cropDark, 1.75, 0.16, 0.35));
+      for (const [tx, tz] of [[1.45, 0.22], [1.78, 0.52], [2.06, 0.24]] as const) {
+        const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.34, 5), cosmeticLeafMat);
+        tuft.position.set(tx, 0.4, tz);
+        kit.add(tuft);
+      }
+      for (const px of [1.2, 1.75, 2.3]) kit.add(cyl(0.035, 0.44, MAT.timber, px, 0.22, -0.2, 5));
+      kit.add(box(1.2, 0.05, 0.06, MAT.timber, 1.75, 0.34, -0.2));
+      kit.add(box(1.2, 0.05, 0.06, MAT.timber, 1.75, 0.18, -0.2));
+    }
+    if (eq.roof === 'slate_roof' || eq.roof === 'dawn_gold_trim') {
+      const roof = roofMeshOf(g);
+      if (roof) {
+        swappedRoof = { mesh: roof, original: roof.material };
+        roof.material = cosmeticRoofMat;
+        if (eq.roof === 'dawn_gold_trim') {
+          // gold ridge cap: a thin bar through the pyramid apex, sized off the
+          // live roof mesh because house dimensions are seeded per house
+          const apexY = roof.position.y + roof.scale.y * 0.5;
+          kit.add(box(Math.max(0.7, roof.scale.x * 0.4), 0.09, 0.15, cosmeticGoldMat, 0, apexY - 0.02, 0));
+          kit.add(box(0.18, 0.2, 0.18, cosmeticGoldMat, 0, apexY + 0.08, 0));
+        }
+      }
+    }
+    if (kit.children.length > 0) {
+      g.add(kit); // child of the house: survives tier rescale and facing rotation
+      cosmeticsGroup = kit;
+    }
+  }
+  function setHouseCosmetics(equipped: HouseCosmetics | null) {
+    try {
+      equippedCosmetics =
+        equipped && typeof equipped === 'object'
+          ? { roof: equipped.roof, banner: equipped.banner, light: equipped.light, yard: equipped.yard }
+          : null;
+      applyHouseCosmetics();
+    } catch {
+      /* cosmetic overlay, never throw into the caller */
+    }
+  }
+
   // ---------- one-redditor-one-house overlay (setHouses) ----------
   // Houses reveal by CONTRIBUTOR COUNT (not build stage): index 0 is the founding
   // house, your house is highlighted, and notable houses scale by tier
@@ -2192,7 +2351,11 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       clearHouseDecor();
       houseOwners.clear();
       ownedHouseGroups.length = 0;
-      if (!summary || total === 0) return;
+      playerHouseGroup = null;
+      if (!summary || total === 0) {
+        applyHouseCosmetics(); // no known player house: clears any equipped kit
+        return;
+      }
       const scaleFor = (t: number) => TIER_SCALE[Math.max(0, Math.min(4, Math.round(t)))] ?? 1;
       const yours = summary.yours;
       const currentUsername = summary.currentUsername || 'you';
@@ -2203,6 +2366,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
         ringHouse(founder);
         const label = yours && yours.index === 0 ? `🏛 u/${currentUsername} (founder)` : `🏛 u/${summary.founder?.username ?? 'founder'}`;
         labelHouse(founder, label, 3.0);
+        if (yours && yours.index === 0) playerHouseGroup = founder;
       }
       // your house (if not the founder)
       if (yours && yours.index > 0 && yours.index < total) {
@@ -2210,6 +2374,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
         g.scale.setScalar(scaleFor(yours.tier));
         ringHouse(g);
         labelHouse(g, `u/${currentUsername}`, 2.7);
+        playerHouseGroup = g;
       }
       // Named contributors scale by tier. Founder and current player remain the
       // only persistent labels so the city stays readable at the default zoom;
@@ -2222,8 +2387,212 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
         houseOwners.set(g, `u/${n.username}`);
         ownedHouseGroups.push(g);
       }
+      // equipped cosmetics follow the remapped player house across refreshes
+      applyHouseCosmetics();
     } catch {
       /* cosmetic overlay — never throw into the caller */
+    }
+  }
+
+  // ---------- community land expansions (setLandParcels) ----------
+  // The land is already present as wilderness on the same mainland. Funding a
+  // project replaces scrub with a developed district and opens the route north.
+  // Built once (lazily); subsequent updates only toggle groups and ridge rocks.
+  const parcelBandAt = (x: number, z: number): ParcelDef | null => {
+    const a = Math.atan2(z, x);
+    const off = angDist(a, PARCEL_ANGLE);
+    if (off > PARCEL_DEFS[0]!.half) return null;
+    const d = Math.hypot(x, z) - plateauR(a);
+    for (const p of PARCEL_DEFS) {
+      if (d >= p.d0 && d < p.d1 && off <= p.half) return p;
+    }
+    return null;
+  };
+  const rockCoveredBy = (x: number, z: number, p: ParcelDef) => {
+    const a = Math.atan2(z, x);
+    if (angDist(a, PARCEL_ANGLE) > p.half + 0.08) return false;
+    const d = Math.hypot(x, z) - plateauR(a);
+    return d >= p.d0 - 2.5 && d < p.d1 + 2.5;
+  };
+  type LandParcelVisual = { def: ParcelDef; developed: THREE.Group; frontier: THREE.Group };
+  let landParcels: LandParcelVisual[] | null = null;
+  function ensureLandParcels() {
+    if (landParcels) return landParcels;
+    const prng = makeRng(20260713); // own stream: the seeded town layout must stay byte-identical
+    const m4 = new THREE.Matrix4();
+    const col = new THREE.Color();
+    const frontierLeafMat = lam(C.leafDark);
+    // Contour-following anchor: tangential offset tx at depth dd past the old
+    // city core. The terrain beneath it is the always-visible mainland.
+    const spot = (tx: number, dd: number): [number, number] => {
+      const a = PARCEL_ANGLE + tx / 70;
+      const r = plateauR(a) + dd;
+      return [Math.cos(a) * r, Math.sin(a) * r];
+    };
+    // tiny hut from the same box + pyramid kit as the town's filler houses
+    const hutAt = (x: number, z: number, baseY: number, ry: number) => {
+      const hut = new THREE.Group();
+      const w = 1.5 + prng() * 0.4;
+      const hh = 1.0 + prng() * 0.25;
+      const hd = w * 0.85;
+      hut.add(box(w, hh, hd, prng() > 0.4 ? MAT.timber : MAT.plaster, 0, hh / 2, 0));
+      hut.add(pyramid(w * 1.15, 0.75 + prng() * 0.3, hd * 1.15, ROOFS[Math.floor(prng() * ROOFS.length)]!, 0, hh + 0.35, 0));
+      hut.add(glowCube(0.18, w * 0.28, hh * 0.6, hd / 2 + 0.03));
+      hut.position.set(x, baseY, z);
+      hut.rotation.y = ry;
+      return hut;
+    };
+    const built: LandParcelVisual[] = [];
+    for (const def of PARCEL_DEFS) {
+      const developed = new THREE.Group();
+      developed.name = `land-${def.id}`;
+      const frontier = new THREE.Group();
+      frontier.name = `frontier-${def.id}`;
+      const tiles: [number, number][] = [];
+      for (let ix = -46; ix <= 46; ix++) {
+        for (let iz = -104; iz <= -32; iz++) {
+          if (parcelBandAt(ix, iz) === def) tiles.push([ix, iz]);
+        }
+      }
+      if (tiles.length > 0) {
+        const ground = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.12, 1), lam(0xffffff), tiles.length);
+        ground.name = `${def.id}-developed-ground`;
+        ground.receiveShadow = true;
+        tiles.forEach(([x, z], i) => {
+          m4.identity();
+          m4.setPosition(x, def.top - 0.06, z);
+          ground.setMatrixAt(i, m4);
+          const a = Math.atan2(z, x);
+          const d = Math.hypot(x, z) - plateauR(a);
+          const check = (Math.abs(x) + Math.abs(z)) % 2;
+          const water = def.id === 'river_ward' && d >= 14.5 && d < 16;
+          const path = !water && angDist(a, PARCEL_ANGLE) < 0.025;
+          col.setHex(
+            water ? (check ? 0x4a7d99 : 0x406f8c)
+            : path ? (check ? C.dirt : C.dirtB)
+            : check ? C.grassA : C.grassB,
+          );
+          ground.setColorAt(i, col);
+        });
+        developed.add(ground);
+      }
+      if (def.id === 'outer_fields') {
+        // farmland belt: two crop patches + a low post-and-rail fence
+        for (const [tx, dd, fw] of [[-4.5, 5.0, 4.6], [4.2, 4.4, 5.0]] as const) {
+          const [fx, fz] = spot(tx, dd);
+          developed.add(box(fw, 0.12, 3.2, MAT.cropDark, fx, 0.1, fz));
+          for (let row = 0; row < 4; row++) {
+            developed.add(box(fw - 0.6, 0.2, 0.4, MAT.crop, fx, 0.22, fz - 1.05 + row * 0.7));
+          }
+        }
+        let prev: [number, number] | null = null;
+        for (let tx = -6; tx <= 6; tx += 2) {
+          const [px, pz] = spot(tx, 1.6);
+          developed.add(cyl(0.06, 0.66, MAT.timberDark, px, 0.33, pz, 5));
+          if (prev) {
+            const rail = box(Math.hypot(px - prev[0], pz - prev[1]), 0.06, 0.08, MAT.timber, (px + prev[0]) / 2, 0.52, (pz + prev[1]) / 2);
+            rail.rotation.y = Math.atan2(-(pz - prev[1]), px - prev[0]);
+            developed.add(rail);
+          }
+          prev = [px, pz];
+        }
+      } else if (def.id === 'river_ward') {
+        // riverside ward: huts along the channel + a plank bridge on the path
+        for (const [tx, dd, ry] of [[-4.5, 12.8, Math.PI], [4.2, 18.0, 0], [6.0, 12.5, Math.PI]] as const) {
+          const [hx, hz] = spot(tx, dd);
+          developed.add(hutAt(hx, hz, def.top, ry));
+        }
+        const [bx, bz] = spot(0, 15.2);
+        developed.add(box(1.6, 0.1, 2.8, MAT.timber, bx, def.top + 0.14, bz));
+        developed.add(box(0.08, 0.3, 2.8, MAT.timberDark, bx - 0.72, def.top + 0.32, bz));
+        developed.add(box(0.08, 0.3, 2.8, MAT.timberDark, bx + 0.72, def.top + 0.32, bz));
+      } else {
+        // The keep sits on a low connected hill whose base meets the mainland.
+        const [kx, kz] = spot(0, 25.0);
+        const hill = new THREE.Mesh(new THREE.CylinderGeometry(6, 9.5, 1.2, 14), lam(C.grassB, { flatShading: true }));
+        hill.position.set(kx, 0.42, kz);
+        hill.receiveShadow = true;
+        developed.add(hill);
+        const keep = new THREE.Group();
+        keep.add(box(3.0, 0.5, 3.0, MAT.stoneDark, 0, 0.25, 0));
+        keep.add(box(2.2, 2.2, 2.2, MAT.stone, 0, 1.6, 0));
+        keep.add(box(2.6, 0.35, 2.6, MAT.stoneDark, 0, 2.85, 0));
+        keep.add(box(1.6, 1.3, 1.6, MAT.stone, 0, 3.65, 0));
+        keep.add(pyramid(2.0, 1.1, 2.0, MAT.roofSlateDark, 0, 4.85, 0));
+        keep.add(glowCube(0.34, 0, 1.9, 1.12));
+        keep.position.set(kx, 1.02, kz);
+        developed.add(keep);
+        for (const [tx, dd, s] of [[-3.4, 22.5, 1.1], [3.2, 28.0, 1.4]] as const) {
+          const [rx, rz] = spot(tx, dd);
+          const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), lam(C.rockA, { flatShading: true }));
+          rock.scale.set(s, s * 1.2, s);
+          rock.position.set(rx, s * 0.5, rz);
+          rock.castShadow = true;
+          developed.add(rock);
+        }
+      }
+
+      // Undeveloped land remains visible. Sparse rocks and pines identify the
+      // next frontier without making it look owned or detached from the city.
+      for (let i = 0; i < 9; i++) {
+        const tx = (prng() - 0.5) * def.half * 110;
+        const dd = def.d0 + 1.2 + prng() * Math.max(1, def.d1 - def.d0 - 2.4);
+        const [wx, wz] = spot(tx, dd);
+        if (i % 3 === 0) {
+          const tree = new THREE.Group();
+          tree.add(cyl(0.12, 1.4, MAT.timberDark, 0, 0.7, 0, 6));
+          const crown = new THREE.Mesh(new THREE.ConeGeometry(0.85, 2.2, 7), frontierLeafMat);
+          crown.position.y = 2.0;
+          crown.castShadow = true;
+          tree.add(crown);
+          tree.position.set(wx, 0, wz);
+          frontier.add(tree);
+        } else {
+          const size = 0.45 + prng() * 0.75;
+          const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), lam(i % 2 ? C.rockA : C.rockB, { flatShading: true }));
+          rock.scale.set(size, size * (0.8 + prng() * 0.5), size);
+          rock.position.set(wx, size * 0.45, wz);
+          rock.rotation.y = prng() * Math.PI;
+          rock.castShadow = true;
+          frontier.add(rock);
+        }
+      }
+      developed.visible = false;
+      frontier.visible = true;
+      scene.add(frontier, developed);
+      built.push({ def, developed, frontier });
+    }
+    landParcels = built;
+    return built;
+  }
+  function setLandParcels(unlocked: string[]) {
+    try {
+      const ids = new Set(Array.isArray(unlocked) ? unlocked : []);
+      const parcels = ensureLandParcels();
+      unlockedLandIds.clear();
+      for (const parcel of parcels) {
+        const open = ids.has(parcel.def.id);
+        parcel.developed.visible = open;
+        parcel.frontier.visible = !open;
+        if (open) unlockedLandIds.add(parcel.def.id);
+      }
+      cameraMinZ = ids.has('high_keep') ? -94 : ids.has('river_ward') ? -84 : ids.has('outer_fields') ? -74 : -52;
+      controls.target.z = THREE.MathUtils.clamp(controls.target.z, cameraMinZ, 52);
+
+      // Open a pass through the frontier ridge for each developed district.
+      if (mountainInst) {
+        const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
+        for (let i = 0; i < mountainRockSpots.length; i++) {
+          const [rx, rz] = mountainRockSpots[i]!;
+          const original = mountainRockMatrices[i];
+          if (!original) continue;
+          const hide = parcels.some((parcel) => parcel.developed.visible && rockCoveredBy(rx, rz, parcel.def));
+          mountainInst.setMatrixAt(i, hide ? hidden : original);
+        }
+        mountainInst.instanceMatrix.needsUpdate = true;
+      }
+    } catch {
+      /* cosmetic overlay, never throw into the caller */
     }
   }
 
@@ -2254,6 +2623,8 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     setBuildMode,
     setBuildStage,
     setHouses,
+    setHouseCosmetics,
+    setLandParcels,
     setDistantCities: (cities) => {
       try {
         applyDistantCities(Array.isArray(cities) ? cities : []);
@@ -2274,6 +2645,13 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       renderer.setAnimationLoop(null);
       window.clearInterval(chatTimer);
       clearRaiders(); // drops cloned raider materials before the scene sweep
+      // shared cosmetic materials may be detached right now; the sweep below
+      // only reaches what is in the graph (double dispose is harmless)
+      lanternLight?.dispose();
+      cosmeticRoofMat.dispose();
+      cosmeticGoldMat.dispose();
+      cosmeticBannerMat.dispose();
+      cosmeticLeafMat.dispose();
       for (const t of ownerTimers) window.clearTimeout(t);
       ownerTimers.clear();
       for (const a of actors) {
