@@ -135,6 +135,10 @@ const LEADERBOARD = {
 //   MOCK_FALLEN=1    → city.status 'fallen'          → fallen terminal screen
 //   MOCK_CAMP=1      → brand-new city progression    → Camp / no buildings
 const PLAYER_V = { ...PLAYER, role: process.env.MOCK_ROLE_NULL ? null : PLAYER.role, avatar: null };
+// Stateful like the vote/strategy mocks: after /rekindle, later /init polls
+// must reflect the restored streak (the real server persists it under lock).
+// Without this, a slow post-rekindle refresh resurrects the rekindle offer.
+let mockPlayer = PLAYER_V;
 const CAMP_BUILD = {
   stage: 0, stageLabel: 'Camp', unlocked: [],
   next: { id: 'shelter', name: 'Shelter', description: 'Tents become homes, fewer are lost to the cold.', progressRequired: 24, effect: '+1 morale/day' },
@@ -159,7 +163,7 @@ let mockMutationDone = false;
 const currentHouses = () => (mockHasHouse ? INIT.houses : NO_HOUSE);
 const currentInit = () => ({
   ...INIT,
-  player: PLAYER_V,
+  player: mockPlayer,
   city: CITY_V,
   crisisVotes: mockCrisisVotes,
   yourCrisisVote: mockCrisisVote,
@@ -193,7 +197,8 @@ const mockApi = () => ({
         // client's re-fetch path is exercised. Other actions keep the old shape.
         const acts = b.action === 'build_city' ? { grow_food: 1, build_city: 1 } : { grow_food: 1, guard_wall: 1 };
         mockActions = acts;
-        return send(res, { type: 'action', player: { ...PLAYER_V, energyUsedToday: 2 }, effectiveEnergy: 3, yourActionsToday: acts, unlockedTitle: null });
+        mockPlayer = { ...mockPlayer, energyUsedToday: 2 };
+        return send(res, { type: 'action', player: mockPlayer, effectiveEnergy: 3, yourActionsToday: acts, unlockedTitle: null });
       }
       if (path === '/api/vote') {
         mockHasHouse = true;
@@ -202,13 +207,14 @@ const mockApi = () => ({
         return send(res, { type: 'vote', crisisVotes: mockCrisisVotes, yourCrisisVote: mockCrisisVote });
       }
       if (path === '/api/rekindle') {
-        return send(res, { type: 'rekindle', player: { ...PLAYER, streak: 12, lapsedStreak: 0 }, cost: 24 });
+        mockPlayer = { ...mockPlayer, streak: 12, lapsedStreak: 0 };
+        return send(res, { type: 'rekindle', player: mockPlayer, cost: 24 });
       }
       if (path === '/api/pledge') {
         mockHasHouse = true;
         mockMarked = { ...MARKED, pledged: 26 };
         mockPledge = { ...PLEDGE, usedToday: true };
-        return send(res, { type: 'pledge', marked: mockMarked, pledge: mockPledge, player: PLAYER_V });
+        return send(res, { type: 'pledge', marked: mockMarked, pledge: mockPledge, player: mockPlayer });
       }
       if (path === '/api/strategy') {
         mockHasHouse = true;
@@ -216,9 +222,9 @@ const mockApi = () => ({
         mockStrategyVote = 'prepare_raid';
         return send(res, { type: 'strategy', strategyVotes: mockStrategyVotes, yourStrategyVote: mockStrategyVote });
       }
-      if (path === '/api/role') { const b = await readBody(req); return send(res, { type: 'role', player: { ...PLAYER_V, role: b.role ?? 'guard', roleChangedDay: 6 } }); }
+      if (path === '/api/role') { const b = await readBody(req); mockPlayer = { ...mockPlayer, role: b.role ?? 'guard', roleChangedDay: 6 }; return send(res, { type: 'role', player: mockPlayer }); }
       if (path === '/api/avatar' && process.env.MOCK_AVATAR_FAIL) return send(res, { status: 'error', message: 'mock avatar failure' }, 503);
-      if (path === '/api/avatar') { const b = await readBody(req); return send(res, { type: 'avatar', player: { ...PLAYER_V, avatar: b.avatar ?? null } }); }
+      if (path === '/api/avatar') { const b = await readBody(req); mockPlayer = { ...mockPlayer, avatar: b.avatar ?? null }; return send(res, { type: 'avatar', player: mockPlayer }); }
       return next();
     });
   },
