@@ -18,7 +18,7 @@
         position: relative;
         min-height: 100vh;
         overflow: hidden;
-        background: linear-gradient(rgba(16, 13, 11, 0.45), rgba(16, 13, 11, 0.8)), url('splash-art.jpg') center / cover no-repeat, radial-gradient(120% 90% at 78% 88%, #2c2313 0%, #1a1410 42%, #100d0b 100%);
+        background: linear-gradient(90deg, rgba(12, 8, 6, 0.94) 0%, rgba(20, 10, 6, 0.72) 48%, rgba(28, 8, 5, 0.2) 100%), url('/splash-art.jpg') center 58% / cover no-repeat, #100d0b;
         color: #f2eee5;
         font-family: 'JetBrains Mono', Consolas, monospace;
         border-top: 2px solid #6e5b1e;
@@ -34,19 +34,17 @@
       .signals b { color: #e8c34a; font-size: 11px; }
       .start-button { display: inline-flex; align-items: center; justify-content: center; gap: 14px; min-height: 48px; margin-top: 20px; padding: 12px 18px; border: 1px solid #80651f; border-radius: 6px; background: #e8c34a; box-shadow: 0 4px 0 #6b5218; color: #171109; cursor: pointer; font: 700 11px/1 'Silkscreen', monospace; }
       .start-button:hover { background: #f3d467; }
-      .snoo { position: absolute; right: clamp(8px, 2.5vw, 28px); bottom: -8%; z-index: 1; width: min(43vw, 390px); max-height: 96%; object-fit: contain; object-position: right bottom; filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.5)); }
       .footer { position: absolute; right: clamp(14px, 3vw, 32px); bottom: 10px; z-index: 3; color: #756d62; font: 400 7px/1 'Silkscreen', monospace; letter-spacing: 1px; }
       @media (max-width: 600px) {
         .splash-shell { align-items: flex-start; padding: 24px 20px 70px; }
         .content { width: 100%; }
-        .snoo { right: 0; bottom: -18px; width: min(68vw, 290px); opacity: 0.58; }
+        body.app { background-position: center, center 76%, center; background-size: auto, auto 210%, auto; }
         .footer { right: auto; left: 20px; }
       }
     </style>
   </head>
   <body class="app">
     <main class="splash-shell">
-      <img class="snoo" src="snoo.png" alt="A Reddit survivor carrying supplies for the city" />
       <div class="content">
         <p class="eyebrow">SURVIVE · CHOOSE · REMEMBER</p>
         <h1 class="title">ONE MORE DAWN</h1>

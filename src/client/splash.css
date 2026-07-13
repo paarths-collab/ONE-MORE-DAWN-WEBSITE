@@ -23,7 +23,7 @@ body {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  background: linear-gradient(rgba(16, 13, 11, 0.45), rgba(16, 13, 11, 0.8)), url('splash-art.jpg') center / cover no-repeat, #100d0b;
+  background: linear-gradient(90deg, rgba(12, 8, 6, 0.94) 0%, rgba(20, 10, 6, 0.72) 48%, rgba(28, 8, 5, 0.2) 100%), url('/splash-art.jpg') center 58% / cover no-repeat, #100d0b;
   color: var(--ink);
   font-family: var(--mono);
   border-top: 2px solid var(--line);
@@ -131,18 +131,6 @@ body {
   box-shadow: 0 1px 0 #6b5218;
 }
 
-.snoo {
-  position: absolute;
-  right: clamp(8px, 2.5vw, 28px);
-  bottom: -8%;
-  z-index: 1;
-  width: min(43vw, 390px);
-  max-height: 96%;
-  object-fit: contain;
-  object-position: right bottom;
-  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.5));
-}
-
 .footer {
   position: absolute;
   right: clamp(14px, 3vw, 32px);
@@ -172,11 +160,9 @@ body {
     max-width: 72%;
   }
 
-  .snoo {
-    right: 0;
-    bottom: -18px;
-    width: min(68vw, 290px);
-    opacity: 0.58;
+  .app {
+    background-position: center, center 76%, center;
+    background-size: auto, auto 210%, auto;
   }
 
   .footer {
