@@ -102,6 +102,7 @@ menu.post('/reset', async (c) => {
       KEYS.dayStrategyVoters(d),
       KEYS.dayMarked(d),
       KEYS.dayPledgers(d),
+      KEYS.dayChallenges(old?.cycle ?? cycle, d),
     );
   }
   // Long cycles build a big key list — delete in bounded batches so a single

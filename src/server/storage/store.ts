@@ -2,6 +2,7 @@ import type {
   ActionType, CityState, FactionId, PledgeKind, PlayerProfile, TimelineEntry, VoteTally,
 } from '../../shared/types';
 import { isPledgeKind, type PledgerEntry } from '../game/pledges';
+import { isChallenge, type Challenge } from '../../shared/challenges';
 import { KEYS } from './redisKeys';
 
 /** The subset of the Devvit redis client the store uses. Tests provide a fake. */
@@ -113,6 +114,14 @@ export class Store {
 
   async savePlayer(player: PlayerProfile): Promise<void> {
     await this.redis.hSet(KEYS.players, { [player.userId]: JSON.stringify(player) });
+  }
+
+  async savePlayers(players: PlayerProfile[]): Promise<void> {
+    if (players.length === 0) return;
+    await this.redis.hSet(
+      KEYS.players,
+      Object.fromEntries(players.map((player) => [player.userId, JSON.stringify(player)])),
+    );
   }
 
   // ----- actions -----
@@ -382,7 +391,21 @@ export class Store {
 
   // ----- timeline + history -----
   async appendTimeline(entry: TimelineEntry): Promise<void> {
-    await this.redis.hSet(KEYS.timeline, { [String(entry.day)]: JSON.stringify(entry) });
+    await this.redis.hSet(KEYS.timeline, {
+      [`${entry.cycle}:${entry.day}`]: JSON.stringify(entry),
+    });
+  }
+
+  async getDailyChallenge(cycle: number, day: number, userId: string): Promise<Challenge | null> {
+    const raw = await this.redis.hGet(KEYS.dayChallenges(cycle, day), userId);
+    const parsed = safeParse<unknown>(raw, null);
+    return isChallenge(parsed) ? parsed : null;
+  }
+
+  async setDailyChallenge(cycle: number, day: number, userId: string, challenge: Challenge): Promise<void> {
+    await this.redis.hSet(KEYS.dayChallenges(cycle, day), {
+      [userId]: JSON.stringify(challenge),
+    });
   }
 
   async getTimeline(limit: number): Promise<TimelineEntry[]> {
@@ -390,7 +413,7 @@ export class Store {
     return Object.values(all)
       .map((raw) => safeParse<TimelineEntry | null>(raw, null))
       .filter((entry): entry is TimelineEntry => entry !== null)
-      .sort((a, b) => b.day - a.day)
+      .sort((a, b) => b.cycle - a.cycle || b.day - a.day)
       .slice(0, limit);
   }
 

@@ -334,6 +334,14 @@ describe('GET /api/init — daily mission (the 100-level hook)', () => {
     expect(body.challenge.done).toBe(false);
   });
 
+  it('keeps the assigned mission stable when standing changes during the day', async () => {
+    await openUser('t2_stable', 'steady');
+    const first = (await (await api.request('/init')).json()) as InitResponse;
+    await store.addContribution('t2_stable', 10_000);
+    const second = (await (await api.request('/init')).json()) as InitResponse;
+    expect(second.challenge).toEqual(first.challenge);
+  });
+
   it('awards the completion bonus exactly once, even across repeated inits', async () => {
     // find a user whose mission today is the crisis vote (cheap to complete)
     let uid = '';

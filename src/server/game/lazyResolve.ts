@@ -1,4 +1,5 @@
 import type { ActionType, CityState, Role } from '../../shared/types';
+import { BALANCE } from '../../shared/balance';
 import { KEYS } from '../storage/redisKeys';
 import type { RedisLike } from '../storage/store';
 import { Store } from '../storage/store';
@@ -74,22 +75,44 @@ export const runLazyResolution = async (
 
     if (city.status !== 'alive') {
       // --- Phoenix Dawn: rebirth into the next cycle ---
+      const fallenDay = city.day;
+      const fallenCycle = city.cycle;
       // CLEARED: houses (re-earned instantly at the tier your lifetime
       // contribution has already banked), day-scoped ballots/actions (their
       // day numbers would collide with the new cycle's), marked outcomes.
       // KEPT: player profiles, lifetime contribution + scout leaderboards,
       // and the timeline — the city remembers every cycle, including its falls.
       const keysToDelete: string[] = [KEYS.housesIndex, KEYS.housesMeta, KEYS.markedOutcomes];
-      for (let d = 1; d <= city.day + 1; d++) {
+      for (let d = 1; d <= fallenDay + 1; d++) {
         keysToDelete.push(
           KEYS.dayActions(d), KEYS.dayUserActions(d), KEYS.dayVotes(d), KEYS.dayVoters(d),
           KEYS.dayMissions(d), KEYS.dayFactionInfluence(d), KEYS.dayStrategyPlan(d),
           KEYS.dayStrategyVoters(d), KEYS.dayMarked(d), KEYS.dayPledgers(d),
+          KEYS.dayChallenges(fallenCycle, d),
         );
       }
       for (let i = 0; i < keysToDelete.length; i += 100) {
         await redis.del(...keysToDelete.slice(i, i + 100));
       }
+      const players = await store.getAllPlayers();
+      await store.savePlayers(
+        players.map((player) => {
+          const activeAtFall = player.lastActiveDay === fallenDay;
+          const deadStreak =
+            !activeAtFall && player.streak >= BALANCE.rekindle.minStreak
+              ? player.streak
+              : 0;
+          return {
+            ...player,
+            energyUsedToday: 0,
+            lastActiveDay: activeAtFall ? 0 : -1,
+            injuredUntilDay: 0,
+            roleChangedDay: 0,
+            streak: activeAtFall ? player.streak : 1,
+            lapsedStreak: Math.max(player.lapsedStreak ?? 0, deadStreak),
+          };
+        }),
+      );
       const reborn = newCityState(city.cycle + 1, worldSeed);
       await store.setCityState(reborn);
       await store.appendTimeline({

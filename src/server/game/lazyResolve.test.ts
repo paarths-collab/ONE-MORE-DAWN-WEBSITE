@@ -82,7 +82,13 @@ describe('runLazyResolution', () => {
     await runLazyResolution(store, redis, new Date('2026-07-04T10:00:00Z'), 0);
     // A lived-in cycle-2 city that fell on day 9.
     await store.setCityState({ ...newCityState(2), day: 9, status: 'fallen' as const });
-    await store.savePlayer(freshPlayer('t2_vet', 'veteran', 9));
+    await store.savePlayer({
+      ...freshPlayer('t2_vet', 'veteran', 9),
+      energyUsedToday: 3,
+      injuredUntilDay: 10,
+      roleChangedDay: 8,
+      streak: 7,
+    });
     await store.addContribution('t2_vet', 120); // lifetime score → house tier legacy
     await store.registerHouse('t2_vet');
     await redis.hSet(KEYS.dayVoters(9), { t2_vet: 'a' });
@@ -95,7 +101,14 @@ describe('runLazyResolution', () => {
     expect(city.unlockedBuildings).toEqual([]);
 
     // Legacy kept: profile + lifetime contribution survive the fall.
-    expect((await store.getPlayer('t2_vet'))?.username).toBe('veteran');
+    expect(await store.getPlayer('t2_vet')).toMatchObject({
+      username: 'veteran',
+      energyUsedToday: 0,
+      lastActiveDay: 0,
+      injuredUntilDay: 0,
+      roleChangedDay: 0,
+      streak: 7,
+    });
     expect(await store.getContributionScore('t2_vet')).toBe(120);
     // City reset: houses and day-scoped ballots cleared.
     expect(await store.getHouseCount()).toBe(0);
