@@ -345,6 +345,7 @@ describe('Coin economy — accepted contributions earn, everything else does not
     // /init serves the server-authoritative wire shape.
     const init = (await (await api.request('/init')).json()) as InitResponse;
     expect(init.economy).toEqual({ coins: 5, earnedToday: 5, dailyCap: 5, owned: [], equipped: {} });
+    expect(init.land).toMatchObject({ activeProjectId: 'outer_fields', unlocked: [] });
   });
 
   it('rejected duplicates earn nothing', async () => {

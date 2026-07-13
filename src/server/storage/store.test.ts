@@ -453,6 +453,20 @@ describe('Store', () => {
     ]);
   });
 
+  it('reads connected land funding safely from the shared Redis hash', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    await redis.hSet(KEYS.landFunding, {
+      outer_fields: '120',
+      river_ward: '40',
+      high_keep: 'not-a-number',
+    });
+    const land = await store.getLandExpansionState();
+    expect(land.activeProjectId).toBe('river_ward');
+    expect(land.unlocked).toEqual(['outer_fields']);
+    expect(land.projects.map((project) => project.funded)).toEqual([120, 40, 0]);
+  });
+
   // ----- hook layer: the Marked + one-tap pledges -----
 
   it('bumps and reads the marked pledge counter (0 by default, 0-bump no-op)', async () => {

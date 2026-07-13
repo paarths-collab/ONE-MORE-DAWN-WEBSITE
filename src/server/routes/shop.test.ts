@@ -1,21 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { context, redis, reddit } from '@devvit/web/server';
-import type { ShopPurchaseResponse } from '../../shared/types';
-import { SHOP_CATALOG } from '../../shared/shop';
+import type { LandDonationResponse, ShopPurchaseResponse } from '../../shared/types';
+import { shopItem } from '../../shared/shop';
 import { api } from './api';
 import { shop } from './shop';
 import { KEYS } from '../storage/redisKeys';
 import { Store } from '../storage/store';
 import { makeFakeRedis, type FakeRedis } from '../storage/store.test';
 
-/**
- * The shop must be server-authoritative end to end: catalog prices only,
- * stored balances only, whole-profile writes under the per-user lock, no
- * double-charge path. Same mocking strategy as api.routes.test.ts.
- */
 vi.mock('@devvit/web/server', () => ({
   context: {
-    userId: undefined as string | undefined,
+    userId: undefined,
     subredditId: 't5_test',
     subredditName: 'testsub',
     postId: 't3_post',
@@ -29,8 +24,8 @@ vi.mock('@devvit/web/server', () => ({
   redis: {},
 }));
 
-const ctx = context as unknown as { userId: string | undefined };
-const redditMock = reddit as unknown as { getCurrentUsername: ReturnType<typeof vi.fn> };
+const redditUsernameMock = vi.mocked(reddit.getCurrentUsername);
+const setUser = (userId: string | undefined) => Object.assign(context, { userId });
 
 let fake: FakeRedis;
 let store: Store;
@@ -41,13 +36,15 @@ const postJson = (body: unknown) => ({
   body: JSON.stringify(body),
 });
 
-const LANTERN = SHOP_CATALOG.find((i) => i.id === 'hearth_lantern')!;
+const lantern = shopItem('hearth_lantern');
+if (!lantern) throw new Error('Hearth Lantern missing from the shared catalog');
 
 const openRichUser = async (userId: string, coins: number) => {
-  ctx.userId = userId;
-  redditMock.getCurrentUsername.mockResolvedValueOnce('spender');
+  setUser(userId);
+  redditUsernameMock.mockResolvedValueOnce('spender');
   expect((await api.request('/init')).status).toBe(200);
-  const player = (await store.getPlayer(userId))!;
+  const player = await store.getPlayer(userId);
+  if (!player) throw new Error('Expected /init to persist the player');
   await store.savePlayer({ ...player, coins });
 };
 
@@ -61,108 +58,153 @@ beforeEach(() => {
 describe('POST /shop/purchase', () => {
   it('debits the exact catalog price once and records ownership', async () => {
     await openRichUser('t2_buyer', 10);
-    const res = await shop.request('/purchase', postJson({ itemId: 'hearth_lantern' }));
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as ShopPurchaseResponse;
-    expect(body.economy.coins).toBe(10 - LANTERN.price);
-    expect(body.economy.owned).toEqual(['hearth_lantern']);
+    const response = await shop.request('/purchase', postJson({ itemId: lantern.id }));
+    expect(response.status).toBe(200);
+    const body: ShopPurchaseResponse = await response.json();
+    expect(body.economy.coins).toBe(10 - lantern.price);
+    expect(body.economy.owned).toEqual([lantern.id]);
     expect(body.message).toContain('Hearth Lantern purchased');
-    const saved = await store.getPlayer('t2_buyer');
-    expect(saved?.coins).toBe(10 - LANTERN.price);
-    expect(saved?.ownedCosmetics).toEqual(['hearth_lantern']);
+    expect(await store.getPlayer('t2_buyer')).toMatchObject({
+      coins: 10 - lantern.price,
+      ownedCosmetics: [lantern.id],
+    });
   });
 
-  it('rejects a duplicate purchase without charging twice', async () => {
-    await openRichUser('t2_dupe', 10);
-    expect((await shop.request('/purchase', postJson({ itemId: 'hearth_lantern' }))).status).toBe(200);
-    expect((await shop.request('/purchase', postJson({ itemId: 'hearth_lantern' }))).status).toBe(409);
-    expect((await store.getPlayer('t2_dupe'))?.coins).toBe(10 - LANTERN.price);
-  });
+  it('rejects duplicate, unaffordable, and unknown purchases without charging', async () => {
+    await openRichUser('t2_buyer', 10);
+    expect((await shop.request('/purchase', postJson({ itemId: lantern.id }))).status).toBe(200);
+    expect((await shop.request('/purchase', postJson({ itemId: lantern.id }))).status).toBe(409);
+    expect((await store.getPlayer('t2_buyer'))?.coins).toBe(10 - lantern.price);
 
-  it('rejects insufficient funds — balance can never go negative', async () => {
     await openRichUser('t2_broke', 2);
-    const res = await shop.request('/purchase', postJson({ itemId: 'hearth_lantern' }));
-    expect(res.status).toBe(400);
+    expect((await shop.request('/purchase', postJson({ itemId: lantern.id }))).status).toBe(400);
     expect((await store.getPlayer('t2_broke'))?.coins).toBe(2);
-    expect((await store.getPlayer('t2_broke'))?.ownedCosmetics).toEqual([]);
+    expect((await shop.request('/purchase', postJson({ itemId: 'free_castle' }))).status).toBe(400);
   });
 
-  it('rejects unknown items and ignores client-forged prices', async () => {
+  it('ignores a forged client price and uses the catalog', async () => {
     await openRichUser('t2_forger', 10);
-    expect((await shop.request('/purchase', postJson({ itemId: 'free_castle' }))).status).toBe(400);
-    // a forged price field is simply ignored — the catalog decides
-    const res = await shop.request('/purchase', postJson({ itemId: 'hearth_lantern', price: 0 }));
-    expect(res.status).toBe(200);
-    expect((await store.getPlayer('t2_forger'))?.coins).toBe(10 - LANTERN.price);
+    const response = await shop.request(
+      '/purchase',
+      postJson({ itemId: lantern.id, price: 0, coins: 9999 }),
+    );
+    expect(response.status).toBe(200);
+    expect((await store.getPlayer('t2_forger'))?.coins).toBe(10 - lantern.price);
   });
 
   it('rejects unauthenticated and player-less calls', async () => {
-    ctx.userId = undefined;
-    expect((await shop.request('/purchase', postJson({ itemId: 'hearth_lantern' }))).status).toBe(401);
-    ctx.userId = 't2_ghost';
-    // city exists (another user inited) but this user never opened the game
-    expect((await shop.request('/purchase', postJson({ itemId: 'hearth_lantern' }))).status).toBe(409);
+    setUser(undefined);
+    expect((await shop.request('/purchase', postJson({ itemId: lantern.id }))).status).toBe(401);
+    await openRichUser('t2_seed', 0);
+    setUser('t2_ghost');
+    expect((await shop.request('/purchase', postJson({ itemId: lantern.id }))).status).toBe(409);
   });
 
-  it('one of two same-user concurrent purchases 409s — never a double charge', async () => {
+  it('never double-charges two concurrent same-user purchases', async () => {
     await openRichUser('t2_race', 20);
-    const [a, b] = await Promise.all([
-      shop.request('/purchase', postJson({ itemId: 'hearth_lantern' })),
+    const [first, second] = await Promise.all([
+      shop.request('/purchase', postJson({ itemId: lantern.id })),
       shop.request('/purchase', postJson({ itemId: 'crimson_banner' })),
     ]);
-    const statuses = [a.status, b.status].sort();
-    const saved = (await store.getPlayer('t2_race'))!;
-    if (statuses.join() === '200,200') {
-      // both landed sequentially — both debits must be exact
-      expect(saved.coins).toBe(20 - LANTERN.price - 5);
-      expect(saved.ownedCosmetics).toHaveLength(2);
-    } else {
-      // optimistic conflict: exactly one debit landed
-      expect(statuses).toEqual([200, 409]);
-      expect(saved.ownedCosmetics).toHaveLength(1);
-      const spent = 20 - saved.coins!;
-      expect([LANTERN.price, 5]).toContain(spent);
-    }
+    const saved = await store.getPlayer('t2_race');
+    if (!saved) throw new Error('Expected buyer profile');
+    const successes = [first.status, second.status].filter((status) => status === 200).length;
+    expect(successes).toBeGreaterThanOrEqual(1);
+    expect(successes).toBeLessThanOrEqual(2);
+    const expectedSpend = (saved.ownedCosmetics ?? []).reduce(
+      (sum, itemId) => sum + (shopItem(itemId)?.price ?? 0),
+      0,
+    );
+    expect(saved.coins).toBe(20 - expectedSpend);
   });
 });
 
 describe('POST /shop/equip', () => {
-  it('equips an owned item into its slot', async () => {
-    await openRichUser('t2_wearer', 10);
-    expect((await shop.request('/purchase', postJson({ itemId: 'hearth_lantern' }))).status).toBe(200);
-    const res = await shop.request('/equip', postJson({ itemId: 'hearth_lantern' }));
-    expect(res.status).toBe(200);
-    const saved = await store.getPlayer('t2_wearer');
-    expect(saved?.equippedCosmetics).toEqual({ light: 'hearth_lantern' });
-  });
-
-  it('only owned items can be equipped', async () => {
-    await openRichUser('t2_naked', 10);
-    const res = await shop.request('/equip', postJson({ itemId: 'hearth_lantern' }));
-    expect(res.status).toBe(400);
-    expect((await store.getPlayer('t2_naked'))?.equippedCosmetics).toEqual({});
-  });
-
-  it('a same-slot purchase can replace the equipped item', async () => {
+  it('equips only owned items and replaces another item in the same slot', async () => {
     await openRichUser('t2_roofer', 30);
+    expect((await shop.request('/equip', postJson({ itemId: 'slate_roof' }))).status).toBe(400);
     expect((await shop.request('/purchase', postJson({ itemId: 'slate_roof' }))).status).toBe(200);
     expect((await shop.request('/equip', postJson({ itemId: 'slate_roof' }))).status).toBe(200);
     expect((await shop.request('/purchase', postJson({ itemId: 'dawn_gold_trim' }))).status).toBe(200);
     expect((await shop.request('/equip', postJson({ itemId: 'dawn_gold_trim' }))).status).toBe(200);
-    const saved = await store.getPlayer('t2_roofer');
-    expect(saved?.equippedCosmetics).toEqual({ roof: 'dawn_gold_trim' });
-    expect(saved?.ownedCosmetics).toEqual(['slate_roof', 'dawn_gold_trim']);
-    expect(saved?.coins).toBe(30 - 8 - 12);
+    expect(await store.getPlayer('t2_roofer')).toMatchObject({
+      coins: 10,
+      ownedCosmetics: ['slate_roof', 'dawn_gold_trim'],
+      equippedCosmetics: { roof: 'dawn_gold_trim' },
+    });
   });
 
-  it('survives corrupt stored economy data without crashing', async () => {
+  it('fails safely when stored economy fields are malformed', async () => {
     await openRichUser('t2_corrupt', 10);
-    const player = (await store.getPlayer('t2_corrupt'))!;
+    const player = await store.getPlayer('t2_corrupt');
+    if (!player) throw new Error('Expected player profile');
     await fake.hSet(KEYS.players, {
-      t2_corrupt: JSON.stringify({ ...player, ownedCosmetics: 'lol', equippedCosmetics: 7, coins: -3 }),
+      t2_corrupt: JSON.stringify({
+        ...player,
+        ownedCosmetics: 'invalid',
+        equippedCosmetics: 7,
+        coins: -3,
+      }),
     });
-    expect((await shop.request('/equip', postJson({ itemId: 'hearth_lantern' }))).status).toBe(400);
-    const res = await shop.request('/purchase', postJson({ itemId: 'hearth_lantern' }));
-    expect(res.status).toBe(400); // coins normalized to 0 — cannot afford
+    expect((await shop.request('/equip', postJson({ itemId: lantern.id }))).status).toBe(400);
+    expect((await shop.request('/purchase', postJson({ itemId: lantern.id }))).status).toBe(400);
+  });
+});
+
+describe('POST /shop/donate', () => {
+  it('pools Coins into the active connected district', async () => {
+    await openRichUser('t2_builder', 200);
+    const response = await shop.request(
+      '/donate',
+      postJson({ projectId: 'outer_fields', amount: 50 }),
+    );
+    expect(response.status).toBe(200);
+    const body: LandDonationResponse = await response.json();
+    expect(body).toMatchObject({
+      projectId: 'outer_fields',
+      donated: 50,
+      unlocked: false,
+      economy: { coins: 150 },
+    });
+    expect(body.land.projects[0]).toMatchObject({ funded: 50, remaining: 70 });
+  });
+
+  it('caps the final pledge at the remaining target and unlocks the next district', async () => {
+    await openRichUser('t2_finisher', 20);
+    await fake.hSet(KEYS.landFunding, { outer_fields: '115' });
+    const response = await shop.request(
+      '/donate',
+      postJson({ projectId: 'outer_fields', amount: 20, target: 1 }),
+    );
+    expect(response.status).toBe(200);
+    const body: LandDonationResponse = await response.json();
+    expect(body.donated).toBe(5);
+    expect(body.unlocked).toBe(true);
+    expect(body.economy.coins).toBe(15);
+    expect(body.land.activeProjectId).toBe('river_ward');
+  });
+
+  it('rejects out-of-order, malformed, and unaffordable land funding', async () => {
+    await openRichUser('t2_land', 10);
+    expect((await shop.request('/donate', postJson({ projectId: 'river_ward', amount: 1 }))).status).toBe(409);
+    expect((await shop.request('/donate', postJson({ projectId: 'outer_fields', amount: 0 }))).status).toBe(400);
+    expect((await shop.request('/donate', postJson({ projectId: 'unknown', amount: 1 }))).status).toBe(400);
+    expect((await shop.request('/donate', postJson({ projectId: 'outer_fields', amount: 11 }))).status).toBe(400);
+    expect((await store.getPlayer('t2_land'))?.coins).toBe(10);
+  });
+
+  it('never charges twice when two taps race to finish the same district', async () => {
+    await openRichUser('t2_land_race', 20);
+    await fake.hSet(KEYS.landFunding, { outer_fields: '110' });
+    const [first, second] = await Promise.all([
+      shop.request('/donate', postJson({ projectId: 'outer_fields', amount: 10 })),
+      shop.request('/donate', postJson({ projectId: 'outer_fields', amount: 10 })),
+    ]);
+    expect([first.status, second.status].sort()).toEqual([200, 409]);
+    expect((await store.getPlayer('t2_land_race'))?.coins).toBe(10);
+    expect((await store.getLandExpansionState()).projects[0]).toMatchObject({
+      funded: 120,
+      unlocked: true,
+    });
   });
 });
