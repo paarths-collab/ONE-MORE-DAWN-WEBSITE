@@ -639,6 +639,11 @@ api.post('/action', async (c) => {
   // exec so no stale save can run after the per-user lock has been released.
   const repped = bumpRoleRep(factionUpdated, factionUpdated.role!, BALANCE.roleRepPerAction);
   const finalPlayer = repped.player;
+  // Personal action history is a JSON blob, so its read-modify-write must ride
+  // the SAME per-user lock as the energy spend — done post-commit it raced a
+  // second tab and lost actions (breaking mission progress).
+  const mine = await store.getUserActions(city.day, user.userId);
+  mine[body.action] = (mine[body.action] ?? 0) + 1;
   const committed = await lock.commit(async (tx) => {
     await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(finalPlayer) });
     if (faction) {
@@ -648,17 +653,19 @@ api.post('/action', async (c) => {
         BALANCE.factionRepPerAction,
       );
     }
+    await tx.hIncrBy(KEYS.dayActions(city.day), body.action, 1);
+    await tx.hSet(KEYS.dayUserActions(city.day), { [user.userId]: JSON.stringify(mine) });
   });
   if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
   }
 
   // Non-critical bookkeeping outside the tx (contribution mirror + aggregates),
-  // in parallel — none of these read each other's writes. Faction influence
-  // rides along when the action maps to a faction.
+  // in parallel — every write here is an atomic increment or NX claim, never a
+  // read-modify-write. Faction influence rides along when the action maps to
+  // a faction.
   await Promise.all([
     store.registerHouse(user.userId),
-    store.recordAction(city.day, user.userId, body.action),
     store.addContribution(user.userId, BALANCE.contributionPerAction),
     ...(faction
       ? [store.bumpFactionInfluence(city.day, faction, BALANCE.factionRepPerAction)]
@@ -669,7 +676,7 @@ api.post('/action', async (c) => {
     type: 'action',
     player: finalPlayer,
     effectiveEnergy: effectiveEnergy(finalPlayer, city.day),
-    yourActionsToday: await store.getUserActions(city.day, user.userId),
+    yourActionsToday: mine,
     unlockedTitle: repped.unlockedTitle,
   });
 });

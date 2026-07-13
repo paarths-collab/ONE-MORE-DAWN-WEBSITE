@@ -36,7 +36,10 @@ let muted = ((): boolean => {
 let unlocked = false; // set after the first user gesture
 let currentTrack: MusicTrack | null = null;
 let currentAudio: HTMLAudioElement | null = null;
-let currentFade: number | null = null;
+// One fade timer PER element: a single shared timer would let the incoming
+// track's fade-in cancel the outgoing track's fade-out, leaving the old
+// music playing underneath forever (the track-stacking bug).
+const fades = new Map<HTMLAudioElement, number>();
 
 /** Called on the first user gesture (pointerdown) — browsers gate audio until then. */
 export function unlockMusic(): void {
@@ -57,6 +60,13 @@ export function playTrack(name: MusicTrack): void {
 /** Stop music entirely (used when the city has fallen and we want silence). */
 export function stopMusic(): void {
   currentTrack = null;
+  // Hard-stop any outgoing tracks still mid-fade, then fade the current one.
+  for (const [a] of fades) {
+    if (a !== currentAudio) {
+      clearFade(a);
+      try { a.pause(); } catch { /* ignore */ }
+    }
+  }
   fadeOutAndStop();
 }
 
@@ -114,23 +124,31 @@ function fadeOutAndStop(): void {
   });
 }
 
+function clearFade(a: HTMLAudioElement): void {
+  const timer = fades.get(a);
+  if (timer !== undefined) {
+    window.clearInterval(timer);
+    fades.delete(a);
+  }
+}
+
 function fadeAudio(a: HTMLAudioElement | null, from: number, to: number, done?: () => void): void {
   if (!a) { done?.(); return; }
-  if (currentFade !== null) window.clearInterval(currentFade);
+  clearFade(a); // interrupt only THIS element's fade, never another track's
   const steps = Math.max(1, Math.floor(FADE_MS / FADE_STEP_MS));
   let i = 0;
   a.volume = clamp01(from);
-  currentFade = window.setInterval(() => {
+  const timer = window.setInterval(() => {
     i += 1;
     const t = i / steps;
     a.volume = clamp01(from + (to - from) * t);
     if (i >= steps) {
-      if (currentFade !== null) window.clearInterval(currentFade);
-      currentFade = null;
+      clearFade(a);
       a.volume = clamp01(to);
       done?.();
     }
   }, FADE_STEP_MS);
+  fades.set(a, timer);
 }
 
 function clamp01(v: number): number {

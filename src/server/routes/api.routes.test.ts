@@ -257,6 +257,49 @@ describe('POST /action — atomic player profile', () => {
     expect(saved?.factionRep).toBe(BALANCE.factionRepPerAction * 2);
     expect(await store.getUserActions(1, 't2_race')).toEqual({ guard_wall: 2 });
   });
+
+  it('never loses a concurrent action from the personal history blob', async () => {
+    await openUser('t2_blob', 'blobber');
+    expect((await api.request('/role', postJson({ role: 'guard' }))).status).toBe(200);
+
+    // Historical bug: the history blob's read-modify-write ran OUTSIDE the user
+    // lock, so a second tab's write could be overwritten. Recreate that window:
+    // if the first request writes the blob through the unlocked store path,
+    // stall that write until a second full action has committed. The fixed code
+    // writes the blob inside the lock transaction, so the stall never triggers
+    // and the lock serializes both actions instead.
+    const firstBlobWriteReached = deferred();
+    const releaseFirstBlobWrite = deferred();
+    const originalHSet = fake.hSet.bind(fake);
+    let stalled = false;
+    vi.spyOn(redis, 'hSet').mockImplementation(async (key, fieldValues) => {
+      if (!stalled && key === KEYS.dayUserActions(1) && 't2_blob' in fieldValues) {
+        stalled = true;
+        firstBlobWriteReached.resolve();
+        await releaseFirstBlobWrite.promise;
+      }
+      return originalHSet(key, fieldValues);
+    });
+
+    const first = api.request('/action', postJson({ action: 'guard_wall' }));
+    // Old code: the stalled blob write fires. Fixed code: `first` just finishes.
+    await Promise.race([firstBlobWriteReached.promise, first]);
+    const second = await api.request('/action', postJson({ action: 'guard_wall' }));
+    releaseFirstBlobWrite.resolve();
+    const firstRes = await first;
+
+    // A genuine same-user overlap may 409 one side (clean retry) but must
+    // never silently drop an action: history count === energy spent, always.
+    let okCount = [firstRes.status, second.status].filter((s) => s === 200).length;
+    expect(okCount).toBeGreaterThanOrEqual(1);
+    if (okCount < 2) {
+      expect((await api.request('/action', postJson({ action: 'guard_wall' }))).status).toBe(200);
+      okCount += 1;
+    }
+    const saved = await store.getPlayer('t2_blob');
+    expect(saved?.energyUsedToday).toBe(okCount);
+    expect((await store.getUserActions(1, 't2_blob')).guard_wall).toBe(okCount);
+  });
 });
 
 describe('POST /mission — V1 scope gate', () => {

@@ -458,6 +458,10 @@ async function liveSmoke(url) {
         // it would navigate the page out of the test.
         await cdp.eval(`(() => { const el = [...document.querySelectorAll('.wm-city')].find((c) => c.querySelector('.wm-name')?.textContent === 'r/ironhollow'); el?.dispatchEvent(new MouseEvent('click', { bubbles: true })); })()`);
         await cdp.waitFor(`(document.querySelector('.wm-travel')?.textContent || '').includes('R/IRONHOLLOW')`, 'rival city selection offers TRAVEL');
+        // Your OWN city is real too, but traveling to the subreddit you are
+        // already in is a dead-end exit — it must never offer TRAVEL.
+        await cdp.eval(`(() => { const el = [...document.querySelectorAll('.wm-city')].find((c) => c.querySelector('.wm-name')?.textContent === 'r/meadowbrook'); el?.dispatchEvent(new MouseEvent('click', { bubbles: true })); })()`);
+        await cdp.waitFor(`!document.querySelector('.wm-travel') && (document.querySelector('.wm-info')?.textContent || '').includes('r/meadowbrook')`, 'own city offers no TRAVEL');
       }
       await sleep(200);
     }

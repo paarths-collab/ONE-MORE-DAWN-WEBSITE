@@ -1288,7 +1288,7 @@ function WorldMap({
         <div className="wm-info">
           {WORLD_STATUS[sel.status].icon} {sel.name}, {WORLD_STATUS[sel.status].label}.{' '}
           {sel.info ?? WORLD_STATUS[sel.status].flavor}
-          {sel.real && (
+          {sel.real && sel.id !== 'you' && (
             <button
               type="button"
               className="wm-travel"
