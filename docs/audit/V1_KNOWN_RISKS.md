@@ -40,9 +40,13 @@ law/trait UI are **not in V1** and are not shown as playable in the live client.
 The client smoke test (`tools/client-smoke.mjs`) asserts that no playable
 scavenge action appears in live mode.
 
-## 4. Minimal placeholder sound
+## 4. Audio is fail-silent by design
 
-V1 includes only local, procedurally-generated placeholder SFX in
-`public/assets/sfx/` plus a persistent global mute toggle. This is intentionally
-small and fail-silent; it is not a rich synthesized sound system or music layer.
-Attribution and replacement guidance live in `docs/ATTRIBUTION.md`.
+V1 ships real audio: eight Kenney-derived **CC0 SFX cues** in
+`public/assets/sfx/` and three **CC0 background music loops** in
+`public/assets/music/` (dusk, raid, dawn) crossfaded by game state. Both layers
+are fail-silent — a missing file or blocked autoplay never affects gameplay.
+SFX has a persistent mute toggle; music defaults OFF until enabled from the
+settings menu. Sources and licenses live in `docs/ATTRIBUTION.md`. The residual
+risk is platform-side only: webview autoplay policies can delay the first sound
+until a user gesture.

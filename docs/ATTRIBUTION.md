@@ -22,11 +22,12 @@ no attribution required, credited as a courtesy). The three "big moment" cues
 The earlier procedural placeholders can still be regenerated with
 `node tools/gen-sfx.mjs` if these files are ever removed.
 
-### Swapping in real CC0 audio (recommended for polish)
+### Swapping any cue later
 
-To replace the placeholders with higher-quality free sounds, drop files with the
-**same base names** into `public/assets/sfx/`. If you use a different extension
-(e.g. `.ogg`), change the single `EXT` constant in `src/client/sound.ts`.
+The shipped cues are already real CC0 audio. To swap one for a different sound,
+drop a file with the **same base name** into `public/assets/sfx/`. If you use a
+different extension (e.g. `.ogg`), change the single `EXT` constant in
+`src/client/sound.ts`.
 
 **Recommended source — Kenney (CC0, no attribution required):**
 

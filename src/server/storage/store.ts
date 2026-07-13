@@ -37,6 +37,51 @@ const safeParse = <T>(raw: string | undefined, fallback: T): T => {
   }
 };
 
+// safeParse only rejects INVALID JSON. These guards reject valid JSON of the
+// wrong shape ("7", "\"hello\"", foreign blobs) so a corrupt Redis value can
+// never impersonate game state — it degrades to the same fallback as missing
+// data instead of crashing every route that reads it.
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+
+const isCityStateShape = (v: unknown): v is CityState =>
+  isRecord(v) &&
+  typeof v.day === 'number' &&
+  typeof v.cycle === 'number' &&
+  typeof v.status === 'string' &&
+  typeof v.population === 'number' &&
+  typeof v.crisisId === 'string';
+
+const isPlayerShape = (v: unknown): v is PlayerProfile =>
+  isRecord(v) &&
+  typeof v.userId === 'string' &&
+  typeof v.username === 'string' &&
+  typeof v.energyUsedToday === 'number' &&
+  typeof v.lastActiveDay === 'number' &&
+  typeof v.totalContribution === 'number' &&
+  typeof v.streak === 'number';
+
+const isActionCounts = (v: unknown): v is Partial<Record<ActionType, number>> =>
+  isRecord(v) && Object.values(v).every((n) => typeof n === 'number');
+
+const isPledgerShape = (v: unknown): v is PledgerEntry =>
+  isRecord(v) &&
+  isPledgeKind(v.kind) &&
+  typeof v.name === 'string' &&
+  typeof v.at === 'number' &&
+  typeof v.contribution === 'number';
+
+const isMarkedOutcomeShape = (v: unknown): v is { name: string; saved: boolean } =>
+  isRecord(v) && typeof v.name === 'string' && typeof v.saved === 'boolean';
+
+const isTimelineShape = (v: unknown): v is TimelineEntry =>
+  isRecord(v) &&
+  typeof v.day === 'number' &&
+  typeof v.cycle === 'number' &&
+  typeof v.headline === 'string' &&
+  Array.isArray(v.events) &&
+  isRecord(v.deltas);
+
 export class Store {
   constructor(private readonly redis: RedisLike) {}
 
@@ -56,8 +101,8 @@ export class Store {
     // Backfill fields added after launch (same pattern as the player roleRep
     // backfill below): pre-W1 cities lack worldSeed/trait — default to the
     // neutral world so every read path sees the full shape.
-    const parsed = safeParse<CityState | null>(raw, null);
-    if (!parsed) return undefined;
+    const parsed = safeParse<unknown>(raw, null);
+    if (!isCityStateShape(parsed)) return undefined;
     // Pre-progression cities lack the build-from-zero fields — default them to
     // an empty Camp so old saves never crash and resolve identically to before.
     return {
@@ -100,15 +145,15 @@ export class Store {
   async getPlayer(userId: string): Promise<PlayerProfile | undefined> {
     const raw = await this.redis.hGet(KEYS.players, userId);
     if (!raw) return undefined;
-    const parsed = safeParse<PlayerProfile | null>(raw, null);
-    return parsed ? this.revivePlayer(parsed) : undefined;
+    const parsed = safeParse<unknown>(raw, null);
+    return isPlayerShape(parsed) ? this.revivePlayer(parsed) : undefined;
   }
 
   async getAllPlayers(): Promise<PlayerProfile[]> {
     const raw = await this.redis.hGetAll(KEYS.players);
     return Object.values(raw)
-      .map((j) => safeParse<PlayerProfile | null>(j, null))
-      .filter((p): p is PlayerProfile => p !== null)
+      .map((j) => safeParse<unknown>(j, null))
+      .filter(isPlayerShape)
       .map((p) => this.revivePlayer(p));
   }
 
@@ -127,8 +172,7 @@ export class Store {
   // ----- actions -----
   async recordAction(day: number, userId: string, action: ActionType): Promise<void> {
     await this.redis.hIncrBy(KEYS.dayActions(day), action, 1);
-    const raw = await this.redis.hGet(KEYS.dayUserActions(day), userId);
-    const mine = safeParse<Partial<Record<ActionType, number>>>(raw, {});
+    const mine = await this.getUserActions(day, userId);
     mine[action] = (mine[action] ?? 0) + 1;
     await this.redis.hSet(KEYS.dayUserActions(day), { [userId]: JSON.stringify(mine) });
   }
@@ -139,7 +183,8 @@ export class Store {
 
   async getUserActions(day: number, userId: string): Promise<Partial<Record<ActionType, number>>> {
     const raw = await this.redis.hGet(KEYS.dayUserActions(day), userId);
-    return safeParse<Partial<Record<ActionType, number>>>(raw, {});
+    const parsed = safeParse<unknown>(raw, null);
+    return isActionCounts(parsed) ? parsed : {};
   }
 
   async getAllUserActions(
@@ -148,8 +193,8 @@ export class Store {
     const raw = await this.redis.hGetAll(KEYS.dayUserActions(day));
     const entries: [string, Partial<Record<ActionType, number>>][] = [];
     for (const [userId, json] of Object.entries(raw)) {
-      const parsed = safeParse<Partial<Record<ActionType, number>> | null>(json, null);
-      if (parsed) entries.push([userId, parsed]);
+      const parsed = safeParse<unknown>(json, null);
+      if (isActionCounts(parsed)) entries.push([userId, parsed]);
     }
     return Object.fromEntries(entries);
   }
@@ -263,15 +308,16 @@ export class Store {
 
   async getPledger(day: number, userId: string): Promise<PledgerEntry | undefined> {
     const raw = await this.redis.hGet(KEYS.dayPledgers(day), userId);
-    return safeParse<PledgerEntry | undefined>(raw, undefined);
+    const parsed = safeParse<unknown>(raw, null);
+    return isPledgerShape(parsed) ? parsed : undefined;
   }
 
   async getPledgers(day: number): Promise<Record<string, PledgerEntry>> {
     const raw = await this.redis.hGetAll(KEYS.dayPledgers(day));
     const entries: [string, PledgerEntry][] = [];
     for (const [userId, json] of Object.entries(raw)) {
-      const parsed = safeParse<PledgerEntry | null>(json, null);
-      if (parsed) entries.push([userId, parsed]);
+      const parsed = safeParse<unknown>(json, null);
+      if (isPledgerShape(parsed)) entries.push([userId, parsed]);
     }
     return Object.fromEntries(entries);
   }
@@ -283,7 +329,8 @@ export class Store {
 
   async getMarkedOutcome(day: number): Promise<{ name: string; saved: boolean } | null> {
     const raw = await this.redis.hGet(KEYS.markedOutcomes, String(day));
-    return safeParse<{ name: string; saved: boolean } | null>(raw, null);
+    const parsed = safeParse<unknown>(raw, null);
+    return isMarkedOutcomeShape(parsed) ? parsed : null;
   }
 
   /** Marked saved THIS cycle (markedOutcomes is deleted on mod reset), for the
@@ -291,8 +338,8 @@ export class Store {
   async countMarkedSaved(): Promise<number> {
     const raw = await this.redis.hGetAll(KEYS.markedOutcomes);
     return Object.values(raw)
-      .map((j) => safeParse<{ saved: boolean } | null>(j, null))
-      .filter((outcome) => outcome?.saved).length;
+      .map((j) => safeParse<unknown>(j, null))
+      .filter((outcome) => isMarkedOutcomeShape(outcome) && outcome.saved).length;
   }
 
   // ----- missions -----
@@ -411,8 +458,8 @@ export class Store {
   async getTimeline(limit: number): Promise<TimelineEntry[]> {
     const all = await this.redis.hGetAll(KEYS.timeline);
     return Object.values(all)
-      .map((raw) => safeParse<TimelineEntry | null>(raw, null))
-      .filter((entry): entry is TimelineEntry => entry !== null)
+      .map((raw) => safeParse<unknown>(raw, null))
+      .filter(isTimelineShape)
       .sort((a, b) => b.cycle - a.cycle || b.day - a.day)
       .slice(0, limit);
   }
