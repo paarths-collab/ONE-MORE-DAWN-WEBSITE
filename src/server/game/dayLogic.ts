@@ -83,6 +83,12 @@ export const freshPlayer = (userId: string, username: string, cityDay: number): 
   injuredUntilDay: 0,
   totalContribution: 0,
   streak: 1,
+  coins: 0,
+  coinsEarnedToday: 0,
+  coinsEarnedCycle: 0,
+  coinsEarnedDay: 0,
+  ownedCosmetics: [],
+  equippedCosmetics: {},
 });
 
 /** Highest title tier whose threshold is <= rep, or null below the first tier. */

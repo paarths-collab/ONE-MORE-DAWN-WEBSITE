@@ -1,4 +1,5 @@
 import type { HouseTier } from './houses';
+import type { CosmeticSlot, EconomyState, ShopItemId } from './shop';
 
 // ---------- Core enums ----------
 
@@ -112,6 +113,15 @@ export type PlayerProfile = {
   streak: number;
   /** A streak that died in a lapse — restorable via /rekindle for standing. */
   lapsedStreak?: number;
+  // ---- Coin economy (optional: pre-economy saves lack these; see shop.ts) ----
+  coins?: number;
+  coinsEarnedToday?: number;
+  /** City cycle paired with coinsEarnedDay so Phoenix day 1 starts fresh. */
+  coinsEarnedCycle?: number;
+  /** City day the earnedToday counter belongs to; a new day resets it. */
+  coinsEarnedDay?: number;
+  ownedCosmetics?: ShopItemId[];
+  equippedCosmetics?: Partial<Record<CosmeticSlot, ShopItemId>>;
 };
 
 // ---------- Crises ----------
@@ -225,6 +235,8 @@ export type InitResponse = {
     progress: number;
     done: boolean;
   };
+  /** Coin balance + owned/equipped cosmetics — server-authoritative. */
+  economy: EconomyState;
   city: CityState;
   player: PlayerProfile;
   effectiveEnergy: number; // dailyEnergy minus injury penalty; derived, never stored
@@ -303,6 +315,8 @@ export type PledgeResponse = {
   marked: Marked;
   pledge: PledgeInfo;
   player: PlayerProfile;
+  coinsGained: number;
+  economy: EconomyState;
 };
 
 // ========== World of Cities (Plan 2 — cross-subreddit) ==========
@@ -349,18 +363,44 @@ export type ActionResponse = {
   effectiveEnergy: number;
   yourActionsToday: Partial<Record<ActionType, number>>;
   unlockedTitle: string | null;
+  coinsGained: number;
+  economy: EconomyState;
 };
 
 /** crisisId pins the vote to the crisis the client was showing — a client held
  *  open past UTC midnight would otherwise cast onto a NEW day's crisis. */
 export type VoteRequest = { optionId: string; crisisId: string };
-export type VoteResponse = { type: 'vote'; crisisVotes: VoteTally; yourCrisisVote: string };
+export type VoteResponse = {
+  type: 'vote';
+  crisisVotes: VoteTally;
+  yourCrisisVote: string;
+  coinsGained: number;
+  economy: EconomyState;
+};
 
 export type StrategyRequest = { planId: StrategyPlanId };
 export type StrategyResponse = {
   type: 'strategy';
   strategyVotes: VoteTally;
   yourStrategyVote: StrategyPlanId;
+  coinsGained: number;
+  economy: EconomyState;
+};
+
+export type ShopPurchaseRequest = { itemId: ShopItemId };
+export type ShopPurchaseResponse = {
+  type: 'shop-purchase';
+  itemId: ShopItemId;
+  economy: EconomyState;
+  message: string;
+};
+
+export type ShopEquipRequest = { itemId: ShopItemId };
+export type ShopEquipResponse = {
+  type: 'shop-equip';
+  itemId: ShopItemId;
+  economy: EconomyState;
+  message: string;
 };
 
 export type MissionStartResponse = {

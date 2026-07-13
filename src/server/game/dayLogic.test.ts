@@ -69,6 +69,8 @@ describe('freshPlayer', () => {
       faction: null, factionRep: 0, roleRep: {}, title: null, avatar: null,
       energyUsedToday: 0, lastActiveDay: 3,
       injuredUntilDay: 0, totalContribution: 0, streak: 1,
+      coins: 0, coinsEarnedToday: 0, coinsEarnedCycle: 0, coinsEarnedDay: 0,
+      ownedCosmetics: [], equippedCosmetics: {},
     });
   });
 });

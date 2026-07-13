@@ -5,7 +5,16 @@ import { dailyChallenge } from '../../shared/challenges';
 import { cityNameFromSeed } from '../../shared/cityName';
 import { hashString } from '../../shared/rng';
 import { HOUSE_CAP } from '../../shared/houses';
-import type { InitResponse, LeaderboardResponse, TimelineEntry, TimelineResponse } from '../../shared/types';
+import type {
+  ActionResponse,
+  InitResponse,
+  LeaderboardResponse,
+  PledgeResponse,
+  StrategyResponse,
+  TimelineEntry,
+  TimelineResponse,
+  VoteResponse,
+} from '../../shared/types';
 import { api } from './api';
 import { mission } from './mission';
 import { freshPlayer } from '../game/dayLogic';
@@ -256,6 +265,9 @@ describe('POST /action — atomic player profile', () => {
     expect(saved?.roleRep.guard).toBe(BALANCE.roleRepPerAction * 2);
     expect(saved?.factionRep).toBe(BALANCE.factionRepPerAction * 2);
     expect(await store.getUserActions(1, 't2_race')).toEqual({ guard_wall: 2 });
+    // Coins ride the same transaction: two accepted actions = exactly 2 Coins.
+    expect(saved?.coins).toBe(2);
+    expect(saved?.coinsEarnedToday).toBe(2);
   });
 
   it('never loses a concurrent action from the personal history blob', async () => {
@@ -299,6 +311,64 @@ describe('POST /action — atomic player profile', () => {
     const saved = await store.getPlayer('t2_blob');
     expect(saved?.energyUsedToday).toBe(okCount);
     expect((await store.getUserActions(1, 't2_blob')).guard_wall).toBe(okCount);
+  });
+});
+
+describe('Coin economy — accepted contributions earn, everything else does not', () => {
+  it('every accepted contribution kind awards 1 Coin, capped at the daily limit', async () => {
+    await openUser('t2_coin', 'earner');
+    expect((await api.request('/role', postJson({ role: 'guard' }))).status).toBe(200);
+    // 3 actions (full energy) + vote + strategy + pledge = 6 accepted
+    // contributions; the cap holds the total at 5.
+    for (let i = 0; i < 3; i++) {
+      const response = await api.request('/action', postJson({ action: 'guard_wall' }));
+      expect(response.status).toBe(200);
+      expect(((await response.json()) as ActionResponse).coinsGained).toBe(1);
+    }
+    const vote = await api.request('/vote', postJson({ optionId: 'a' }));
+    expect(vote.status).toBe(200);
+    expect(((await vote.json()) as VoteResponse).coinsGained).toBe(1);
+    const strategy = await api.request(
+      '/strategy',
+      postJson({ planId: BALANCE.strategyPlans[0] }),
+    );
+    expect(strategy.status).toBe(200);
+    expect(((await strategy.json()) as StrategyResponse).coinsGained).toBe(1);
+    const pledge = await api.request('/pledge', postJson({ kind: 'stand_vigil' }));
+    expect(pledge.status).toBe(200);
+    const pledgeBody = (await pledge.json()) as PledgeResponse;
+    expect(pledgeBody.coinsGained).toBe(0);
+    expect(pledgeBody.economy.coins).toBe(5);
+    const saved = await store.getPlayer('t2_coin');
+    expect(saved?.coins).toBe(5);
+    expect(saved?.coinsEarnedToday).toBe(5);
+    // /init serves the server-authoritative wire shape.
+    const init = (await (await api.request('/init')).json()) as InitResponse;
+    expect(init.economy).toEqual({ coins: 5, earnedToday: 5, dailyCap: 5, owned: [], equipped: {} });
+  });
+
+  it('rejected duplicates earn nothing', async () => {
+    await openUser('t2_nocoin', 'freeloader');
+    expect((await api.request('/vote', postJson({ optionId: 'a' }))).status).toBe(200);
+    expect((await api.request('/vote', postJson({ optionId: 'b' }))).status).toBe(409);
+    const saved = await store.getPlayer('t2_nocoin');
+    expect(saved?.coins).toBe(1);
+    expect(saved?.coinsEarnedToday).toBe(1);
+  });
+
+  it('does not accept a coin-earning vote or strategy without a player profile', async () => {
+    await openUser('t2_seed', 'seed');
+    ctx.userId = 't2_missing';
+    const vote = await api.request('/vote', postJson({ optionId: 'a' }));
+    expect(vote.status).toBe(409);
+    expect(await vote.json()).toEqual({ status: 'error', message: 'Open the game first' });
+    const strategy = await api.request(
+      '/strategy',
+      postJson({ planId: BALANCE.strategyPlans[0] }),
+    );
+    expect(strategy.status).toBe(409);
+    expect(await strategy.json()).toEqual({ status: 'error', message: 'Open the game first' });
+    expect(await store.getPlayer('t2_missing')).toBeUndefined();
   });
 });
 
