@@ -3014,6 +3014,15 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   domeDisp.fill(100);
   domeRepairT.fill(-1);
   let domeReady = false;
+  // The dome is a strategic-overview element: it only appears when the camera
+  // pulls BACK past DOME_REVEAL_NEAR and is fully drawn by DOME_REVEAL_FAR, so at
+  // normal/close zoom the city reads clean and unobstructed. A raid forces it in.
+  // Normal play sits ~95-116 units out; maxDistance is 165. Keep the dome hidden
+  // through that whole normal range and only fade it in when the camera is clearly
+  // pulled back past NEAR, fully drawn by FAR.
+  const DOME_REVEAL_NEAR = 130;  // camera distance below this: dome hidden
+  const DOME_REVEAL_FAR = 158;   // at/above this: dome fully shown (maxDistance 165)
+  let domeRevealEased = 0;       // 0 = hidden, 1 = shown; eases with the zoom
 
   // world-space point on the dome surface at the centre of a panel (segment)
   function domeHitPoint(segment: number, out: THREE.Vector3) {
@@ -3158,6 +3167,12 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
 
   function advanceDome(dt: number, t: number) {
     if (!domeReady) return;
+    // Reveal the dome only when the camera is pulled back; ease the factor so it
+    // fades smoothly with the zoom and never pops in/out.
+    const dist = controls.getDistance();
+    const revealTarget = THREE.MathUtils.smoothstep(dist, DOME_REVEAL_NEAR, DOME_REVEAL_FAR);
+    domeRevealEased += (revealTarget - domeRevealEased) * (1 - Math.exp(-dt * 4));
+    const domeShown = domeRevealEased > 0.01;
     const ek = 1 - Math.exp(-dt * 3.2);
     for (let i = 0; i < DOME_SEG; i++) {
       const panel = domePanels[i]!;
@@ -3186,7 +3201,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       const breathe = 0.85 + 0.15 * Math.sin(t * 1.4 + i * 1.7);
       let op = (0.05 + 0.13 * q) * breathe + flare * 0.5 + shimmer * 0.35;
       op *= 1 - gap * 0.92; // a pierced panel briefly opens then re-forms
+      op *= domeRevealEased; // hidden at normal/close zoom, revealed when pulled back
       panel.mat.opacity = Math.max(0, Math.min(0.85, op));
+      panel.mesh.visible = domeShown;
     }
     // dome hit / ripple / spark bursts: flash grows + fades, ring expands, sparks arc
     for (const fx of domeFx) {
