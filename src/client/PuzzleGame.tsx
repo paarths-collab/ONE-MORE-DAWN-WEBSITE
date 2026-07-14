@@ -389,6 +389,15 @@ export function PuzzleGame(props: {
             </div>
           </div>
         )}
+
+        {(ev.crossed || ev.overloaded) && (
+          <div className={ev.crossed ? 'pz-warn cross' : 'pz-warn'} role="status">
+            <span aria-hidden="true">⚠</span>
+            {ev.crossed
+              ? 'CROSSED LINES · keep the two grids separate'
+              : 'OVERLOADED · disconnect a building to shed load'}
+          </div>
+        )}
       </div>
 
       <div className="pz-board">
@@ -396,13 +405,17 @@ export function PuzzleGame(props: {
           {level.cells.map(renderCell)}
         </div>
         {won && (
-          <div className="pz-banner">
-            <div className="bt">
+          <div className="pz-banner" role="status" aria-live="polite">
+            <span className="pz-sr">
+              District connected — {stars} of 3 stars, {restored} building{restored === 1 ? '' : 's'} restored in{' '}
+              {moves} move{moves === 1 ? '' : 's'}.
+            </span>
+            <div className="bt" aria-hidden="true">
               THE DISTRICT
               <br />
               IS CONNECTED
             </div>
-            <div className="bs">
+            <div className="bs" aria-hidden="true">
               {restored} building{restored === 1 ? '' : 's'} restored · {moves} move{moves === 1 ? '' : 's'}
             </div>
             <div className="bstars" aria-hidden="true">
@@ -420,7 +433,7 @@ export function PuzzleGame(props: {
         <button type="button" className="pz-btn" onClick={onReset} disabled={won} aria-label="Reset board">
           RESET
         </button>
-        <button type="button" className="pz-btn hint" onClick={onHint} disabled={won} aria-label="Hint: rotate a tile toward its solution">
+        <button type="button" className="pz-btn pz-hint" onClick={onHint} disabled={won} aria-label="Hint: rotate a tile toward its solution">
           HINT
         </button>
         <button type="button" className="pz-btn exit" onClick={onExit} aria-label="Exit puzzle">

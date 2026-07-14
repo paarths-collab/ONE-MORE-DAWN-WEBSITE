@@ -819,6 +819,14 @@ async function reconstructionSmoke(url) {
 async function puzzleSmoke(url) {
   const { cdp, close } = await openPage(url);
   try {
+    await cdp.call('Emulation.setDeviceMetricsOverride', {
+      width: 844,
+      height: 390,
+      deviceScaleFactor: 2,
+      mobile: true,
+      screenOrientation: { type: 'landscapePrimary', angle: 90 },
+    });
+    await cdp.call('Page.reload', { ignoreCache: true });
     await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("VAELMAR")', 'puzzle city boot');
     await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'puzzle loader exit');
     let g = 0;
@@ -833,10 +841,57 @@ async function puzzleSmoke(url) {
     await cdp.eval(`document.querySelector('.puzzle-card')?.click()`);
     await cdp.waitFor(`!!document.querySelector('.pz-root')`, 'the puzzle board opens');
     assert(await cdp.eval(`document.body.innerText.toLowerCase().includes('dark district')`), "the board names today's level.");
+    const landscape = await cdp.eval(`(() => {
+      const root = document.querySelector('.pz-root');
+      const shell = document.querySelector('.puzzle-shell');
+      const hint = document.querySelector('.pz-btn.pz-hint');
+      const rootRect = root?.getBoundingClientRect();
+      const viewport = { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight };
+      const visibleRect = (el) => {
+        if (!el) return null;
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        const visible = style.display !== 'none'
+          && style.visibility !== 'hidden'
+          && Number(style.opacity) > 0
+          && rect.width > 0
+          && rect.height > 0;
+        return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height, visible };
+      };
+      const parts = [...document.querySelectorAll('.pz-hud, .pz-board, .pz-controls, .pz-controls .pz-btn')];
+      const outside = parts.flatMap((el) => {
+        const rect = visibleRect(el);
+        if (!rect?.visible) return [el.className || el.tagName];
+        const outsideViewport = rect.left < -1 || rect.top < -1 || rect.right > viewport.width + 1 || rect.bottom > viewport.height + 1;
+        const outsideRoot = !rootRect
+          || rect.left < rootRect.left - 1
+          || rect.top < rootRect.top - 1
+          || rect.right > rootRect.right + 1
+          || rect.bottom > rootRect.bottom + 1;
+        return outsideViewport || outsideRoot ? [el.className || el.tagName] : [];
+      });
+      return {
+        viewport,
+        hint: visibleRect(hint),
+        hintUsesGenericClass: hint?.classList.contains('hint') ?? true,
+        controlCount: document.querySelectorAll('.pz-controls .pz-btn').length,
+        outside,
+        rootOverflow: !root || root.scrollWidth > root.clientWidth + 1 || root.scrollHeight > root.clientHeight + 1,
+        shellOverflow: !shell || shell.scrollWidth > shell.clientWidth + 1 || shell.scrollHeight > shell.clientHeight + 1,
+        rootOverflowMode: root ? getComputedStyle(root).overflow : 'missing',
+      };
+    })()`);
+    assert(landscape.viewport.width === 844 && landscape.viewport.height === 390, `Puzzle smoke must run at 844x390, saw ${JSON.stringify(landscape.viewport)}.`);
+    assert(landscape.hint?.visible && landscape.hint.width > 0 && landscape.hint.height > 0, `Hint must have a visible, nonzero box in phone landscape, saw ${JSON.stringify(landscape.hint)}.`);
+    assert(!landscape.hintUsesGenericClass, 'Puzzle Hint must not reuse the generic .hint class.');
+    assert(landscape.controlCount === 3, `Puzzle must show RESET, HINT, and EXIT controls, saw ${landscape.controlCount}.`);
+    assert(landscape.outside.length === 0, `Puzzle HUD, board, and controls must remain inside the root and viewport: ${JSON.stringify(landscape.outside)}.`);
+    assert(!landscape.rootOverflow && !landscape.shellOverflow, `Puzzle content must fit 844x390 without root/shell overflow: ${JSON.stringify(landscape)}.`);
+    assert(landscape.rootOverflowMode === 'hidden', `Phone-landscape puzzle must not create a nested scroller, got overflow:${landscape.rootOverflowMode}.`);
     // Solve it with the Hint button (each hint nudges a tile toward its solution).
     for (let i = 0; i < 30; i++) {
       if (await cdp.eval(`!!document.querySelector('.pz-banner')`)) break;
-      await cdp.eval(`[...document.querySelectorAll('.pz-btn.hint')].find((b) => !b.disabled)?.click()`);
+      await cdp.eval(`[...document.querySelectorAll('.pz-btn.pz-hint')].find((b) => !b.disabled)?.click()`);
       await sleep(110);
     }
     await cdp.waitFor(`!!document.querySelector('.pz-banner') && document.body.innerText.includes('THE DISTRICT')`, 'the district lights up once every required building is reconnected');

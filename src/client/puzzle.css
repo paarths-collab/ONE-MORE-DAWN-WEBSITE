@@ -52,6 +52,14 @@
 .pz-meter.over .lab b { color: #ff7a5b; }
 .pz-meter.over .pz-meter-fill { background: linear-gradient(90deg, #b8422f, #ff6a4d); box-shadow: 0 0 9px rgba(255, 90, 60, 0.55); }
 
+/* Failure-mode warnings: overload (capacity) and crossed lines (separate grids).
+   Without these the board can read as fully wired yet refuse to solve. */
+.pz-warn { display: flex; align-items: center; gap: 6px; width: 100%; font-family: var(--pixel, 'Silkscreen', monospace); font-size: 8px; letter-spacing: 0.6px; line-height: 1.3; color: #ffb38a; background: rgba(255, 106, 77, 0.1); border: 1px solid rgba(255, 106, 77, 0.42); border-radius: 8px; padding: 6px 9px; }
+.pz-warn.cross { color: #ffd27a; background: rgba(232, 195, 74, 0.1); border-color: rgba(232, 195, 74, 0.42); }
+
+/* Visually-hidden text for screen-reader-only announcements (the win banner). */
+.pz-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
 /* ---------- board ---------- */
 .pz-board { position: relative; width: min(94vw, 62vh, 560px); }
 .pz-grid {
@@ -134,8 +142,8 @@
 .pz-btn:hover { border-color: var(--pz-gold); }
 .pz-btn:active { transform: translateY(2px); }
 .pz-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
-.pz-btn.hint { color: var(--pz-cyan); border-color: #2f6f80; background: rgba(95, 230, 255, 0.05); }
-.pz-btn.hint:hover { border-color: var(--pz-cyan); }
+.pz-btn.pz-hint { color: var(--pz-cyan); border-color: #2f6f80; background: rgba(95, 230, 255, 0.05); }
+.pz-btn.pz-hint:hover { border-color: var(--pz-cyan); }
 .pz-btn.exit { color: var(--pz-ink); }
 
 /* ---------- win banner / payoff ---------- */
@@ -149,6 +157,80 @@
 @keyframes pz-star-pop { 0% { opacity: 0; transform: scale(0) rotate(-28deg); } 70% { transform: scale(1.3); } 100% { opacity: 1; transform: scale(1); } }
 
 @media (orientation: landscape) and (max-height: 560px) {
-  .pz-root { justify-content: flex-start; }
-  .pz-board { width: min(70vh, 94vw, 560px); }
+  .puzzle-overlay .puzzle-shell {
+    height: calc(100dvh - 20px);
+    max-height: none;
+  }
+
+  .pz-root {
+    container-type: size;
+    flex: 1 1 0;
+    min-height: 0;
+    height: auto;
+    display: grid;
+    grid-template-areas:
+      "hud board"
+      "controls board";
+    grid-template-columns: minmax(220px, 1fr) minmax(0, min(310px, calc(100dvh - 76px)));
+    grid-template-rows: minmax(0, 1fr) 46px;
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 8px 10px;
+    padding: 8px;
+    overflow: hidden;
+  }
+
+  .pz-hud {
+    grid-area: hud;
+    width: 100%;
+    min-width: 0;
+    gap: 5px;
+  }
+
+  .pz-stat { padding: 5px 7px; }
+  .pz-warn { padding: 5px 7px; }
+
+  .pz-board {
+    grid-area: board;
+    align-self: center;
+    justify-self: center;
+    width: min(100%, 100cqh);
+    min-width: 0;
+  }
+
+  .pz-grid {
+    gap: clamp(2px, 0.8vh, 4px);
+    padding: clamp(4px, 1.2vh, 7px);
+    border-radius: 12px;
+  }
+
+  .pz-controls {
+    grid-area: controls;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pz-btn {
+    min-height: 44px;
+    padding: 6px;
+    border-radius: 8px;
+  }
+}
+
+/* Honor the OS "reduce motion" setting: rotations snap, the generator stops
+   pulsing, and the win payoff appears without scale/pop. Scoped to puzzle
+   selectors so the rest of the app is unaffected. */
+@media (prefers-reduced-motion: reduce) {
+  .pz-source .orb,
+  .pz-tile.shake,
+  .pz-grid.won .pz-building.on .pz-bcard,
+  .pz-banner,
+  .pz-banner .bstars span { animation: none !important; }
+  .pz-spin,
+  .pz-meter-fill,
+  .pz-star,
+  .pz-grid,
+  .pz-bcard,
+  .pz-bico,
+  .pz-blabel { transition: none !important; }
 }
