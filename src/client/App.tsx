@@ -9,10 +9,7 @@ import {
   type VillageHandle,
   type VillageHooks,
 } from './scene';
-import {
-  BASE, EYES, EYES_OY, MOUTH_CLOSED, MOUTH_CLOSED_OY, MOUTH_OPEN, MOUTH_OPEN_OY,
-  ARM_SIDE, ARM_SIDE_OY, ARM_SIDE_HALO, ARM_UP, ARM_UP_OY, ARM_UP_HALO, pixelRuns,
-} from './advisorSprite';
+import { MAREN_COLORS, MAREN_PATHS } from './advisorSprite';
 import {
   ApiFailure,
   getInit,
@@ -346,9 +343,9 @@ const markContextualCoachSeen = (step: number): void => {
   }
 };
 // The Advisor is a CHARACTER: young Maren, the city's lantern-keeper. Her
-// portrait is a PIXEL-ART sprite (see advisorSprite.ts) rendered crisp with
-// shape-rendering:crispEdges — and it still bobs, blinks, talks, and raises her
-// lantern to point toward the surface she shows.
+// portrait uses smooth, high-contrast vector shapes so her face and role remain
+// readable at coach size, while she still bobs, blinks, talks, turns, and raises
+// her lantern toward the surface she shows.
 function AdvisorPortrait({
   talking,
   face,
@@ -358,27 +355,83 @@ function AdvisorPortrait({
   face: 'left' | 'right' | 'front';
   point: 'up' | 'side' | null;
 }) {
-  const px = (rows: string[], oy = 0) =>
-    pixelRuns(rows, 0, oy).map((r) => <rect key={r.k} x={r.x} y={r.y} width={r.w} height={r.h} fill={r.c} />);
   return (
     <span className={`co-avatar-wrap face-${face}${talking ? ' talking' : ''}${point ? ` point-${point}` : ''}`}>
       <svg className="co-avatar" viewBox="0 0 72 92" width="66" height="84" aria-hidden="true">
-        <g transform="translate(6,1)">
-          {px(BASE)}
-          <g className="co-eyes">{px(EYES, EYES_OY)}</g>
-          <g className="co-mouth-closed">{px(MOUTH_CLOSED, MOUTH_CLOSED_OY)}</g>
-          <g className="co-mouth-open">{px(MOUTH_OPEN, MOUTH_OPEN_OY)}</g>
-          <g className="co-arm co-arm-side">
-            <g className="co-halo">
-              <circle cx={ARM_SIDE_HALO.cx} cy={ARM_SIDE_HALO.cy} r={ARM_SIDE_HALO.r} fill="#e8c34a" opacity="0.24" />
-            </g>
-            {px(ARM_SIDE, ARM_SIDE_OY)}
+        <g strokeLinecap="round" strokeLinejoin="round">
+          <path d={MAREN_PATHS.cloak} fill={MAREN_COLORS.cloakDark} stroke={MAREN_COLORS.outline} strokeWidth="1.5" />
+          <path d={MAREN_PATHS.cloakPanel} fill={MAREN_COLORS.cloak} />
+          <path d={MAREN_PATHS.leftCollar} fill={MAREN_COLORS.cloakLight} stroke={MAREN_COLORS.outline} strokeWidth="1" />
+          <path d={MAREN_PATHS.rightCollar} fill={MAREN_COLORS.cloakLight} stroke={MAREN_COLORS.outline} strokeWidth="1" />
+
+          <path d={MAREN_PATHS.ponytail} fill={MAREN_COLORS.hairDark} stroke={MAREN_COLORS.outline} strokeWidth="1.3" />
+          <path d={MAREN_PATHS.hairBack} fill={MAREN_COLORS.hairDark} stroke={MAREN_COLORS.outline} strokeWidth="1.4" />
+          <path d={MAREN_PATHS.neck} fill={MAREN_COLORS.skinShadow} stroke={MAREN_COLORS.outline} strokeWidth="1" />
+          <path d={MAREN_PATHS.leftEar} fill={MAREN_COLORS.skin} stroke={MAREN_COLORS.outline} strokeWidth="1" />
+          <path d={MAREN_PATHS.rightEar} fill={MAREN_COLORS.skin} stroke={MAREN_COLORS.outline} strokeWidth="1" />
+          <path d={MAREN_PATHS.face} fill={MAREN_COLORS.skin} stroke={MAREN_COLORS.outline} strokeWidth="1.25" />
+          <path d={MAREN_PATHS.faceLight} fill={MAREN_COLORS.skinLight} opacity="0.28" />
+
+          <path d={MAREN_PATHS.fringe} fill={MAREN_COLORS.hair} stroke={MAREN_COLORS.outline} strokeWidth="1.25" />
+          <path d={MAREN_PATHS.sideLock} fill={MAREN_COLORS.hairDark} stroke={MAREN_COLORS.outline} strokeWidth="1.1" />
+          <path d={MAREN_PATHS.hairShine} fill={MAREN_COLORS.hairLight} opacity="0.78" />
+          <path d={MAREN_PATHS.braid} fill={MAREN_COLORS.hair} stroke={MAREN_COLORS.outline} strokeWidth="1.15" />
+          <path d="M21 53l6 4m-6 4 7 4m-5 5 5 2" fill="none" stroke={MAREN_COLORS.hairLight} strokeWidth="1.4" />
+          <circle cx="27" cy="73" r="1.6" fill={MAREN_COLORS.gold} stroke={MAREN_COLORS.goldDark} strokeWidth="0.7" />
+
+          <path d={MAREN_PATHS.leftBrow} fill="none" stroke={MAREN_COLORS.hairDark} strokeWidth="1.4" />
+          <path d={MAREN_PATHS.rightBrow} fill="none" stroke={MAREN_COLORS.hairDark} strokeWidth="1.4" />
+          <g className="co-eyes">
+            <path d={MAREN_PATHS.leftEye} fill={MAREN_COLORS.eyeWhite} stroke={MAREN_COLORS.outline} strokeWidth="0.65" />
+            <path d={MAREN_PATHS.rightEye} fill={MAREN_COLORS.eyeWhite} stroke={MAREN_COLORS.outline} strokeWidth="0.65" />
+            <ellipse cx="32" cy="39" rx="1.45" ry="1.65" fill={MAREN_COLORS.iris} />
+            <ellipse cx="44" cy="39" rx="1.45" ry="1.65" fill={MAREN_COLORS.iris} />
+            <circle cx="32" cy="39.2" r="0.72" fill={MAREN_COLORS.pupil} />
+            <circle cx="44" cy="39.2" r="0.72" fill={MAREN_COLORS.pupil} />
+            <circle cx="31.5" cy="38.5" r="0.38" fill={MAREN_COLORS.eyeWhite} />
+            <circle cx="43.5" cy="38.5" r="0.38" fill={MAREN_COLORS.eyeWhite} />
           </g>
-          <g className="co-arm co-arm-up">
+          <circle cx="27" cy="47.5" r="2.2" fill={MAREN_COLORS.rose} opacity="0.13" />
+          <circle cx="49" cy="47.5" r="2.2" fill={MAREN_COLORS.rose} opacity="0.13" />
+          <path d={MAREN_PATHS.nose} fill="none" stroke={MAREN_COLORS.skinShadow} strokeWidth="1.15" />
+          <g className="co-mouth-closed">
+            <path d={MAREN_PATHS.smile} fill="none" stroke={MAREN_COLORS.rose} strokeWidth="1.45" />
+          </g>
+          <g className="co-mouth-open">
+            <path d={MAREN_PATHS.openMouth} fill={MAREN_COLORS.pupil} stroke={MAREN_COLORS.rose} strokeWidth="0.9" />
+            <path d={MAREN_PATHS.tongue} fill="none" stroke={MAREN_COLORS.rose} strokeWidth="1.2" />
+          </g>
+
+          <circle cx="37" cy="70" r="3.2" fill={MAREN_COLORS.gold} stroke={MAREN_COLORS.goldDark} strokeWidth="1" />
+          <path d="M37 67.8c-2 2-1 4.3 0 5.1 1.5-1 2-3.1 0-5.1Z" fill={MAREN_COLORS.goldLight} />
+
+          <g className="co-arm co-arm-side">
+            <path d={MAREN_PATHS.sideArm} fill="none" stroke={MAREN_COLORS.outline} strokeWidth="9" />
+            <path d={MAREN_PATHS.sideArm} fill="none" stroke={MAREN_COLORS.cloak} strokeWidth="6" />
+            <circle cx="59" cy="79" r="2.4" fill={MAREN_COLORS.skin} stroke={MAREN_COLORS.outline} strokeWidth="0.9" />
             <g className="co-halo">
-              <circle cx={ARM_UP_HALO.cx} cy={ARM_UP_HALO.cy} r={ARM_UP_HALO.r} fill="#e8c34a" opacity="0.28" />
+              <circle cx="62" cy="84" r="11" fill={MAREN_COLORS.goldLight} opacity="0.14" />
+              <circle cx="62" cy="84" r="6.5" fill={MAREN_COLORS.goldLight} opacity="0.17" />
             </g>
-            {px(ARM_UP, ARM_UP_OY)}
+            <path d={MAREN_PATHS.lanternHandleSide} fill="none" stroke={MAREN_COLORS.goldDark} strokeWidth="1.5" />
+            <path d={MAREN_PATHS.lanternBodySide} fill={MAREN_COLORS.gold} stroke={MAREN_COLORS.goldDark} strokeWidth="1.2" />
+            <path d={MAREN_PATHS.lanternGlassSide} fill={MAREN_COLORS.lantern} stroke={MAREN_COLORS.goldLight} strokeWidth="0.7" />
+            <path d="M62 87c-2-2-1-4 0-5 2 2 2 4 0 5Z" fill={MAREN_COLORS.goldLight} />
+          </g>
+
+          <g className="co-arm co-arm-up">
+            <path d={MAREN_PATHS.raisedArm} fill="none" stroke={MAREN_COLORS.outline} strokeWidth="9" />
+            <path d={MAREN_PATHS.raisedArm} fill="none" stroke={MAREN_COLORS.cloak} strokeWidth="6" />
+            <circle cx="56" cy="38" r="2.5" fill={MAREN_COLORS.skin} stroke={MAREN_COLORS.outline} strokeWidth="0.9" />
+            <path d="M57 38V31" stroke={MAREN_COLORS.goldDark} strokeWidth="1.7" />
+            <g className="co-halo">
+              <circle cx="57.5" cy="24" r="14" fill={MAREN_COLORS.goldLight} opacity="0.15" />
+              <circle cx="57.5" cy="24" r="8" fill={MAREN_COLORS.goldLight} opacity="0.18" />
+            </g>
+            <path d={MAREN_PATHS.lanternHandleUp} fill="none" stroke={MAREN_COLORS.goldDark} strokeWidth="1.7" />
+            <path d={MAREN_PATHS.lanternBodyUp} fill={MAREN_COLORS.gold} stroke={MAREN_COLORS.goldDark} strokeWidth="1.3" />
+            <path d={MAREN_PATHS.lanternGlassUp} fill={MAREN_COLORS.lantern} stroke={MAREN_COLORS.goldLight} strokeWidth="0.8" />
+            <path d="M58 27c-2-2-1-5 0-6 2 2 2 4 0 6Z" fill={MAREN_COLORS.goldLight} />
           </g>
         </g>
       </svg>

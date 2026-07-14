@@ -1,131 +1,56 @@
-// Young Maren — the city's lantern-keeper, drawn as a PIXEL-ART sprite so she
-// reads with the same retro/Silkscreen character as the rest of the UI. The art
-// is a set of small character-grids ("pixel maps") keyed to a palette; a run
-// merger turns each row of same-colour pixels into one <rect> so the node count
-// stays low and every rect lands on the pixel grid (crisp with crispEdges).
-// Feature layers (eyes, mouth, lantern arms) are kept SEPARATE from the base so
-// the coach animation hooks (blink, talk, point) still drive them.
-//
-// Pixels are PX units inside a 72x92 viewBox. Column index == x, so only the
-// LEADING dots of a row matter for alignment (trailing pixels are optional).
-
-export const PX = 3;
-
-// One flat palette. '.' (and any unmapped char) is transparent.
-export const PAL: Record<string, string> = {
-  H: '#2c2416', // hood shadow
-  h: '#463a1f', // hood mid
-  L: '#6d571e', // hood trim (warm gold-brown)
-  r: '#43301d', // hair dark
-  R: '#6b4626', // hair mid
-  y: '#9c6a34', // hair highlight (young, warm)
-  s: '#e8b184', // skin
-  S: '#c98a5d', // skin shadow
-  k: '#f7d3a8', // skin highlight
-  b: '#3f2a17', // brow
-  p: '#241a10', // eye
-  w: '#fbf3df', // eye catchlight
-  m: '#7c463c', // mouth
-  t: '#c07d6f', // open-mouth rim
-  c: '#33270f', // cloak dark
-  C: '#4d3c1a', // cloak mid
-  g: '#e6bf46', // gold (clasp, lantern body)
-  G: '#fff2ab', // lantern flame
+// Young Maren's portrait geometry. Keeping the palette and paths here makes
+// the small SVG easy to tune without mixing illustration data into App.tsx.
+export const MAREN_COLORS = {
+  outline: '#211812',
+  hairDark: '#43271f',
+  hair: '#75422b',
+  hairLight: '#b96b3c',
+  skinShadow: '#c77d5e',
+  skin: '#e7ae82',
+  skinLight: '#ffd0a7',
+  eyeWhite: '#fff6df',
+  iris: '#567b69',
+  pupil: '#241b16',
+  rose: '#a94f50',
+  cloakDark: '#202b25',
+  cloak: '#35463a',
+  cloakLight: '#607157',
+  goldDark: '#805b1d',
+  gold: '#d8a532',
+  goldLight: '#ffe68a',
+  lantern: '#fff2ad',
 };
 
-export type Rect = { x: number; y: number; w: number; h: number; c: string; k: string };
-
-/** Merge each row of same-colour pixels into one rect. Blanks/unknown chars are
- *  transparent. Rows may be any length; column index maps to x. */
-export function pixelRuns(rows: string[], ox = 0, oy = 0): Rect[] {
-  const out: Rect[] = [];
-  for (let ry = 0; ry < rows.length; ry++) {
-    const row = rows[ry] ?? '';
-    let x = 0;
-    while (x < row.length) {
-      const ch = row[x] ?? '.';
-      const col = PAL[ch];
-      if (!col) { x++; continue; }
-      let run = 1;
-      while (x + run < row.length && row[x + run] === ch) run++;
-      out.push({ x: ox + x * PX, y: oy + ry * PX, w: run * PX, h: PX, c: col, k: `${x}-${ry}` });
-      x += run;
-    }
-  }
-  return out;
-}
-
-// ---- BASE: hood, hair, face, brows, nose, neck, cloak ------------------------
-// Face skin sits at columns 7-16; eyes/mouth are drawn as separate layers below.
-export const BASE: string[] = [
-  '........HHHHHHHH', //  0 hood crown
-  '......HHhhhhhhhhHH', //  1
-  '.....HhhhhhhhhhhhhhH', //  2
-  '....HhhrrrrrrrrrrhhH', //  3 hair bangs appear
-  '....HhrrrrrryyrrrrhH', //  4
-  '...LhrrryyyyyyyyrrrhL', //  5 hood trim + hair highlight
-  '...LhrrssssssssssrrhL', //  6 forehead
-  '...LhrrssssssssssrrhL', //  7
-  '...LhrrssssssssssrrhL', //  8
-  '...LhrrssssssssssrrhL', //  9
-  '...LhrrsbbbssbbbsrrhL', // 10 brows
-  '...LhrrssssssssssrrhL', // 11
-  '...LhrrssssssssssrrhL', // 12 <- eyes layer
-  '...LhrrssssssssssrrhL', // 13
-  '...LhrrssssSSssssrrhL', // 14 nose
-  '...LhrrsssSSSSsssrrhL', // 15
-  '...LhrrssssssssssrrhL', // 16 <- mouth layer
-  '...LhrrRssssssssRrrhL', // 17 jaw
-  '....LhrRRssssssRRrhL', // 18
-  '....hRRRRssssRRRRh', // 19 chin
-  '.....hRRRsssRRRh', // 20 neck
-  '......ccRsssRcc', // 21
-  '......ccCsssCcc', // 22 collar
-  '.....ccCCCsCCCcc', // 23
-  '....ccCCCCggCCCCcc', // 24 gold clasp
-  '...cCCCCCCggCCCCCCc', // 25
-  '..ccCCCCCCCCCCCCCCcc', // 26 shoulders
-  '..cCCCCCCCCCCCCCCCCc', // 27
-  '.ccCCCCCCCCCCCCCCCCcc', // 28
-  '.cCCCCCCCCCCCCCCCCCCc', // 29
-];
-
-// ---- EYES (co-eyes group: blink squashes it) --------------------------------
-// Big, bright, young eyes: a dark pupil with a white catchlight on the outer edge.
-export const EYES: string[] = [
-  '........wp...pw', // row 12: left eye (cols 8-9), right eye (cols 13-14)
-];
-export const EYES_OY = 12 * PX;
-
-// ---- MOUTH closed / open (toggled by .talking) ------------------------------
-export const MOUTH_CLOSED: string[] = ['..........mmm']; // cols 10-12, row 16
-export const MOUTH_CLOSED_OY = 16 * PX;
-export const MOUTH_OPEN: string[] = ['..........ttt', '..........mmm']; // rows 16-17
-export const MOUTH_OPEN_OY = 16 * PX;
-
-// ---- LANTERN ARM resting at her side (co-arm-side) --------------------------
-export const ARM_SIDE: string[] = [
-  '................cCc', // row 25 upper arm
-  '................cCc',
-  '................ggg', // lantern hood
-  '...............gGGGg', // flame
-  '...............gGGGg',
-  '................ggg', // lantern base
-];
-export const ARM_SIDE_OY = 25 * PX;
-export const ARM_SIDE_HALO = { cx: 17.5 * PX, cy: 29 * PX, r: 6 * PX };
-
-// ---- LANTERN ARM raised to point upward (co-arm-up) -------------------------
-export const ARM_UP: string[] = [
-  '................ggg', // row 1 lantern hood, held high
-  '...............gGGGg', // flame
-  '...............gGGGg',
-  '................ggg', // base
-  '................cCc', // forearm dropping back toward the shoulder
-  '................cCc',
-  '...............ccC',
-  '..............ccC',
-  '.............ccC',
-];
-export const ARM_UP_OY = 1 * PX;
-export const ARM_UP_HALO = { cx: 17.5 * PX, cy: 2.5 * PX, r: 7 * PX };
+export const MAREN_PATHS = {
+  cloak: 'M8 91C9 75 17 65 28 61h18c11 4 18 14 19 30Z',
+  cloakPanel: 'M26 63l11 12 11-12 5 28H21Z',
+  leftCollar: 'M27 61l10 14-14-6Z',
+  rightCollar: 'M47 61L37 75l14-6Z',
+  hairBack: 'M17 45C15 32 18 19 27 12c7-6 18-6 25 1 9 8 9 23 5 35-3 8-8 13-14 16H27c-8-4-12-10-10-19Z',
+  ponytail: 'M20 38c-6 5-7 13-2 19-5 4-3 12 4 15 1-6 6-10 7-17Z',
+  neck: 'M31 55h13v12H31Z',
+  leftEar: 'M22 36c-4 0-4 9 1 11l3-2-1-9Z',
+  rightEar: 'M51 36c5 0 5 9 0 11l-3-2 1-9Z',
+  face: 'M24 29c1-9 6-14 14-14 9 0 14 6 14 15v13c0 12-6 20-14 20s-15-8-15-20V31Z',
+  faceLight: 'M43 20c5 2 7 7 7 13v10c0 9-4 15-9 18 3-7 4-15 3-23Z',
+  fringe: 'M22 32c-1-12 6-21 16-21 9 0 16 7 16 19-5-2-9-6-11-11-4 6-10 10-21 13Z',
+  sideLock: 'M49 22c6 6 7 18 2 28l-4-5c2-8 2-15 2-23Z',
+  hairShine: 'M28 18c4-4 10-5 15-3-5 1-10 5-14 10Z',
+  braid: 'M23 43c-4 4-3 9 2 11-5 2-5 7-1 10-4 2-3 7 2 9 3-2 4-5 2-8 4-3 4-8 0-11 4-4 2-9-5-10Z',
+  leftBrow: 'M28 34c2-2 5-2 7 0',
+  rightBrow: 'M41 34c2-2 5-2 7 0',
+  leftEye: 'M28 39c2-3 5-3 8 0-2 3-6 3-8 0Z',
+  rightEye: 'M40 39c2-3 6-3 8 0-2 3-6 3-8 0Z',
+  nose: 'M38 40c-1 4-2 7 1 8l2-1',
+  smile: 'M33 52c3 3 7 3 10 0',
+  openMouth: 'M33 52c2-3 8-3 10 0-1 5-8 5-10 0Z',
+  tongue: 'M35 55c2-1 4-1 6 0',
+  sideArm: 'M49 67c7 1 11 6 10 13',
+  raisedArm: 'M49 67c7-7 9-17 7-27',
+  lanternBodySide: 'M57 79h10l-1 11h-8Z',
+  lanternGlassSide: 'M59 81h6l-1 6h-4Z',
+  lanternHandleSide: 'M59 79c0-6 6-6 6 0',
+  lanternBodyUp: 'M52 17h11l-1 14h-9Z',
+  lanternGlassUp: 'M55 20h5l1 8h-7Z',
+  lanternHandleUp: 'M54 17c0-8 8-8 8 0',
+};

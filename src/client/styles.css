@@ -644,7 +644,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
    what she's showing, and points. Smooth SVG keeps her crisp on dense screens. */
 .coach .co-avatar-wrap { grid-row: 1 / 4; align-self: start; width: 68px; min-height: 86px; margin-top: 0; position: relative; display: inline-block; transition: transform 0.35s; }
 .coach .co-avatar-wrap.face-left { transform: scaleX(-1); }
-.coach .co-avatar { display: block; width: 66px; height: 84px; overflow: visible; image-rendering: pixelated; shape-rendering: crispEdges; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55)); animation: co-bob 2.8s ease-in-out infinite; }
+.coach .co-avatar { display: block; width: 66px; height: 84px; overflow: visible; image-rendering: auto; shape-rendering: geometricPrecision; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55)); animation: co-bob 2.8s ease-in-out infinite; }
 @keyframes co-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 .co-eyes { animation: co-wink 4.4s step-end infinite; }
 @keyframes co-wink { 0%, 91%, 100% { opacity: 1; } 93%, 96% { opacity: 0; } }
