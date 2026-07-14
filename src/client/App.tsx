@@ -10,6 +10,10 @@ import {
   type VillageHooks,
 } from './scene';
 import {
+  BASE, EYES, EYES_OY, MOUTH_CLOSED, MOUTH_CLOSED_OY, MOUTH_OPEN, MOUTH_OPEN_OY,
+  ARM_SIDE, ARM_SIDE_OY, ARM_SIDE_HALO, ARM_UP, ARM_UP_OY, ARM_UP_HALO, pixelRuns,
+} from './advisorSprite';
+import {
   ApiFailure,
   getInit,
   getChatter,
@@ -341,9 +345,10 @@ const markContextualCoachSeen = (step: number): void => {
     /* storage unavailable */
   }
 };
-// The Advisor is a CHARACTER: Elder Maren, the city's keeper. Her portrait is
-// smooth vector art so it stays crisp across Reddit webview densities, while
-// still bobbing, blinking, talking, and pointing toward the surface she shows.
+// The Advisor is a CHARACTER: young Maren, the city's lantern-keeper. Her
+// portrait is a PIXEL-ART sprite (see advisorSprite.ts) rendered crisp with
+// shape-rendering:crispEdges — and it still bobs, blinks, talks, and raises her
+// lantern to point toward the surface she shows.
 function AdvisorPortrait({
   talking,
   face,
@@ -353,65 +358,28 @@ function AdvisorPortrait({
   face: 'left' | 'right' | 'front';
   point: 'up' | 'side' | null;
 }) {
+  const px = (rows: string[], oy = 0) =>
+    pixelRuns(rows, 0, oy).map((r) => <rect key={r.k} x={r.x} y={r.y} width={r.w} height={r.h} fill={r.c} />);
   return (
     <span className={`co-avatar-wrap face-${face}${talking ? ' talking' : ''}${point ? ` point-${point}` : ''}`}>
       <svg className="co-avatar" viewBox="0 0 72 92" width="66" height="84" aria-hidden="true">
-        {/* hood and shoulders */}
-        <path d="M9 88c1-17 8-27 18-31h20c10 4 16 14 17 31Z" fill="#332818" stroke="#786126" strokeWidth="1.5" />
-        <path d="M15 52C10 35 15 14 30 7c12-6 25 2 29 15 3 9 1 22-3 31l-9 7H25Z" fill="#463817" stroke="#8b7027" strokeWidth="1.5" />
-        <path d="M22 24c4-10 10-15 18-15 8 1 14 6 18 15-6-4-12-6-18-6-7 0-13 2-18 6Z" fill="#6b551d" />
-        <path d="M17 53c4-4 7-7 9-12l2 17-8 13-8-5Z" fill="#241d14" opacity="0.78" />
-        <path d="M55 53c-4-4-7-7-9-12l-2 17 8 13 8-5Z" fill="#241d14" opacity="0.78" />
-
-        {/* silver hair and face */}
-        <path d="M23 27c2-8 8-12 16-12 9 0 15 5 17 13l-5 6H27Z" fill="#c8c0b4" />
-        <path d="M25 27c0-5 5-9 12-10-5 4-7 9-7 16l-6 8c-2-5-2-10 1-14Z" fill="#eee8dd" />
-        <path d="M53 27c0-5-5-9-12-10 5 4 7 9 7 16l6 8c2-5 2-10-1-14Z" fill="#a69d92" />
-        <path d="M27 28c1-6 6-9 12-9 7 0 12 4 13 10v13c0 12-6 20-13 20-8 0-14-8-14-20Z" fill="#dfbd91" stroke="#a37d55" strokeWidth="1.2" />
-        <path d="M27 43c2 10 7 16 13 16 5 0 9-3 12-10-2 9-7 15-13 15-7 0-12-7-12-21Z" fill="#cda276" opacity="0.5" />
-        <path d="M26 31c1-7 6-12 13-12 7 0 12 4 14 11-4-4-8-6-13-6-6 0-10 2-14 7Z" fill="#b8afa3" />
-        <path d="M26 31c-2 5-2 11 0 17l4-5V29Z" fill="#e4ddd2" />
-        <path d="M52 31c2 5 2 11 0 17l-4-5V29Z" fill="#aaa095" />
-
-        {/* expressive features */}
-        <path d="M29 36c2-2 5-2 7-1M42 35c2-1 5-1 7 1" fill="none" stroke="#785e45" strokeWidth="1.4" strokeLinecap="round" />
-        <g className="co-eyes" fill="#2a2117">
-          <ellipse cx="33" cy="39" rx="1.7" ry="1.35" />
-          <ellipse cx="46" cy="39" rx="1.7" ry="1.35" />
-          <circle cx="33.6" cy="38.6" r="0.38" fill="#fff6d9" />
-          <circle cx="46.6" cy="38.6" r="0.38" fill="#fff6d9" />
-        </g>
-        <path d="M39 39c-1 4-2 7-1 8 1 1 3 1 4 0" fill="none" stroke="#ae825e" strokeWidth="1.2" strokeLinecap="round" />
-        <path d="M29 44c2 1 4 1 6 0M45 44c2 1 4 1 6-1" fill="none" stroke="#b68c66" strokeWidth="0.9" strokeLinecap="round" opacity="0.8" />
-        <g className="co-mouth-closed">
-          <path d="M35 52c3 2 6 2 9 0" fill="none" stroke="#7f4c42" strokeWidth="1.4" strokeLinecap="round" />
-        </g>
-        <g className="co-mouth-open">
-          <ellipse cx="39.5" cy="53" rx="3.4" ry="2.2" fill="#623a35" />
-          <path d="M37 53.7c1.5 0 3.4 0 5 .2" stroke="#d89386" strokeWidth="0.8" strokeLinecap="round" />
-        </g>
-
-        {/* cloak clasp and resting lantern */}
-        <path d="M25 59l14 13 13-13 3 29H20Z" fill="#3a2c18" />
-        <path d="M32 63l7 9 7-9-2 25H34Z" fill="#725b1f" />
-        <circle cx="39" cy="69" r="3" fill="#d7ad35" stroke="#f2d56a" strokeWidth="1" />
-        <g className="co-arm co-arm-side">
-          <path d="M51 66c7 2 9 7 8 14" fill="none" stroke="#382b19" strokeWidth="7" strokeLinecap="round" />
-          <circle cx="59" cy="78" r="2.4" fill="#d9b489" />
-          <g className="co-halo"><circle cx="62" cy="84" r="9" fill="#e8c34a" opacity="0.24" /></g>
-          <path d="M58 80h8l-1 9h-6Z" fill="#d59d2a" stroke="#f4da73" strokeWidth="1" />
-          <path d="M59 80c0-5 6-5 6 0" fill="none" stroke="#85641f" strokeWidth="1.2" />
-          <circle cx="62" cy="84" r="2.2" fill="#fff0a0" />
-        </g>
-
-        {/* raised arm and lantern used when Maren points upward */}
-        <g className="co-arm co-arm-up">
-          <path d="M51 65c6-8 7-17 5-25" fill="none" stroke="#382b19" strokeWidth="7" strokeLinecap="round" />
-          <circle cx="56" cy="38" r="2.5" fill="#d9b489" />
-          <g className="co-halo"><circle cx="58" cy="23" r="13" fill="#e8c34a" opacity="0.28" /></g>
-          <path d="M53 17h10l-1 14h-8Z" fill="#d59d2a" stroke="#f4da73" strokeWidth="1.2" />
-          <path d="M54 17c0-7 8-7 8 0" fill="none" stroke="#85641f" strokeWidth="1.4" />
-          <path d="M56 20h4l1 8h-6Z" fill="#fff0a0" />
+        <g transform="translate(6,1)">
+          {px(BASE)}
+          <g className="co-eyes">{px(EYES, EYES_OY)}</g>
+          <g className="co-mouth-closed">{px(MOUTH_CLOSED, MOUTH_CLOSED_OY)}</g>
+          <g className="co-mouth-open">{px(MOUTH_OPEN, MOUTH_OPEN_OY)}</g>
+          <g className="co-arm co-arm-side">
+            <g className="co-halo">
+              <circle cx={ARM_SIDE_HALO.cx} cy={ARM_SIDE_HALO.cy} r={ARM_SIDE_HALO.r} fill="#e8c34a" opacity="0.24" />
+            </g>
+            {px(ARM_SIDE, ARM_SIDE_OY)}
+          </g>
+          <g className="co-arm co-arm-up">
+            <g className="co-halo">
+              <circle cx={ARM_UP_HALO.cx} cy={ARM_UP_HALO.cy} r={ARM_UP_HALO.r} fill="#e8c34a" opacity="0.28" />
+            </g>
+            {px(ARM_UP, ARM_UP_OY)}
+          </g>
         </g>
       </svg>
       <span className={`co-point${point ? ` co-point-${point}` : ''}`} aria-hidden="true">
