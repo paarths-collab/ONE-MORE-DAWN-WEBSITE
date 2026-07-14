@@ -97,7 +97,7 @@ export type VillageHandle = {
   /**
    * Update the protective energy dome: a translucent hemisphere over the whole
    * city, split into 6 arc panels. `segments` are the 6 panel shields (0..100):
-   * ~100 = a bright, near-clear shimmer; mid = dimmer; low = hairline cracks;
+   * ~100 = a bright, near-clear shimmer; mid = dimmer; low = a faint, dim panel;
    * 0 = a dark shattered gap. Panels ease smoothly toward the new values. Builds
    * the dome lazily, so it is safe to call before the scene finishes; idempotent
    * and never throws. Extra entries beyond 6 are ignored.
@@ -116,9 +116,9 @@ export type VillageHandle = {
    */
   playRaidCinematic: (opts: { outcome: 'held' | 'breach' | 'fallen'; fireballs: { power: number; segment: number; blocked: boolean }[]; hitHouseIndices: number[] }) => void;
   /**
-   * Heal one dome panel back to full over ~1s with a rising shimmer that clears
-   * its cracks. Self-terminating from the tick. Out-of-range segments are
-   * ignored. Never throws.
+   * Heal one dome panel back to full over ~1s with a rising shimmer.
+   * Self-terminating from the tick. Out-of-range segments are ignored.
+   * Never throws.
    */
   repairDomeSegment: (segment: number) => void;
   /**
@@ -2820,10 +2820,11 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   }
 
   // ---------- protective energy dome (setDome / repairDomeSegment) ----------
-  // A translucent hemisphere arching over the whole plateau, split into DOME_SEG
-  // azimuthal arc panels. Each panel's look is driven by a 0..100 shield: full = a
-  // bright near-clear shimmer; mid = dimmer; low = hairline cracks; 0 = a dark
-  // shattered gap. Built once (lazily) and pooled — the tick eases each panel's
+  // A translucent hemisphere arching over the whole plateau — one smooth shell of
+  // DOME_SEG edge-to-edge azimuthal panels (no seams, ribs or grid lines). Each
+  // panel's look is driven purely by a 0..100 shield: full = a bright near-clear
+  // shimmer; mid = dimmer; low = a faint dim panel; 0 = a dark shattered gap.
+  // Built once (lazily) and pooled — the tick eases each panel's
   // opacity/colour toward its shield and decays the transient block/pierce flares,
   // so there are no per-frame allocations and no extra lights (additive meshes
   // only). Falling fireballs (below) strike or pierce these panels. Radius arches
@@ -2838,7 +2839,6 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   const DOME_WHITE = new THREE.Color(0xffffff);
   type DomePanel = {
     mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial;
-    cracks: THREE.LineSegments; crackMat: THREE.LineBasicMaterial;
     hue: THREE.Color; // scratch colour reused each frame (no per-frame alloc)
   };
   type DomeFx = {
@@ -2876,12 +2876,12 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   function ensureDome() {
     if (domeReady) return;
     const step = (Math.PI * 2) / DOME_SEG;
-    const seam = 0.03; // small phi gap so the 6 panels read as separate panels
-    const pv = new THREE.Vector3();
     for (let i = 0; i < DOME_SEG; i++) {
-      const phiStart = i * step + seam * 0.5;
-      const phiLen = step - seam;
-      const geo = new THREE.SphereGeometry(DOME_R, 8, 14, phiStart, phiLen, 0, Math.PI / 2);
+      // Panels tile edge-to-edge — no seam gaps, no rib/grid lines, no crack
+      // overlays. Each panel's shield reads purely through its colour + opacity,
+      // so a healthy dome is one smooth continuous shell and a drained sector
+      // simply dims (0 = a dark shattered gap).
+      const geo = new THREE.SphereGeometry(DOME_R, 8, 14, i * step, step, 0, Math.PI / 2);
       const mat = new THREE.MeshBasicMaterial({
         color: DOME_HI.clone(), transparent: true, opacity: 0.16,
         blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide, fog: false,
@@ -2890,76 +2890,8 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       mesh.position.copy(domeCenter);
       mesh.renderOrder = 1;
       scene.add(mesh);
-      // deterministic hairline cracks across the panel (seeded off the panel index)
-      const crackRng = makeRng(90210 + i * 613);
-      const cracksN = 3;
-      const hops = 4; // segments per crack
-      const cpos = new Float32Array(cracksN * hops * 2 * 3);
-      let w = 0;
-      const onSphere = (az: number, th: number, v: THREE.Vector3) => {
-        const s2 = Math.sin(th);
-        v.set(
-          domeCenter.x + (DOME_R + 0.15) * s2 * Math.cos(az),
-          domeCenter.y + (DOME_R + 0.15) * Math.cos(th),
-          domeCenter.z + (DOME_R + 0.15) * s2 * Math.sin(az),
-        );
-      };
-      for (let c = 0; c < cracksN; c++) {
-        let a = phiStart + phiLen * (0.2 + crackRng() * 0.6);
-        let th = 0.28 + crackRng() * 0.9;
-        onSphere(a, th, pv);
-        let px = pv.x, py = pv.y, pz = pv.z;
-        for (let h = 0; h < hops; h++) {
-          a += (crackRng() - 0.5) * phiLen * 0.5;
-          th = Math.max(0.08, Math.min(Math.PI / 2 - 0.04, th + (crackRng() - 0.5) * 0.5));
-          onSphere(a, th, pv);
-          cpos[w++] = px; cpos[w++] = py; cpos[w++] = pz;
-          cpos[w++] = pv.x; cpos[w++] = pv.y; cpos[w++] = pv.z;
-          px = pv.x; py = pv.y; pz = pv.z;
-        }
-      }
-      const cgeo = new THREE.BufferGeometry();
-      cgeo.setAttribute('position', new THREE.BufferAttribute(cpos, 3));
-      const crackMat = new THREE.LineBasicMaterial({
-        color: 0xaad8ff, transparent: true, opacity: 0,
-        blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
-      });
-      const cracks = new THREE.LineSegments(cgeo, crackMat);
-      cracks.renderOrder = 2;
-      cracks.visible = false;
-      scene.add(cracks);
-      domePanels.push({ mesh, mat, cracks, crackMat, hue: new THREE.Color() });
+      domePanels.push({ mesh, mat, hue: new THREE.Color() });
     }
-    // faint structural ribs along the 6 panel seams + the base ring (constant glow)
-    const ribPts: number[] = [];
-    for (let i = 0; i < DOME_SEG; i++) {
-      const az = i * step;
-      let px = 0, py = 0, pz = 0, has = false;
-      const N = 10;
-      for (let k = 0; k <= N; k++) {
-        const th = (k / N) * (Math.PI / 2);
-        const s2 = Math.sin(th);
-        pv.set(domeCenter.x + DOME_R * s2 * Math.cos(az), domeCenter.y + DOME_R * Math.cos(th), domeCenter.z + DOME_R * s2 * Math.sin(az));
-        if (has) ribPts.push(px, py, pz, pv.x, pv.y, pv.z);
-        px = pv.x; py = pv.y; pz = pv.z; has = true;
-      }
-    }
-    {
-      const N = 60;
-      let px = 0, py = 0, pz = 0, has = false;
-      for (let k = 0; k <= N; k++) {
-        const az = (k / N) * Math.PI * 2;
-        pv.set(domeCenter.x + DOME_R * Math.cos(az), domeCenter.y + 0.2, domeCenter.z + DOME_R * Math.sin(az));
-        if (has) ribPts.push(px, py, pz, pv.x, pv.y, pv.z);
-        px = pv.x; py = pv.y; pz = pv.z; has = true;
-      }
-    }
-    const rgeo = new THREE.BufferGeometry();
-    rgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ribPts), 3));
-    const ribMat = new THREE.LineBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-    const ribs = new THREE.LineSegments(rgeo, ribMat);
-    ribs.renderOrder = 1;
-    scene.add(ribs);
     // shared hit / ripple / spark pool for blocks + pierces (mesh-based, no lights)
     const fxFlashGeo = new THREE.SphereGeometry(1, 10, 8);
     const fxRingGeo = new THREE.RingGeometry(0.4, 0.85, 20);
@@ -3101,10 +3033,6 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       let op = (0.05 + 0.13 * q) * breathe + flare * 0.5 + shimmer * 0.35;
       op *= 1 - gap * 0.92; // a pierced panel briefly opens then re-forms
       panel.mat.opacity = Math.max(0, Math.min(0.85, op));
-      // cracks: hairlines appear below ~50% shield, fade out under a repair shimmer
-      const crackA = Math.max(0, Math.min(1, (0.5 - q) / 0.5)) * (1 - shimmer);
-      panel.crackMat.opacity = crackA * 0.85;
-      panel.cracks.visible = crackA > 0.02;
     }
     // dome hit / ripple / spark bursts: flash grows + fades, ring expands, sparks arc
     for (const fx of domeFx) {
