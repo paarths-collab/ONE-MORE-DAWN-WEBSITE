@@ -6,10 +6,12 @@ import {
   type EconomyState,
 } from '../../shared/shop';
 import type { PlayerProfile } from '../../shared/types';
+import { applyTreasuryLevy } from '../../shared/treasury';
 
 export type CoinAward = {
   player: PlayerProfile;
   coinsGained: number;
+  treasuryPaid: number;
   economy: EconomyState;
 };
 
@@ -28,10 +30,13 @@ export const awardContributionCoin = (
   const earnedToday = sameDay ? stored.coinsEarnedToday : 0;
   const coinsGained =
     earnedToday < COIN_DAILY_CAP ? COIN_PER_CONTRIBUTION : 0;
+  const awardedBalance = stored.coins + coinsGained;
+  const levy = applyTreasuryLevy(player, awardedBalance, coinsGained);
   const updated: PlayerProfile = {
     ...player,
     ...stored,
-    coins: stored.coins + coinsGained,
+    ...levy.fields,
+    coins: levy.coins,
     coinsEarnedToday: earnedToday + coinsGained,
     coinsEarnedCycle: cityCycle,
     coinsEarnedDay: cityDay,
@@ -39,6 +44,7 @@ export const awardContributionCoin = (
   return {
     player: updated,
     coinsGained,
+    treasuryPaid: levy.paidNow,
     economy: economyOf(updated, cityCycle, cityDay),
   };
 };

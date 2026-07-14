@@ -89,6 +89,7 @@ menu.post('/reset', async (c) => {
     KEYS.housesIndex,
     KEYS.housesMeta,
     KEYS.landFunding,
+    KEYS.cityTreasury,
     KEYS.markedOutcomes,
   ];
   for (let d = 1; d <= lastDay + 1; d++) {

@@ -8,6 +8,11 @@ import {
   normalizeEconomyFields,
   type LandExpansionState,
 } from '../../shared/shop';
+import {
+  normalizeTreasuryFields,
+  treasuryStateOf,
+  type TreasuryState,
+} from '../../shared/treasury';
 import { KEYS } from './redisKeys';
 
 /** The subset of the Devvit redis client the store uses. Tests provide a fake. */
@@ -145,6 +150,7 @@ export class Store {
       title: parsed.title ?? null,
       avatar: parsed.avatar ?? null,
       ...normalizeEconomyFields(parsed),
+      ...normalizeTreasuryFields(parsed),
     };
   }
 
@@ -417,6 +423,12 @@ export class Store {
       funding[projectId] = Number.isSafeInteger(amount) && amount >= 0 ? amount : 0;
     }
     return landExpansionState(funding);
+  }
+
+  // ----- shared city treasury -----
+  async getTreasuryState(player: PlayerProfile): Promise<TreasuryState> {
+    const raw = await this.redis.hGetAll(KEYS.cityTreasury);
+    return treasuryStateOf(player, raw);
   }
 
   // ----- personal houses -----

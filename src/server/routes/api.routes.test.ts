@@ -346,6 +346,44 @@ describe('Coin economy — accepted contributions earn, everything else does not
     const init = (await (await api.request('/init')).json()) as InitResponse;
     expect(init.economy).toEqual({ coins: 5, earnedToday: 5, dailyCap: 5, owned: [], equipped: {} });
     expect(init.land).toMatchObject({ activeProjectId: 'outer_fields', unlocked: [] });
+    expect(init.treasury).toEqual({
+      balance: 0,
+      totalCollected: 0,
+      totalInvested: 0,
+      levyEvery: 10,
+      yours: { progress: 6, backlog: 0, paid: 0 },
+    });
+  });
+
+  it('deposits the tenth contribution share atomically and returns the treasury in init', async () => {
+    await openUser('t2_tithe', 'tithe');
+    const player = await store.getPlayer('t2_tithe');
+    if (!player) throw new Error('Expected player profile');
+    await store.savePlayer({
+      ...player,
+      coins: 0,
+      treasuryProgress: 9,
+      treasuryBacklog: 0,
+      treasuryPaid: 0,
+    });
+
+    const vote = await api.request('/vote', postJson({ optionId: 'a' }));
+    expect(vote.status).toBe(200);
+    const voteBody = (await vote.json()) as VoteResponse;
+    expect(voteBody).toMatchObject({
+      coinsGained: 1,
+      treasuryPaid: 1,
+      economy: { coins: 0 },
+    });
+
+    const init = (await (await api.request('/init')).json()) as InitResponse;
+    expect(init.treasury).toEqual({
+      balance: 1,
+      totalCollected: 1,
+      totalInvested: 0,
+      levyEvery: 10,
+      yours: { progress: 0, backlog: 0, paid: 1 },
+    });
   });
 
   it('rejected duplicates earn nothing', async () => {

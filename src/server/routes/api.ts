@@ -160,6 +160,15 @@ export const parseBody = async <T>(c: {
   }
 };
 
+const queueTreasuryDeposit = async (
+  tx: { hIncrBy(key: string, field: string, value: number): Promise<unknown> },
+  amount: number,
+): Promise<void> => {
+  if (amount <= 0) return;
+  await tx.hIncrBy(KEYS.cityTreasury, 'balance', amount);
+  await tx.hIncrBy(KEYS.cityTreasury, 'collected', amount);
+};
+
 export const requireUser = (): { userId: string } | undefined => {
   const { userId } = context;
   return userId ? { userId } : undefined;
@@ -369,6 +378,7 @@ api.get('/init', async (c) => {
     markedOutcome,
     contributionRank,
     land,
+    treasury,
   ] = await Promise.all([
     store.getVoteTally(city.day),
     store.getVoterChoice(city.day, user.userId),
@@ -388,6 +398,7 @@ api.get('/init', async (c) => {
     store.getMarkedOutcome(city.day - 1),
     store.getContributionRank(user.userId),
     store.getLandExpansionState(),
+    store.getTreasuryState(player),
   ]);
   const yesterdayActions = allYesterdayActions[user.userId] ?? {};
 
@@ -489,6 +500,7 @@ api.get('/init', async (c) => {
     challenge,
     economy: economyOf(player, city.cycle, city.day),
     land,
+    treasury,
     city,
     player,
     effectiveEnergy: effectiveEnergy(player, city.day),
@@ -664,6 +676,7 @@ api.post('/action', async (c) => {
     }
     await tx.hIncrBy(KEYS.dayActions(city.day), body.action, 1);
     await tx.hSet(KEYS.dayUserActions(city.day), { [user.userId]: JSON.stringify(mine) });
+    await queueTreasuryDeposit(tx, coined.treasuryPaid);
   });
   if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
@@ -688,6 +701,7 @@ api.post('/action', async (c) => {
     yourActionsToday: mine,
     unlockedTitle: repped.unlockedTitle,
     coinsGained: coined.coinsGained,
+    treasuryPaid: coined.treasuryPaid,
     economy: coined.economy,
   });
 });
@@ -739,6 +753,7 @@ api.post('/vote', async (c) => {
     await tx.hSet(votersKey, { [user.userId]: body.optionId });
     await tx.hIncrBy(KEYS.dayVotes(city.day), body.optionId, 1);
     await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(voterCoined.player) });
+    await queueTreasuryDeposit(tx, voterCoined.treasuryPaid);
   });
   if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
@@ -750,6 +765,7 @@ api.post('/vote', async (c) => {
     crisisVotes: await store.getVoteTally(city.day),
     yourCrisisVote: body.optionId,
     coinsGained: voterCoined.coinsGained,
+    treasuryPaid: voterCoined.treasuryPaid,
     economy: voterCoined.economy,
   });
 });
@@ -790,6 +806,7 @@ api.post('/strategy', async (c) => {
     await tx.hSet(votersKey, { [user.userId]: body.planId });
     await tx.hIncrBy(KEYS.dayStrategyPlan(city.day), body.planId, 1);
     await tx.hSet(KEYS.players, { [user.userId]: JSON.stringify(backerCoined.player) });
+    await queueTreasuryDeposit(tx, backerCoined.treasuryPaid);
   });
   if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
@@ -801,6 +818,7 @@ api.post('/strategy', async (c) => {
     strategyVotes: await store.getStrategyTally(city.day),
     yourStrategyVote: body.planId,
     coinsGained: backerCoined.coinsGained,
+    treasuryPaid: backerCoined.treasuryPaid,
     economy: backerCoined.economy,
   });
 });
@@ -857,6 +875,7 @@ api.post('/pledge', async (c) => {
     await tx.hSet(pledgersKey, { [user.userId]: JSON.stringify(entry) });
     await tx.hIncrBy(KEYS.dayMarked(city.day), 'pledged', BALANCE.marked.pledgePerTap);
     await tx.hIncrBy(KEYS.dayMarked(city.day), body.kind, 1);
+    await queueTreasuryDeposit(tx, coined.treasuryPaid);
   });
   if (!committed) {
     return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
@@ -886,6 +905,7 @@ api.post('/pledge', async (c) => {
     pledge: buildPledgeInfo(pledgers, user.userId),
     player: updated,
     coinsGained: coined.coinsGained,
+    treasuryPaid: coined.treasuryPaid,
     economy: coined.economy,
   });
 });

@@ -450,6 +450,14 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     }
     return radius;
   };
+  const mainlandHeightAt = (x: number, z: number) => {
+    const radius = Math.hypot(x, z);
+    if (radius <= 72) return -0.17;
+    const blend = THREE.MathUtils.smoothstep(radius, 72, 118);
+    const broad = Math.sin(x * 0.024 + PHI1) * 0.7 + Math.cos(z * 0.028 + PHI2) * 0.58;
+    const cross = Math.sin((x + z) * 0.016 + PHI2) * 0.42;
+    return -0.17 + blend * (broad + cross);
+  };
 
   // ---------- road network (polylines → rasterized dirt tiles) ----------
   const GATE_ANGLES = [Math.PI / 2, -Math.PI / 6, Math.PI + 0.5]; // S, NE, W
@@ -581,10 +589,26 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     // The city is part of a broad mainland. The old dark abyss + vertical skirt
     // made every unlock read as another floating shelf; this low field keeps the
     // core, frontier, expansion districts, and distant settlements connected.
-    const mainland = new THREE.Mesh(new THREE.CircleGeometry(360, 72), lam(0x496c32));
+    const mainlandGeo = new THREE.PlaneGeometry(720, 720, 56, 56);
+    const mainlandPos = mainlandGeo.getAttribute('position');
+    const mainlandColors = new Float32Array(mainlandPos.count * 3);
+    const mainlandColor = new THREE.Color();
+    for (let i = 0; i < mainlandPos.count; i++) {
+      const x = mainlandPos.getX(i);
+      const z = -mainlandPos.getY(i);
+      const height = mainlandHeightAt(x, z);
+      mainlandPos.setZ(i, height);
+      const variation = Math.sin(x * 0.041) * 0.5 + Math.cos(z * 0.037) * 0.5;
+      mainlandColor.setHex(variation > 0.35 ? 0x53783a : variation < -0.35 ? 0x3f612e : 0x496c32);
+      mainlandColors[i * 3] = mainlandColor.r;
+      mainlandColors[i * 3 + 1] = mainlandColor.g;
+      mainlandColors[i * 3 + 2] = mainlandColor.b;
+    }
+    mainlandGeo.setAttribute('color', new THREE.BufferAttribute(mainlandColors, 3));
+    mainlandGeo.computeVertexNormals();
+    const mainland = new THREE.Mesh(mainlandGeo, lam(0xffffff, { vertexColors: true }));
     mainland.name = 'continuous-mainland';
     mainland.rotation.x = -Math.PI / 2;
-    mainland.position.y = -0.17;
     mainland.receiveShadow = true;
     scene.add(mainland);
   }
@@ -646,7 +670,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       const a = a0 + (rng() - 0.5) * 0.2;
       const dist = 150 + rng() * 35;
       const g = new THREE.Group();
-      g.position.set(Math.cos(a) * dist, 0, Math.sin(a) * dist);
+      const cityX = Math.cos(a) * dist;
+      const cityZ = Math.sin(a) * dist;
+      g.position.set(cityX, mainlandHeightAt(cityX, cityZ) + 0.17, cityZ);
       // A shallow rise embedded in the same mainland, not a detached mesa.
       const topR = 10 + rng() * 3;
       const rise = new THREE.Mesh(new THREE.CylinderGeometry(topR, topR * 1.18, 0.4, 12), lam(C.dirtB, { flatShading: true }));
@@ -1142,6 +1168,134 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       canopies.setColorAt(i, col);
     });
     scene.add(trunks, canopies);
+  }
+
+  // ---------- living mainland beyond the city ----------
+  // Clustered forest, scrub, stones, and roads continue into the fog. All
+  // repeated detail is instanced: the horizon feels inhabited without adding
+  // hundreds of draw calls on a phone webview.
+  {
+    const prng = makeRng(20260714);
+    const roadSegments: { x: number; y: number; z: number; length: number; angle: number }[] = [];
+    for (const gateAngle of GATE_ANGLES) {
+      let previous: [number, number] | null = null;
+      for (let step = 0; step <= 34; step++) {
+        const distance = 61 + step * 4.7;
+        const bend = Math.sin(step * 0.31 + gateAngle * 1.7) * (2 + step * 0.08);
+        const tangentX = -Math.sin(gateAngle);
+        const tangentZ = Math.cos(gateAngle);
+        const x = Math.cos(gateAngle) * distance + tangentX * bend;
+        const z = Math.sin(gateAngle) * distance + tangentZ * bend;
+        if (previous) {
+          const dx = x - previous[0];
+          const dz = z - previous[1];
+          const mx = (x + previous[0]) / 2;
+          const mz = (z + previous[1]) / 2;
+          roadSegments.push({
+            x: mx,
+            y: mainlandHeightAt(mx, mz) + 0.035,
+            z: mz,
+            length: Math.hypot(dx, dz) + 0.35,
+            angle: Math.atan2(dx, dz),
+          });
+        }
+        previous = [x, z];
+      }
+    }
+    const roadGeo = new THREE.BoxGeometry(3.6, 0.05, 1);
+    const roadsOut = new THREE.InstancedMesh(roadGeo, lam(C.dirtB), roadSegments.length);
+    roadsOut.name = 'mainland-road-network';
+    roadsOut.receiveShadow = true;
+    const roadMatrix = new THREE.Matrix4();
+    const roadQuat = new THREE.Quaternion();
+    const roadEuler = new THREE.Euler();
+    for (let i = 0; i < roadSegments.length; i++) {
+      const segment = roadSegments[i]!;
+      roadEuler.set(0, segment.angle, 0);
+      roadQuat.setFromEuler(roadEuler);
+      roadMatrix.compose(
+        new THREE.Vector3(segment.x, segment.y, segment.z),
+        roadQuat,
+        new THREE.Vector3(1, 1, segment.length),
+      );
+      roadsOut.setMatrixAt(i, roadMatrix);
+    }
+    scene.add(roadsOut);
+
+    const groveCenters: [number, number][] = [];
+    for (let i = 0; i < 17; i++) {
+      const angle = prng() * Math.PI * 2;
+      const radius = 92 + prng() * 205;
+      groveCenters.push([Math.cos(angle) * radius, Math.sin(angle) * radius]);
+    }
+    const treeSpots: [number, number, number][] = [];
+    for (const [centerX, centerZ] of groveCenters) {
+      const count = 18 + Math.floor(prng() * 18);
+      for (let i = 0; i < count; i++) {
+        const angle = prng() * Math.PI * 2;
+        const spread = Math.sqrt(prng()) * (8 + prng() * 12);
+        const x = centerX + Math.cos(angle) * spread;
+        const z = centerZ + Math.sin(angle) * spread;
+        const radius = Math.hypot(x, z);
+        if (radius < 80 || radius > 325) continue;
+        const pointAngle = Math.atan2(z, x);
+        if (GATE_ANGLES.some((gate) => angDist(pointAngle, gate) < 0.055)) continue;
+        if (radius < 118 && angDist(pointAngle, PARCEL_ANGLE) < 0.52) continue;
+        if (distantSlots.some((slot) => Math.hypot(slot.group.position.x - x, slot.group.position.z - z) < 17)) continue;
+        treeSpots.push([x, z, 0.8 + prng() * 1.35]);
+      }
+    }
+
+    const outerTrunkGeo = new THREE.CylinderGeometry(0.14, 0.2, 0.9, 6);
+    const lowerCrownGeo = new THREE.ConeGeometry(1.05, 2.8, 7);
+    const upperCrownGeo = new THREE.ConeGeometry(0.72, 2.15, 7);
+    const outerTrunks = new THREE.InstancedMesh(outerTrunkGeo, MAT.trunk, treeSpots.length);
+    const lowerCrowns = new THREE.InstancedMesh(lowerCrownGeo, lam(0xffffff, { flatShading: true }), treeSpots.length);
+    const upperCrowns = new THREE.InstancedMesh(upperCrownGeo, lam(0xffffff, { flatShading: true }), treeSpots.length);
+    outerTrunks.name = 'mainland-forest-trunks';
+    lowerCrowns.name = 'mainland-forest-canopies';
+    lowerCrowns.castShadow = true;
+    upperCrowns.castShadow = true;
+    const treeMatrix = new THREE.Matrix4();
+    const treeColor = new THREE.Color();
+    for (let i = 0; i < treeSpots.length; i++) {
+      const [x, z, scale] = treeSpots[i]!;
+      const groundY = mainlandHeightAt(x, z);
+      treeMatrix.makeScale(scale, scale, scale);
+      treeMatrix.setPosition(x, groundY + 0.45 * scale, z);
+      outerTrunks.setMatrixAt(i, treeMatrix);
+      treeMatrix.makeScale(scale, scale, scale);
+      treeMatrix.setPosition(x, groundY + 1.9 * scale, z);
+      lowerCrowns.setMatrixAt(i, treeMatrix);
+      treeMatrix.makeScale(scale, scale, scale);
+      treeMatrix.setPosition(x, groundY + 3.0 * scale, z);
+      upperCrowns.setMatrixAt(i, treeMatrix);
+      treeColor.setHex(prng() > 0.46 ? C.leaf : C.leafDark);
+      lowerCrowns.setColorAt(i, treeColor);
+      treeColor.offsetHSL(0, -0.02, 0.045);
+      upperCrowns.setColorAt(i, treeColor);
+    }
+    scene.add(outerTrunks, lowerCrowns, upperCrowns);
+
+    const scrubCount = 210;
+    const scrubGeo = new THREE.DodecahedronGeometry(0.65, 0);
+    const scrub = new THREE.InstancedMesh(scrubGeo, lam(0xffffff, { flatShading: true }), scrubCount);
+    scrub.name = 'mainland-scrub-and-stones';
+    const scrubMatrix = new THREE.Matrix4();
+    const scrubColor = new THREE.Color();
+    for (let i = 0; i < scrubCount; i++) {
+      const angle = prng() * Math.PI * 2;
+      const radius = 78 + Math.sqrt(prng()) * 245;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const scale = 0.35 + prng() * 0.9;
+      scrubMatrix.makeScale(scale * (0.8 + prng() * 0.6), scale * (0.45 + prng() * 0.45), scale);
+      scrubMatrix.setPosition(x, mainlandHeightAt(x, z) + scale * 0.25, z);
+      scrub.setMatrixAt(i, scrubMatrix);
+      scrubColor.setHex(i % 4 === 0 ? C.rockA : prng() > 0.5 ? C.leafDark : 0x657d3b);
+      scrub.setColorAt(i, scrubColor);
+    }
+    scene.add(scrub);
   }
 
   // ---------- ambient / game-event visuals (raid light, vigil pillar, smoke) ----------
