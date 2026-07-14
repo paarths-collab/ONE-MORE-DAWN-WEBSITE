@@ -92,8 +92,9 @@ export function PuzzleGame(props: {
   level: PuzzleLevel;
   onSolved: (score: { stars: 0 | 1 | 2 | 3; moves: number; timeMs: number; rotations: number[] }) => void;
   onExit: () => void;
+  onNext?: () => void;
 }) {
-  const { level, onExit } = props;
+  const { level, onExit, onNext } = props;
 
   // Keep the latest onSolved without re-triggering the win effect each render.
   const onSolvedRef = useRef(props.onSolved);
@@ -436,6 +437,11 @@ export function PuzzleGame(props: {
         <button type="button" className="pz-btn pz-hint" onClick={onHint} disabled={won} aria-label="Hint: rotate a tile toward its solution">
           HINT
         </button>
+        {won && onNext && (
+          <button type="button" className="pz-btn next" onClick={onNext} aria-label="Next puzzle">
+            NEXT →
+          </button>
+        )}
         <button type="button" className="pz-btn exit" onClick={onExit} aria-label="Exit puzzle">
           EXIT
         </button>
