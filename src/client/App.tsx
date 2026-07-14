@@ -114,7 +114,7 @@ const WORLD_STATUS: Record<WorldStatus, { icon: string; label: string; color: st
   thriving: { icon: '🌿', label: 'Thriving', color: '#7fd6a2', flavor: 'Holding the line, and then some.' },
   holding: { icon: '🕯️', label: 'Holding', color: '#ffcf70', flavor: 'Holding the line.' },
   strained: { icon: '🩸', label: 'Strained', color: '#ff8a3d', flavor: 'Rationing candles. Still standing.' },
-  under_raid: { icon: '🚨', label: 'Under raid', color: '#ff5b4d', flavor: 'The wall decides tonight.' },
+  under_raid: { icon: '🚨', label: 'Under raid', color: '#ff5b4d', flavor: 'The dome decides tonight.' },
   fallen: { icon: '💀', label: 'Fallen', color: '#6b7089', flavor: 'The lights went out.' },
 };
 
@@ -2110,13 +2110,13 @@ function RaidBanner({ phase }: { phase: RaidPhase }) {
       : phase === 'breach'
         ? 'hud raid-banner card-bit on bad'
         : 'hud raid-banner card-bit on';
-  const title = phase === 'held' ? '🛡 THE WALL HELD' : phase === 'breach' ? '🔥 THE WALL WAS BREACHED' : '⚔ RAID AT THE GATE';
+  const title = phase === 'held' ? '🛡 THE DOME HELD' : phase === 'breach' ? '🔥 THE DOME WAS BREACHED' : '⚔ RAID AT THE GATE';
   const sub =
     phase === 'held'
-      ? 'threat −38 · defense −8 · food −6'
+      ? 'every fireball broke against the shield'
       : phase === 'breach'
-        ? '−8 souls · food −18 · defense −15'
-        : 'the wall decides tonight…';
+        ? 'a fireball pierced the dome · −8 souls'
+        : 'the dome decides tonight…';
   return (
     <div className={cls}>
       <div className="rb-t">{title}</div>
