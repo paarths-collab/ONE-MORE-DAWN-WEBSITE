@@ -11,3 +11,10 @@ docs/design/support.js
 
 # village3d QA capture (regenerable — written by vite.dev3d.config.mjs /shot)
 village-shot.png
+
+.dev-shots/
+
+# 3D character-model WIP: heavy GLBs (~45MB) + Blender pipeline. Kept out of git
+# and out of a committed build until compressed (Draco/KTX2) — the size guard
+# (npm run size-check) fails a build that would ship them.
+public/assets/characters/

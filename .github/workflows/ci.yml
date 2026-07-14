@@ -33,6 +33,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Fail the build if the shipped bundle exceeds the Devvit-friendly budget.
+      - name: Bundle size guard
+        run: npm run size-check
+
       # ubuntu-latest ships Google Chrome; the smoke harness honors CHROME_PATH.
       - name: Client smoke (headless Chrome)
         env:

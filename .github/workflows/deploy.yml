@@ -31,6 +31,7 @@ jobs:
           npm run lint
           npm test
           npm run build
+          npm run size-check
 
       # ubuntu-latest ships Google Chrome; the smoke harness honors CHROME_PATH.
       - name: Client smoke (headless Chrome)

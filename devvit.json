@@ -1,6 +1,9 @@
 {
   "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
   "name": "onemoredawn-v01",
+  "marketingAssets": {
+    "icon": "assets/icon.png"
+  },
   "post": {
     "dir": "dist/client",
     "entrypoints": {
