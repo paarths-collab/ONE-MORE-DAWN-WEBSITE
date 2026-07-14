@@ -537,6 +537,12 @@ async function liveSmoke(url) {
     }
 
     await cdp.clickButton('LIVE');
+    const liveSectionOrder = await cdp.eval(`[...document.querySelectorAll('.dash.on .p-sec')].map((el) => (el.textContent || '').trim())`);
+    const crisisIndex = liveSectionOrder.indexOf("TODAY'S CRISIS");
+    const councilIndex = liveSectionOrder.indexOf('THE COUNCIL');
+    const discussionIndex = liveSectionOrder.indexOf('REDDIT DISCUSSION');
+    assert(crisisIndex >= 0 && councilIndex > crisisIndex, `LIVE should put crisis before council, saw ${JSON.stringify(liveSectionOrder)}.`);
+    assert(discussionIndex > councilIndex, `LIVE should put required decisions before Reddit discussion, saw ${JSON.stringify(liveSectionOrder)}.`);
     await cdp.clickButtonContaining('Prepare for Raid');
     await cdp.waitFor('[...document.querySelectorAll("button.co-plan")].some((b) => b.disabled && (b.textContent || "").includes("Prepare for Raid"))', 'council strategy lock after submit');
     await cdp.waitFor('document.body.innerText.includes("of the council backs it")', 'strategy confirmation reports community support');
@@ -555,6 +561,19 @@ async function liveSmoke(url) {
     // vote/pledge/action flow above if placed earlier.
     await cdp.clickButton('CITY');
     await cdp.waitFor('!!document.querySelector(".build-panel")', 'build panel renders');
+    const cityOrder = await cdp.eval(`(() => {
+      const build = document.querySelector('.build-panel');
+      const dome = document.querySelector('.dome-panel');
+      const puzzle = document.querySelector('.puzzle-card');
+      const before = (a, b) => !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      return {
+        buildBeforeDome: before(build, dome),
+        domeBeforePuzzle: before(dome, puzzle),
+        puzzleBadge: document.querySelector('.pc-badge')?.textContent || '',
+      };
+    })()`);
+    assert(cityOrder.buildBeforeDome && cityOrder.domeBeforePuzzle, `CITY should prioritize Build, then Dome, then the optional puzzle, saw ${JSON.stringify(cityOrder)}.`);
+    assert(cityOrder.puzzleBadge.includes('DAILY PUZZLE') && !cityOrder.puzzleBadge.includes('DAILY CHALLENGE'), `Puzzle badge must use unambiguous DAILY PUZZLE wording, saw "${cityOrder.puzzleBadge}".`);
     const buildPanel = await cdp.eval(`(() => {
       const cta = document.querySelector('.bp-cta');
       return {
@@ -604,6 +623,9 @@ async function liveSmoke(url) {
     })()`);
     assert(frontierBefore.mainland && frontierBefore.roads && frontierBefore.forestCount > 200 && frontierBefore.scrubCount >= 200, `Mainland should have rolling terrain detail, roads, forest, and scrub, saw ${JSON.stringify(frontierBefore)}.`);
     assert(frontierBefore.frontier && !frontierBefore.developed, `Locked land should be visible wilderness on one mainland, saw ${JSON.stringify(frontierBefore)}.`);
+    await cdp.eval(`document.querySelector('.treasury-invest')?.click()`);
+    await cdp.waitFor(`(document.querySelector('.treasury-invest')?.textContent || '').includes('CONFIRM 5')`, 'treasury investment asks for confirmation');
+    assert(await cdp.eval(`document.body.innerText.includes('CITY TREASURY') && document.body.innerText.includes('5 🪙')`), 'First treasury click must not spend pooled Coins.');
     await cdp.eval(`document.querySelector('.treasury-invest')?.click()`);
     await cdp.waitFor(`document.body.innerText.includes('Outer Fields unlocked with the village treasury')`, 'the collective treasury unlocks the district');
     await cdp.waitFor(`[...document.querySelectorAll('.land-row')].some((r) => r.textContent.includes('Outer Fields') && r.textContent.includes('OPEN'))`, 'the funded district shows as open village land');
@@ -690,11 +712,13 @@ async function landscapeLayoutSmoke(url) {
         intersections,
         overflowX: document.body.scrollWidth > document.documentElement.clientWidth,
         actionHeights: [...document.querySelectorAll('.act')].filter(visible).map((el) => el.getBoundingClientRect().height),
+        actionLabels: [...document.querySelectorAll('.act .al')].map((el) => ({ text: (el.textContent || '').trim(), visible: visible(el) })),
       };
     })()`);
     assert(layout.intersections.length === 0, `Landscape global controls must not overlap the CITY drawer: ${JSON.stringify(layout.intersections)}`);
     assert(!layout.overflowX, 'Landscape viewport should not overflow horizontally.');
     assert(layout.actionHeights.every((height) => height >= 44), `Landscape action buttons need 44px touch height, saw ${layout.actionHeights.join(', ')}.`);
+    assert(layout.actionLabels.length > 0 && layout.actionLabels.every((label) => label.visible && label.text.length > 0), `Landscape actions need visible touch labels, saw ${JSON.stringify(layout.actionLabels)}.`);
   } finally {
     await close();
   }
@@ -888,15 +912,42 @@ async function puzzleSmoke(url) {
     assert(landscape.outside.length === 0, `Puzzle HUD, board, and controls must remain inside the root and viewport: ${JSON.stringify(landscape.outside)}.`);
     assert(!landscape.rootOverflow && !landscape.shellOverflow, `Puzzle content must fit 844x390 without root/shell overflow: ${JSON.stringify(landscape)}.`);
     assert(landscape.rootOverflowMode === 'hidden', `Phone-landscape puzzle must not create a nested scroller, got overflow:${landscape.rootOverflowMode}.`);
-    // Solve it with the Hint button (each hint nudges a tile toward its solution).
-    for (let i = 0; i < 30; i++) {
-      if (await cdp.eval(`!!document.querySelector('.pz-banner')`)) break;
-      await cdp.eval(`[...document.querySelectorAll('.pz-btn.pz-hint')].find((b) => !b.disabled)?.click()`);
-      await sleep(110);
-    }
-    await cdp.waitFor(`!!document.querySelector('.pz-banner') && document.body.innerText.includes('THE DISTRICT')`, 'the district lights up once every required building is reconnected');
+    const solveWithHints = async () => {
+      for (let i = 0; i < 30; i++) {
+        if (await cdp.eval(`!!document.querySelector('.pz-banner')`)) break;
+        await cdp.eval(`[...document.querySelectorAll('.pz-btn.pz-hint')].find((b) => !b.disabled)?.click()`);
+        await sleep(110);
+      }
+      await cdp.waitFor(`!!document.querySelector('.pz-banner') && document.body.innerText.includes('THE DISTRICT')`, 'the district lights up once every required building is reconnected');
+    };
+    const reopenPuzzle = async () => {
+      await cdp.eval(`document.querySelector('.puzzle-x')?.click()`);
+      await cdp.waitFor(`!document.querySelector('.pz-root')`, 'the puzzle closes before another validation attempt');
+      await cdp.eval(`document.querySelector('.puzzle-card')?.click()`);
+      await cdp.waitFor(`!!document.querySelector('.pz-root')`, 'the puzzle reopens for another validation attempt');
+    };
+    const setSolveMode = async (mode) => {
+      await cdp.eval(`fetch('/api/mock/puzzle-solve-mode', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: ${JSON.stringify(mode)} }) }).then((response) => response.json())`);
+    };
+
+    // A confirmed solve earns the positive result and reward.
+    await solveWithHints();
     // The solve posts to the server; the reward / share line surfaces.
     await cdp.waitFor(`document.body.innerText.includes('reconnected in') || document.body.innerText.includes('district is back online')`, 'the solve is scored and the city reward lands');
+
+    // A server-rejected board must not masquerade as a confirmed reconnect.
+    await setSolveMode('reject');
+    await reopenPuzzle();
+    await solveWithHints();
+    await cdp.waitFor(`(document.querySelector('.puzzle-result .pr-line')?.textContent || '').includes('RESULT NOT VERIFIED')`, 'a rejected solve gives honest retry guidance');
+    assert(!((await cdp.eval(`document.querySelector('.puzzle-result .pr-line')?.textContent || ''`)).toLowerCase().includes('reconnected')), 'A rejected solve must not claim the district was reconnected.');
+
+    // A network failure keeps the local payoff but clearly says it was not saved.
+    await setSolveMode('fail');
+    await reopenPuzzle();
+    await solveWithHints();
+    await cdp.waitFor(`(document.querySelector('.puzzle-result .pr-line')?.textContent || '').includes('SOLVED LOCALLY')`, 'an offline solve says the result was not saved');
+    assert((await cdp.eval(`document.querySelector('.puzzle-result .pr-line')?.textContent || ''`)).includes('result not saved'), 'Network failure guidance must explicitly say the result was not saved.');
   } finally {
     await close();
   }

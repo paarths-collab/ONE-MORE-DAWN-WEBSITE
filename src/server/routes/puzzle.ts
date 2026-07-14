@@ -22,8 +22,13 @@ export const puzzle = new Hono();
  * returns an unsigned 32-bit int, so the modulo is always a valid, in-range,
  * non-negative index.
  */
+// V1 daily boards stay within the first two chapters so a new visitor cannot
+// be dropped directly into the 7x7/8x8 finale. The full level list remains in
+// the response for a future progression surface.
+export const DAILY_PUZZLE_LEVELS = PUZZLE_LEVELS.filter((level) => level.chapter <= 2);
+
 export const dailyLevelId = (dailyId: string, worldSeed: number): number =>
-  PUZZLE_LEVELS[hashString(`${dailyId}:${worldSeed}`) % PUZZLE_LEVELS.length]!.id;
+  DAILY_PUZZLE_LEVELS[hashString(`${dailyId}:${worldSeed}`) % DAILY_PUZZLE_LEVELS.length]!.id;
 
 /** The world seed to key today's puzzle on: the live city's, or the neutral
  *  installation seed before a city exists (the puzzle is playable pre-city). */

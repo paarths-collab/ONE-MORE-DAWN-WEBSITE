@@ -4,7 +4,7 @@ import { hashString } from '../../shared/rng';
 import { initialRotations, solutionRotations } from '../../shared/puzzle';
 import { PUZZLE_LEVELS, puzzleLevelById } from '../../shared/puzzleLevels';
 import type { PuzzleDailyResponse, PuzzleSolveResponse } from '../../shared/types';
-import { dailyLevelId, puzzle } from './puzzle';
+import { DAILY_PUZZLE_LEVELS, dailyLevelId, puzzle } from './puzzle';
 import { utcDateString } from '../game/lazyResolve';
 import { KEYS } from '../storage/redisKeys';
 import { Store } from '../storage/store';
@@ -78,6 +78,18 @@ describe('GET /api/puzzle — daily selection', () => {
     expect(a.solvedCount).toBe(0);
     expect(a.bestMoves).toBeNull();
     expect(a.yourRank).toBeNull();
+  });
+
+  it('keeps V1 daily boards in the approachable first two chapters', () => {
+    expect(DAILY_PUZZLE_LEVELS.length).toBeGreaterThan(0);
+    expect(DAILY_PUZZLE_LEVELS.every((level) => level.chapter <= 2)).toBe(true);
+
+    for (let day = 1; day <= 31; day += 1) {
+      for (let seed = 0; seed < 20; seed += 1) {
+        const id = dailyLevelId(`2026-07-${String(day).padStart(2, '0')}`, seed);
+        expect(DAILY_PUZZLE_LEVELS.some((level) => level.id === id)).toBe(true);
+      }
+    }
   });
 });
 

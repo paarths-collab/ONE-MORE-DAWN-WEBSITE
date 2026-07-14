@@ -1101,28 +1101,6 @@ function LiveTab({
         </div>
       </div>
 
-      {liveData ? (
-        <>
-          <div className="p-sec">REDDIT DISCUSSION</div>
-          <ChatterHub {...chatter} />
-        </>
-      ) : (
-        <>
-          <div className="p-sec">VILLAGER VOICES</div>
-          <div className="talk">
-            {talk.map((m) => (
-              <div key={m.key} className={m.you ? 'tk you' : 'tk'}>
-                <span className="ta">{m.who}</span>
-                <span className="tx">{m.text}</span>
-              </div>
-            ))}
-            <button type="button" className="say-hi" disabled={hiCooldown} onClick={onSayHi}>
-              {hiCooldown ? '…' : villager ? `💬 TALK TO ${villager}` : '💬 TALK TO A VILLAGER'}
-            </button>
-          </div>
-        </>
-      )}
-
       <div className="p-sec">TODAY'S CRISIS</div>
       <div className="crisis">
         <div className="cr-title">⚔️ {liveData ? liveData.crisisTitle : 'The Convoy at the Gate'}</div>
@@ -1215,6 +1193,28 @@ function LiveTab({
         </div>
       </div>
 
+      {liveData ? (
+        <>
+          <div className="p-sec">REDDIT DISCUSSION</div>
+          <ChatterHub {...chatter} />
+        </>
+      ) : (
+        <>
+          <div className="p-sec">VILLAGER VOICES</div>
+          <div className="talk">
+            {talk.map((m) => (
+              <div key={m.key} className={m.you ? 'tk you' : 'tk'}>
+                <span className="ta">{m.who}</span>
+                <span className="tx">{m.text}</span>
+              </div>
+            ))}
+            <button type="button" className="say-hi" disabled={hiCooldown} onClick={onSayHi}>
+              {hiCooldown ? '…' : villager ? `💬 TALK TO ${villager}` : '💬 TALK TO A VILLAGER'}
+            </button>
+          </div>
+        </>
+      )}
+
       <div className="p-sec">LIVE EVENTS</div>
       <div className="events">
         {events.map((e, i) => (
@@ -1257,6 +1257,9 @@ function ShopTab({
   const treasuryInvestable = activeProject
     ? Math.min(treasury.balance, activeProject.remaining)
     : 0;
+  const [treasuryConfirmKey, setTreasuryConfirmKey] = useState<string | null>(null);
+  const currentTreasuryConfirmKey = activeProject ? `${activeProject.id}:${treasuryInvestable}` : null;
+  const treasuryInvestmentArmed = currentTreasuryConfirmKey !== null && treasuryConfirmKey === currentTreasuryConfirmKey;
   const [donationAmount, setDonationAmount] = useState(1);
   useEffect(() => {
     setDonationAmount((amount) => Math.max(1, Math.min(amount, maxDonation || 1)));
@@ -1276,10 +1279,28 @@ function ShopTab({
         </span>
       </div>
       <div className="shop-seg" role="tablist" aria-label="Shop mode">
-        <button type="button" className={view === 'house' ? 'on' : ''} onClick={() => setView('house')} aria-selected={view === 'house'} role="tab">
+        <button
+          type="button"
+          className={view === 'house' ? 'on' : ''}
+          onClick={() => {
+            setTreasuryConfirmKey(null);
+            setView('house');
+          }}
+          aria-selected={view === 'house'}
+          role="tab"
+        >
           HOUSE
         </button>
-        <button type="button" className={view === 'expand' ? 'on' : ''} onClick={() => setView('expand')} aria-selected={view === 'expand'} role="tab">
+        <button
+          type="button"
+          className={view === 'expand' ? 'on' : ''}
+          onClick={() => {
+            setTreasuryConfirmKey(null);
+            setView('expand');
+          }}
+          aria-selected={view === 'expand'}
+          role="tab"
+        >
           EXPAND
         </button>
       </div>
@@ -1344,13 +1365,23 @@ function ShopTab({
             {activeProject && (
               <button
                 type="button"
-                className="treasury-invest"
+                className={treasuryInvestmentArmed ? 'treasury-invest confirm' : 'treasury-invest'}
                 disabled={busy || disabled || treasuryInvestable < 1}
-                onClick={() => onTreasuryInvest(activeProject.id, treasuryInvestable)}
+                aria-pressed={treasuryInvestmentArmed}
+                onClick={() => {
+                  if (!treasuryInvestmentArmed) {
+                    setTreasuryConfirmKey(currentTreasuryConfirmKey);
+                    return;
+                  }
+                  setTreasuryConfirmKey(null);
+                  onTreasuryInvest(activeProject.id, treasuryInvestable);
+                }}
               >
                 {treasuryInvestable < 1
                   ? 'TREASURY IS BUILDING'
-                  : `INVEST ${treasuryInvestable} 🪙 IN ${activeProject.name.toUpperCase()}`}
+                  : treasuryInvestmentArmed
+                    ? `CONFIRM ${treasuryInvestable} 🪙 FOR ${activeProject.name.toUpperCase()}`
+                    : `INVEST ${treasuryInvestable} 🪙 IN ${activeProject.name.toUpperCase()}`}
               </button>
             )}
           </div>
@@ -1814,7 +1845,7 @@ function DomeHud({ dome }: { dome: DomeState }) {
         {energyPct >= 66
           ? 'the shield is strong — fireballs break against it'
           : energyPct >= 33
-            ? 'the shield is wearing thin — finish your daily challenge to charge it'
+            ? 'the shield is wearing thin — finish Maren’s daily mission to charge it'
             : 'the dome is failing — the city must recharge it'}
       </div>
       <div className="dome-repair">
@@ -2038,22 +2069,22 @@ function CityDashboard({
 
         {tab === 'city' && (
           <>
-            <button type="button" className="puzzle-card" onClick={onOpenPuzzle} disabled={puzzleBusy}>
-              <span className="pc-icon">🔌</span>
-              <span className="pc-body">
-                <span className="pc-badge">🎯 DAILY CHALLENGE</span>
-                <span className="pc-title">RECONNECT THE CITY</span>
-                <span className="pc-sub">today’s district puzzle · rotate the grid, light it back up</span>
-              </span>
-              <span className="pc-cta">{puzzleBusy ? '…' : 'PLAY'}</span>
-            </button>
-            <DomeHud dome={dome} />
             {reconstruction.active && (
               <ReconstructionPanel reconstruction={reconstruction} onAddLabor={onAddLabor} disabled={buildCtaDisabled} />
             )}
             {build && (
               <BuildPanel build={build} onAddLabor={onAddLabor} ctaDisabled={buildCtaDisabled} ctaLabel={buildCtaLabel} />
             )}
+            <DomeHud dome={dome} />
+            <button type="button" className="puzzle-card" onClick={onOpenPuzzle} disabled={puzzleBusy}>
+              <span className="pc-icon">🔌</span>
+              <span className="pc-body">
+                <span className="pc-badge">🎯 DAILY PUZZLE</span>
+                <span className="pc-title">RECONNECT THE CITY</span>
+                <span className="pc-sub">today’s district puzzle · rotate the grid, light it back up</span>
+              </span>
+              <span className="pc-cta">{puzzleBusy ? '…' : 'PLAY'}</span>
+            </button>
             <div className="p-sec">CITY VITALS</div>
             <div className="vits">
               {VITAL_DEFS.map((r) => {
@@ -4040,6 +4071,11 @@ export function App() {
       const stars = '★'.repeat(result.stars) + '☆'.repeat(3 - result.stars);
       solvePuzzle({ levelId: data.levelId, rotations: result.rotations, moves: result.moves, timeMs: result.timeMs })
         .then((res) => {
+          if (!res.accepted) {
+            setPuzzleBanner('RESULT NOT VERIFIED · exit and reopen today’s puzzle');
+            pushNotif('⚠️', 'the solved board could not be verified, please retry', 'bad');
+            return;
+          }
           if (res.reward) {
             showEpic('THE DISTRICT IS CONNECTED', res.reward);
             pushNotif('🔌', res.reward, 'good');
@@ -4049,7 +4085,8 @@ export function App() {
           getPuzzle().then(setPuzzleData).catch(() => {});
         })
         .catch(() => {
-          setPuzzleBanner(`${stars} · reconnected in ${result.moves} moves`);
+          setPuzzleBanner('SOLVED LOCALLY · result not saved · exit and retry');
+          pushNotif('⚠️', 'the puzzle result was not saved', 'bad');
         });
     },
     [puzzleData, showEpic, pushNotif, pushEvent],
