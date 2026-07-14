@@ -32,6 +32,8 @@ import {
   solvePuzzle,
 } from './api';
 import { PuzzleGame } from './PuzzleGame';
+import { PUZZLE_LEVELS } from '../shared/puzzleLevels';
+import type { PuzzleLevel } from '../shared/puzzle';
 import { isLocalHarnessHost, raidNoteFromEvents, raidOutcomeFromTimeline, worldUnavailableMessage } from './liveUi';
 import { BALANCE } from '../shared/balance';
 import { cityEpithet } from '../shared/cityName';
@@ -3092,6 +3094,7 @@ export function App() {
   // Reconnect the City — the daily tile-rotation puzzle (fetched on open).
   const [puzzleOpen, setPuzzleOpen] = useState(false);
   const [puzzleData, setPuzzleData] = useState<PuzzleDailyResponse | null>(null);
+  const [puzzleLevel, setPuzzleLevel] = useState<PuzzleLevel | null>(null); // level on the board now; advances via NEXT
   const [puzzleBusy, setPuzzleBusy] = useState(false);
   const [puzzleBanner, setPuzzleBanner] = useState<string | null>(null);
   // Coin economy: balance + cosmetics from the server, land districts shared city-wide.
@@ -4056,6 +4059,7 @@ export function App() {
     getPuzzle()
       .then((d) => {
         setPuzzleData(d);
+        setPuzzleLevel(d.level);
         setPuzzleOpen(true);
       })
       .catch(() => pushNotif('🔌', "today's puzzle is offline, try again", 'bad'))
@@ -4068,8 +4072,9 @@ export function App() {
     (result: { stars: 0 | 1 | 2 | 3; moves: number; timeMs: number; rotations: number[] }) => {
       const data = puzzleData;
       if (!data) return;
+      const levelId = puzzleLevel?.id ?? data.levelId; // score the level actually on the board (may be a NEXT level)
       const stars = '★'.repeat(result.stars) + '☆'.repeat(3 - result.stars);
-      solvePuzzle({ levelId: data.levelId, rotations: result.rotations, moves: result.moves, timeMs: result.timeMs })
+      solvePuzzle({ levelId, rotations: result.rotations, moves: result.moves, timeMs: result.timeMs })
         .then((res) => {
           if (!res.accepted) {
             setPuzzleBanner('RESULT NOT VERIFIED · exit and reopen today’s puzzle');
@@ -4089,8 +4094,20 @@ export function App() {
           pushNotif('⚠️', 'the puzzle result was not saved', 'bad');
         });
     },
-    [puzzleData, showEpic, pushNotif, pushEvent],
+    [puzzleData, puzzleLevel, showEpic, pushNotif, pushEvent],
   );
+
+  // Advance to the next campaign level (wraps at the end). The full 20-level set
+  // is bundled client-side, so NEXT needs no round-trip. Non-daily levels still
+  // record a personal best when solved; only the daily grants the city reward.
+  const onPuzzleNext = useCallback(() => {
+    setPuzzleBanner(null);
+    setPuzzleLevel((cur) => {
+      if (!cur) return cur;
+      const i = PUZZLE_LEVELS.findIndex((l) => l.id === cur.id);
+      return PUZZLE_LEVELS[(i + 1) % PUZZLE_LEVELS.length] ?? cur;
+    });
+  }, []);
 
   // ADD LABOR, the shared "build from zero" contribution. Live: post the
   // energy-gated once/day build_city action, then re-fetch to pull the fresh
@@ -5313,7 +5330,7 @@ export function App() {
               <span className="puzzle-daily">🔌 DAILY PUZZLE · {puzzleData.solvedCount} solved{puzzleData.bestMoves != null ? ` · best ${puzzleData.bestMoves}` : ''}</span>
               <button type="button" className="puzzle-x" onClick={() => setPuzzleOpen(false)}>✕</button>
             </div>
-            <PuzzleGame level={puzzleData.level} onSolved={onPuzzleSolved} onExit={() => setPuzzleOpen(false)} />
+            <PuzzleGame level={puzzleLevel ?? puzzleData.level} onSolved={onPuzzleSolved} onExit={() => setPuzzleOpen(false)} onNext={onPuzzleNext} />
             {puzzleBanner && (
               <div className="puzzle-result">
                 <div className="pr-line">{puzzleBanner}</div>
