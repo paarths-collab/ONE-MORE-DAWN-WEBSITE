@@ -160,6 +160,47 @@ const L3 = buildLevel({
   scramble: [[0, 3], [2, 1], [4, 1], [2, 4], [3, 4]],
 });
 
+const L4 = buildLevel({
+  id: 4, name: 'Crossroads', chapter: 1, width: 5, height: 5, moveTarget: 6,
+  sources: [{ at: [2, 4] }],
+  buildings: [
+    { at: [2, 0], kind: 'water_pump', required: true },
+    { at: [0, 0], kind: 'clinic', required: true },
+    { at: [4, 0], kind: 'shelter', required: true },
+    { at: [0, 3], kind: 'house', required: false },
+    { at: [4, 3], kind: 'house', required: false },
+  ],
+  paths: [
+    [[2, 4], [2, 3], [2, 2], [2, 1], [2, 0]], // spine up -> water_pump
+    [[2, 2], [1, 2], [0, 2], [0, 1], [0, 0]], // -> clinic
+    [[2, 2], [3, 2], [4, 2], [4, 1], [4, 0]], // -> shelter
+    [[2, 3], [1, 3], [0, 3]], // -> optional house (left)
+    [[2, 3], [3, 3], [4, 3]], // -> optional house (right)
+  ],
+  scramble: [[2, 1], [0, 2], [4, 2], [1, 3], [3, 3]],
+});
+
+const L5 = buildLevel({
+  id: 5, name: 'The Long Bus', chapter: 1, width: 6, height: 5, moveTarget: 7,
+  sources: [{ at: [0, 4] }],
+  buildings: [
+    { at: [0, 0], kind: 'clinic', required: true },
+    { at: [2, 0], kind: 'shelter', required: true },
+    { at: [5, 0], kind: 'storehouse', required: true },
+    { at: [3, 2], kind: 'house', required: false },
+    { at: [4, 3], kind: 'house', required: false },
+  ],
+  paths: [
+    [[0, 4], [1, 4], [2, 4], [3, 4], [4, 4], [5, 4]], // bottom bus
+    [[0, 4], [0, 3], [0, 2], [0, 1], [0, 0]], // -> clinic
+    [[2, 4], [2, 3], [2, 2], [2, 1], [2, 0]], // -> shelter
+    [[5, 4], [5, 3], [5, 2], [5, 1], [5, 0]], // -> storehouse
+    [[3, 4], [3, 3], [3, 2]], // -> optional house
+    [[4, 4], [4, 3]], // -> optional house
+  ],
+  scramble: [[1, 4], [5, 4], [0, 2], [2, 2], [5, 2], [3, 3]],
+});
+
 // ---------------------------------------------------------------------------
 // Chapter 2 — Broken Districts (locked tiles, blockers)
 // ---------------------------------------------------------------------------
@@ -181,6 +222,98 @@ const L6 = buildLevel({
   ],
   locked: [[3, 3]], // the fixed central junction the network must respect
   scramble: [[0, 4], [1, 3], [5, 2], [5, 4], [3, 1]],
+});
+
+const L7 = buildLevel({
+  id: 7, name: 'The Detour', chapter: 2, width: 6, height: 6, moveTarget: 8,
+  sources: [{ at: [0, 5] }],
+  buildings: [
+    { at: [0, 0], kind: 'shelter', required: true },
+    { at: [5, 0], kind: 'clinic', required: true },
+    { at: [2, 0], kind: 'farm', required: true },
+    { at: [4, 2], kind: 'house', required: false },
+    { at: [4, 4], kind: 'house', required: false },
+  ],
+  blocked: [[2, 2], [3, 2], [2, 3], [3, 3]], // a ruined block to route around
+  paths: [
+    [[0, 5], [1, 5], [2, 5], [3, 5], [4, 5], [5, 5]], // bottom bus
+    [[0, 5], [0, 4], [0, 3], [0, 2], [0, 1], [0, 0]], // -> shelter
+    [[5, 5], [5, 4], [5, 3], [5, 2], [5, 1], [5, 0]], // -> clinic
+    [[1, 5], [1, 4], [1, 3], [1, 2], [1, 1], [1, 0], [2, 0]], // -> farm (up col 1, around the ruin)
+    [[5, 2], [4, 2]], // -> optional house
+    [[4, 5], [4, 4]], // -> optional house
+  ],
+  locked: [[2, 5]], // a fixed conduit on the bus
+  scramble: [[0, 4], [0, 2], [5, 4], [5, 2], [1, 3], [1, 0], [4, 5]],
+});
+
+const L8 = buildLevel({
+  id: 8, name: 'Threading the Needle', chapter: 2, width: 6, height: 6, moveTarget: 8,
+  sources: [{ at: [3, 5] }],
+  buildings: [
+    { at: [0, 0], kind: 'clinic', required: true },
+    { at: [5, 0], kind: 'shelter', required: true },
+    { at: [3, 0], kind: 'storehouse', required: true },
+    { at: [0, 3], kind: 'house', required: false },
+    { at: [5, 3], kind: 'house', required: false },
+  ],
+  blocked: [[2, 2], [3, 2]], // a central bar
+  paths: [
+    [[3, 5], [3, 4], [3, 3]], // spine up to the junction
+    [[3, 3], [2, 3], [1, 3], [0, 3]], // west arm -> optional house
+    [[1, 3], [1, 2], [1, 1], [1, 0], [0, 0]], // -> clinic
+    [[3, 3], [4, 3], [5, 3]], // east arm -> optional house
+    [[4, 3], [4, 2], [4, 1], [4, 0], [5, 0]], // -> shelter
+    [[4, 1], [3, 1], [3, 0]], // -> storehouse
+  ],
+  locked: [[3, 3], [1, 3]], // the two fixed junctions the routing threads
+  scramble: [[3, 4], [2, 3], [1, 1], [1, 0], [4, 2], [4, 0], [3, 1]],
+});
+
+const L9 = buildLevel({
+  id: 9, name: 'The Long Way Round', chapter: 2, width: 6, height: 6, moveTarget: 9,
+  sources: [{ at: [0, 5] }],
+  buildings: [
+    { at: [0, 0], kind: 'shelter', required: true },
+    { at: [5, 0], kind: 'clinic', required: true },
+    { at: [3, 0], kind: 'farm', required: true },
+    { at: [4, 2], kind: 'house', required: false },
+    { at: [1, 0], kind: 'house', required: false },
+  ],
+  blocked: [[3, 2], [3, 3]], // rubble mid-board
+  paths: [
+    [[0, 5], [1, 5], [2, 5], [3, 5], [4, 5], [5, 5]], // bottom bus
+    [[0, 5], [0, 4], [0, 3], [0, 2], [0, 1], [0, 0]], // -> shelter
+    [[5, 5], [5, 4], [5, 3], [5, 2], [5, 1], [5, 0]], // -> clinic
+    [[2, 5], [2, 4], [2, 3], [2, 2], [2, 1], [2, 0], [3, 0]], // -> farm (up col 2, then east)
+    [[5, 2], [4, 2]], // -> optional house
+    [[0, 1], [1, 1], [1, 0]], // -> optional house
+  ],
+  locked: [[2, 3], [5, 3]], // fixed riser conduits
+  scramble: [[2, 5], [0, 3], [0, 1], [5, 4], [5, 2], [2, 2], [2, 0], [1, 1]],
+});
+
+const L10 = buildLevel({
+  id: 10, name: 'The Sealed Quarter', chapter: 2, width: 7, height: 6, moveTarget: 10,
+  sources: [{ at: [0, 5] }],
+  buildings: [
+    { at: [0, 0], kind: 'shelter', required: true },
+    { at: [6, 0], kind: 'clinic', required: true },
+    { at: [3, 0], kind: 'water_pump', required: true },
+    { at: [4, 4], kind: 'house', required: false },
+    { at: [1, 3], kind: 'house', required: false },
+  ],
+  blocked: [[3, 1], [3, 2], [3, 3], [3, 4]], // a wall — the bus can only cross along the bottom
+  paths: [
+    [[0, 5], [1, 5], [2, 5], [3, 5], [4, 5], [5, 5], [6, 5]], // bottom bus (crosses the wall at 3,5)
+    [[0, 5], [0, 4], [0, 3], [0, 2], [0, 1], [0, 0]], // -> shelter
+    [[6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0]], // -> clinic
+    [[2, 5], [2, 4], [2, 3], [2, 2], [2, 1], [2, 0], [3, 0]], // -> water_pump (up col 2, then east)
+    [[4, 5], [4, 4]], // -> optional house
+    [[0, 3], [1, 3]], // -> optional house
+  ],
+  locked: [[3, 5], [2, 3], [6, 3]], // the wall-gap crossing + two riser conduits
+  scramble: [[1, 5], [4, 5], [5, 5], [6, 5], [0, 4], [0, 1], [6, 4], [2, 2], [2, 0]],
 });
 
 // ---------------------------------------------------------------------------
@@ -206,6 +339,50 @@ const L11 = buildLevel({
   scramble: [[0, 4], [3, 5], [4, 2], [2, 4], [4, 1]],
 });
 
+const L12 = buildLevel({
+  id: 12, name: 'Rationed', chapter: 3, width: 6, height: 6, moveTarget: 7,
+  sources: [{ at: [0, 5], capacity: 9 }], // the full load is exactly 9 — nothing to spare
+  buildings: [
+    { at: [0, 0], kind: 'clinic', required: true }, // 3
+    { at: [5, 0], kind: 'storehouse', required: true }, // 2
+    { at: [3, 0], kind: 'water_pump', required: true }, // 2
+    { at: [2, 3], kind: 'house', required: false }, // 1
+    { at: [4, 3], kind: 'house', required: false }, // 1
+  ],
+  paths: [
+    [[0, 5], [0, 4], [0, 3], [0, 2], [0, 1], [0, 0]], // -> clinic (up col 0)
+    [[0, 5], [1, 5], [2, 5], [3, 5], [4, 5], [5, 5]], // bottom bus
+    [[5, 5], [5, 4], [5, 3], [5, 2], [5, 1], [5, 0]], // -> storehouse
+    [[3, 5], [3, 4], [3, 3], [3, 2], [3, 1], [3, 0]], // -> water_pump
+    [[3, 3], [2, 3]], // -> optional house
+    [[3, 3], [4, 3]], // -> optional house
+  ],
+  scramble: [[0, 3], [2, 5], [5, 3], [3, 4], [3, 1], [4, 5]],
+});
+
+const L13 = buildLevel({
+  id: 13, name: 'Brownout', chapter: 3, width: 6, height: 6, moveTarget: 9,
+  sources: [{ at: [0, 5], capacity: 10 }],
+  buildings: [
+    { at: [0, 0], kind: 'shelter', required: true }, // 2
+    { at: [5, 0], kind: 'clinic', required: true }, // 3
+    { at: [2, 0], kind: 'farm', required: true }, // 2
+    { at: [4, 0], kind: 'storehouse', required: true }, // 2
+    { at: [3, 4], kind: 'house', required: false }, // 1
+  ],
+  blocked: [[2, 2], [3, 2], [2, 3], [3, 3]],
+  paths: [
+    [[0, 5], [1, 5], [2, 5], [3, 5], [4, 5], [5, 5]], // bottom bus
+    [[0, 5], [0, 4], [0, 3], [0, 2], [0, 1], [0, 0]], // -> shelter
+    [[5, 5], [5, 4], [5, 3], [5, 2], [5, 1], [5, 0]], // -> clinic
+    [[1, 5], [1, 4], [1, 3], [1, 2], [1, 1], [1, 0], [2, 0]], // -> farm (up col 1, around the ruin)
+    [[4, 5], [4, 4], [4, 3], [4, 2], [4, 1], [4, 0]], // -> storehouse (up col 4, around the ruin)
+    [[3, 5], [3, 4]], // -> optional house
+  ],
+  locked: [[2, 5]],
+  scramble: [[0, 3], [1, 5], [3, 5], [5, 4], [5, 2], [1, 3], [1, 0], [4, 3]],
+});
+
 const L14 = buildLevel({
   id: 14, name: 'The Switchyard', chapter: 3, width: 6, height: 6, moveTarget: 8,
   sources: [{ at: [0, 3], capacity: -1 }],
@@ -224,6 +401,29 @@ const L14 = buildLevel({
   ],
   switches: [[3, 3]], // a switch tile the player toggles to feed both branches
   scramble: [[1, 3], [3, 2], [4, 4], [0, 2]],
+});
+
+const L15 = buildLevel({
+  id: 15, name: 'Load Balance', chapter: 3, width: 7, height: 6, moveTarget: 12,
+  sources: [{ at: [3, 5], capacity: 12 }],
+  buildings: [
+    { at: [0, 0], kind: 'shelter', required: true }, // 2
+    { at: [6, 0], kind: 'clinic', required: true }, // 3
+    { at: [3, 0], kind: 'council_hall', required: true }, // 4
+    { at: [0, 4], kind: 'house', required: false }, // 1
+    { at: [6, 4], kind: 'house', required: false }, // 1
+  ],
+  paths: [
+    [[3, 5], [3, 4], [3, 3]], // spine up to the switch
+    [[3, 3], [2, 3], [1, 3], [0, 3], [0, 2], [0, 1], [0, 0]], // left arm -> shelter
+    [[3, 3], [4, 3], [5, 3], [6, 3], [6, 2], [6, 1], [6, 0]], // right arm -> clinic
+    [[1, 3], [1, 2], [1, 1], [1, 0], [2, 0], [3, 0]], // -> council_hall
+    [[0, 3], [0, 4]], // -> optional house
+    [[6, 3], [6, 4]], // -> optional house
+  ],
+  switches: [[3, 3]], // the balancing switch that feeds both arms
+  locked: [[3, 4], [1, 3]],
+  scramble: [[2, 3], [4, 3], [0, 3], [0, 1], [5, 3], [6, 3], [6, 1], [1, 1], [2, 0]],
 });
 
 // ---------------------------------------------------------------------------
@@ -275,6 +475,53 @@ const L17 = buildLevel({
   scramble: [[0, 5], [2, 2], [6, 1], [4, 3], [5, 4]],
 });
 
+const L18 = buildLevel({
+  id: 18, name: 'Parallel Feeds', chapter: 4, width: 7, height: 7, moveTarget: 10,
+  sources: [{ at: [0, 6], capacity: 8 }, { at: [6, 6], capacity: 8 }],
+  buildings: [
+    { at: [0, 0], kind: 'clinic', required: true }, // main
+    { at: [2, 0], kind: 'farm', required: true }, // main
+    { at: [6, 0], kind: 'shelter', required: true }, // backup
+    { at: [4, 0], kind: 'water_pump', required: true }, // backup
+    { at: [1, 4], kind: 'house', required: false },
+    { at: [5, 4], kind: 'house', required: false },
+  ],
+  paths: [
+    [[0, 6], [0, 5], [0, 4], [0, 3], [0, 2], [0, 1], [0, 0]], // main -> clinic
+    [[0, 3], [1, 3], [2, 3], [2, 2], [2, 1], [2, 0]], // main -> farm
+    [[0, 4], [1, 4]], // main -> optional house
+    [[6, 6], [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0]], // backup -> shelter
+    [[6, 3], [5, 3], [4, 3], [4, 2], [4, 1], [4, 0]], // backup -> water_pump
+    [[6, 4], [5, 4]], // backup -> optional house
+  ],
+  scramble: [[0, 5], [0, 4], [2, 3], [2, 1], [6, 5], [6, 3], [4, 3], [4, 1]],
+});
+
+const L19 = buildLevel({
+  id: 19, name: 'Divided City', chapter: 4, width: 7, height: 7, moveTarget: 12,
+  separateSources: true,
+  sources: [{ at: [0, 6], capacity: 12 }, { at: [6, 6], capacity: 12 }],
+  buildings: [
+    { at: [0, 0], kind: 'clinic', required: true },
+    { at: [2, 0], kind: 'shelter', required: true },
+    { at: [6, 0], kind: 'farm', required: true },
+    { at: [4, 0], kind: 'water_pump', required: true },
+    { at: [1, 3], kind: 'house', required: false },
+    { at: [5, 3], kind: 'house', required: false },
+  ],
+  paths: [
+    // West network (source 0,6) — must not touch the east one
+    [[0, 6], [0, 5], [0, 4], [0, 3], [0, 2], [0, 1], [0, 0]], // -> clinic
+    [[0, 4], [1, 4], [2, 4], [2, 3], [2, 2], [2, 1], [2, 0]], // -> shelter
+    [[0, 3], [1, 3]], // -> optional house
+    // East network (source 6,6)
+    [[6, 6], [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0]], // -> farm
+    [[6, 4], [5, 4], [4, 4], [4, 3], [4, 2], [4, 1], [4, 0]], // -> water_pump
+    [[6, 3], [5, 3]], // -> optional house
+  ],
+  scramble: [[0, 5], [0, 3], [2, 4], [2, 2], [6, 5], [6, 3], [4, 4], [4, 2]],
+});
+
 // ---------------------------------------------------------------------------
 // Chapter 4 finale — the milestone board
 // ---------------------------------------------------------------------------
@@ -313,7 +560,10 @@ const L20 = buildLevel({
   scramble: [[0, 6], [1, 2], [2, 1], [3, 2], [3, 4], [6, 7], [6, 1], [6, 3], [6, 5], [1, 6]],
 });
 
-export const PUZZLE_LEVELS: PuzzleLevel[] = [L1, L2, L3, L6, L11, L14, L16, L17, L20];
+export const PUZZLE_LEVELS: PuzzleLevel[] = [
+  L1, L2, L3, L4, L5, L6, L7, L8, L9, L10,
+  L11, L12, L13, L14, L15, L16, L17, L18, L19, L20,
+];
 
 export const puzzleLevelById = (id: number): PuzzleLevel | undefined =>
   PUZZLE_LEVELS.find((l) => l.id === id);
