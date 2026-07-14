@@ -363,6 +363,17 @@ async function liveSmoke(url) {
     // Advisor onboarding teaches four essentials up front. Deeper lessons are
     // delayed until the player opens the matching surface.
     await cdp.waitFor(`!!document.querySelector('.coach')`, 'advisor coach appears on first visit');
+    const advisorRendering = await cdp.eval(`(() => {
+      const portrait = document.querySelector('.co-avatar');
+      if (!(portrait instanceof SVGElement)) return null;
+      return {
+        imageRendering: getComputedStyle(portrait).imageRendering,
+        viewBox: portrait.getAttribute('viewBox'),
+        width: portrait.getBoundingClientRect().width,
+      };
+    })()`);
+    assert(advisorRendering?.imageRendering !== 'pixelated', 'Advisor portrait should render as smooth vector art.');
+    assert(advisorRendering?.viewBox === '0 0 72 92' && advisorRendering.width >= 60, 'Advisor portrait should use the detailed high-resolution composition.');
     await cdp.waitFor(`(document.querySelector('.title .sub')?.textContent || '').includes('r/meadowbrook')`, 'top bar identifies the real subreddit city');
     await cdp.waitFor(`[...document.querySelectorAll('.h-owner')].some((el) => (el.textContent || '').includes('u/mock_user'))`, 'current player house uses the real Reddit username');
     const coachHead = await cdp.eval(`document.querySelector('.coach .co-head span')?.textContent || ''`);
