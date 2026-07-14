@@ -3451,10 +3451,15 @@ export function App() {
           const title =
             after.held ? '🛡 THE DOME HELD' : outcome === 'fallen' ? '💥 THE DOME SHATTERED' : '🔥 THE DOME WAS BREACHED';
           const lost = after.housesDestroyed.length;
+          const souls = after.soulsLost ?? 0;
+          const toll = [
+            souls > 0 ? `${souls} soul${souls === 1 ? '' : 's'} lost` : '',
+            lost > 0 ? `${lost} home${lost === 1 ? '' : 's'} lost` : '',
+          ].filter(Boolean).join(' · ');
           const sub = after.held
             ? `the dome held — ${blocked} fireball${blocked === 1 ? '' : 's'} broke against the shield`
-            : lost > 0
-              ? `${lost} home${lost === 1 ? '' : 's'} lost — no citizen rebuilds alone`
+            : toll
+              ? `${toll} — no citizen rebuilds alone`
               : 'a fireball pierced the dome; the city held the line';
           showEpic(title, sub);
           pushNotif('⚔', sub, after.held ? 'good' : 'bad');

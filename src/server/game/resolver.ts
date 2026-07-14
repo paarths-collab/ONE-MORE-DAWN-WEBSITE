@@ -116,6 +116,7 @@ export type ResolveResult = {
     fireballs: Fireball[];
     segmentsAfter: number[];
     penetrations: number;
+    soulsLost: number;
   } | null;
 };
 
@@ -414,7 +415,7 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     // Outcome: fell -> fallen; any fireball pierced the dome -> breach (homes lost,
     // even if the wall caught the casualties); every fireball blocked -> held.
     const outcome: 'held' | 'breach' | 'fallen' = raidFelled ? 'fallen' : pen > 0 ? 'breach' : 'held';
-    raidResult = { outcome, fireballs: volley.fireballs, segmentsAfter: volley.segmentsAfter, penetrations: pen };
+    raidResult = { outcome, fireballs: volley.fireballs, segmentsAfter: volley.segmentsAfter, penetrations: pen, soulsLost: populationLoss };
     events.push(
       raidFelled
         ? 'The Red Signal fell from the sky. The dome shattered; the city could not hold, it fell.'

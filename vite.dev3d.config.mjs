@@ -138,6 +138,7 @@ const RAID_AFTERMATH = {
     { power: 55, segment: 5, blocked: false },
   ],
   penetrations: 3,
+  soulsLost: 6,
   segmentsBefore: [100, 35, 80, 20, 95, 55],
   segmentsAfter: [80, 15, 60, 0, 95, 45],
 };

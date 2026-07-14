@@ -246,6 +246,7 @@ export type RaidAftermath = {
   reconstructionRequired: number; // total labor to restore them all
   fireballs: RaidFireball[];   // the volley that fell (for the cinematic)
   penetrations: number;        // fireballs that pierced the dome
+  soulsLost: number;           // citizens the raid cost (0 if the dome held)
   segmentsBefore: number[];    // dome shields going into the raid
   segmentsAfter: number[];     // dome shields after the raid (blocked hits drained them)
 };

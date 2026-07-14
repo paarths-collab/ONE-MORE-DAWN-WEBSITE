@@ -210,6 +210,7 @@ export const runLazyResolution = async (
         reconstructionRequired: required,
         fireballs: raid.fireballs,
         penetrations: raid.penetrations,
+        soulsLost: raid.soulsLost,
         segmentsBefore: domeBefore,
         segmentsAfter: raid.segmentsAfter,
       };
