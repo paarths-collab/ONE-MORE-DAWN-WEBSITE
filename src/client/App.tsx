@@ -1279,10 +1279,28 @@ function ShopTab({
         </span>
       </div>
       <div className="shop-seg" role="tablist" aria-label="Shop mode">
-        <button type="button" className={view === 'house' ? 'on' : ''} onClick={() => setView('house')} aria-selected={view === 'house'} role="tab">
+        <button
+          type="button"
+          className={view === 'house' ? 'on' : ''}
+          onClick={() => {
+            setTreasuryConfirmKey(null);
+            setView('house');
+          }}
+          aria-selected={view === 'house'}
+          role="tab"
+        >
           HOUSE
         </button>
-        <button type="button" className={view === 'expand' ? 'on' : ''} onClick={() => setView('expand')} aria-selected={view === 'expand'} role="tab">
+        <button
+          type="button"
+          className={view === 'expand' ? 'on' : ''}
+          onClick={() => {
+            setTreasuryConfirmKey(null);
+            setView('expand');
+          }}
+          aria-selected={view === 'expand'}
+          role="tab"
+        >
           EXPAND
         </button>
       </div>
