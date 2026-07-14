@@ -12,6 +12,7 @@ import {
 import {
   ApiFailure,
   getInit,
+  getChatter,
   getLeaderboard,
   getPuzzle,
   getWorld,
@@ -26,6 +27,7 @@ import {
   postStrategy,
   postTreasuryInvest,
   postVote,
+  postChatter,
   solvePuzzle,
 } from './api';
 import { PuzzleGame } from './PuzzleGame';
@@ -42,6 +44,12 @@ import {
   type ShopItemId,
 } from '../shared/shop';
 import type { TreasuryState } from '../shared/treasury';
+import {
+  CHATTER_CATEGORIES,
+  CHATTER_MAX_LENGTH,
+  type ChatterCategory,
+  type ChatterState,
+} from '../shared/chatter';
 import { navigateTo } from '@devvit/web/client';
 import { isMuted, playSound, preloadSounds, toggleMuted, unlockAudio } from './sound';
 import { isMusicMuted, playTrack, refreshMusicVolume, stopMusic, toggleMusicMuted, unlockMusic } from './music';
@@ -875,6 +883,116 @@ function NotifStack({ notifs }: { notifs: Notif[] }) {
   );
 }
 
+type ChatterUiState = {
+  state: ChatterState | null;
+  category: ChatterCategory;
+  loading: boolean;
+  busy: boolean;
+  onCategory: (category: ChatterCategory) => void;
+  onPost: (text: string) => Promise<boolean>;
+  onOpenThread: () => void;
+  onOpenMessage: (url: string) => void;
+};
+
+function ChatterHub({
+  state,
+  category,
+  loading,
+  busy,
+  onCategory,
+  onPost,
+  onOpenThread,
+  onOpenMessage,
+}: ChatterUiState) {
+  const [draft, setDraft] = useState('');
+  const remaining = (state?.maxLength ?? CHATTER_MAX_LENGTH) - [...draft].length;
+  const submit = async () => {
+    if (busy || !draft.trim()) return;
+    if (await onPost(draft)) setDraft('');
+  };
+  return (
+    <section className="chatter-hub" aria-label="City Chatter Hub">
+      <div className="chatter-head">
+        <div>
+          <div className="ct-title">CITY CHATTER HUB</div>
+          <div className="mini-cap">The city decides together on Reddit.</div>
+        </div>
+        {state?.weekKey && <span className="chatter-week">WEEK {state.weekKey.slice(5)}</span>}
+      </div>
+      <div className="chatter-topics" role="tablist" aria-label="Chatter topic">
+        {CHATTER_CATEGORIES.map((topic) => (
+          <button
+            key={topic.id}
+            type="button"
+            className={category === topic.id ? 'on' : ''}
+            onClick={() => onCategory(topic.id)}
+            aria-selected={category === topic.id}
+            role="tab"
+          >
+            <span aria-hidden="true">{topic.icon}</span> {topic.label}
+          </button>
+        ))}
+      </div>
+      <div className="chatter-feed" aria-live="polite">
+        {loading ? (
+          <div className="chatter-empty">Reading Reddit comments…</div>
+        ) : !state?.ready ? (
+          <div className="chatter-empty">The weekly hub is being prepared. A moderator can create or repair it from the subreddit menu.</div>
+        ) : !state.feedAvailable ? (
+          <div className="chatter-empty">Reddit comments could not be loaded. Open the full thread or try this topic again.</div>
+        ) : state.messages.length === 0 ? (
+          <div className="chatter-empty">No one has spoken here yet. Start today’s discussion.</div>
+        ) : (
+          state.messages.map((message) => (
+            <article key={message.id} className="chatter-message">
+              <div className="chatter-author">u/{message.author}</div>
+              <div className="chatter-text">{message.text}</div>
+              <button
+                type="button"
+                className="chatter-open-message"
+                onClick={() => onOpenMessage(message.permalink)}
+                title="Open this Reddit comment to reply, report, or mute"
+                aria-label={`Open ${message.author}'s comment on Reddit`}
+              >
+                ↗
+              </button>
+            </article>
+          ))
+        )}
+      </div>
+      {state?.ready && (
+        <div className="chatter-compose">
+          <textarea
+            value={draft}
+            maxLength={state.maxLength}
+            rows={2}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Write to your city…"
+            aria-label="City Chatter message"
+          />
+          <div className="chatter-compose-meta">
+            <span>{remaining}</span>
+            <button type="button" disabled={busy || !draft.trim()} onClick={submit}>
+              {busy ? 'POSTING…' : 'POST TO REDDIT'}
+            </button>
+          </div>
+          <div className="chatter-disclosure">{state.attributionNotice}</div>
+        </div>
+      )}
+      {state?.threadUrl && (
+        <button
+          type="button"
+          className="say-hi chatter-thread"
+          data-comments-url={state.threadUrl}
+          onClick={onOpenThread}
+        >
+          ↗ OPEN FULL REDDIT THREAD
+        </button>
+      )}
+    </section>
+  );
+}
+
 type LiveState = {
   pledged: number;
   pledgedToday: boolean;
@@ -883,8 +1001,7 @@ type LiveState = {
   hiCooldown: boolean;
   onSayHi: () => void;
   villager: string | null;
-  commentsUrl: string | null;
-  onOpenComments: () => void;
+  chatter: ChatterUiState;
   crisisVotes: Record<CrisisOptId, number>;
   myCrisisVote: CrisisOptId | null;
   onCrisisVote: (id: CrisisOptId) => void;
@@ -903,8 +1020,7 @@ function LiveTab({
   hiCooldown,
   onSayHi,
   villager,
-  commentsUrl,
-  onOpenComments,
+  chatter,
   crisisVotes,
   myCrisisVote,
   onCrisisVote,
@@ -964,32 +1080,26 @@ function LiveTab({
         </div>
       </div>
 
-      <div className="p-sec">VILLAGER VOICES</div>
-      <div className="talk">
-        {talk.map((m) => (
-          <div key={m.key} className={m.you ? 'tk you' : 'tk'}>
-            <span className="ta">{m.who}</span>
-            <span className="tx">{m.text}</span>
+      {liveData ? (
+        <>
+          <div className="p-sec">REDDIT DISCUSSION</div>
+          <ChatterHub {...chatter} />
+        </>
+      ) : (
+        <>
+          <div className="p-sec">VILLAGER VOICES</div>
+          <div className="talk">
+            {talk.map((m) => (
+              <div key={m.key} className={m.you ? 'tk you' : 'tk'}>
+                <span className="ta">{m.who}</span>
+                <span className="tx">{m.text}</span>
+              </div>
+            ))}
+            <button type="button" className="say-hi" disabled={hiCooldown} onClick={onSayHi}>
+              {hiCooldown ? '…' : villager ? `💬 TALK TO ${villager}` : '💬 TALK TO A VILLAGER'}
+            </button>
           </div>
-        ))}
-        <button type="button" className="say-hi" disabled={hiCooldown} onClick={onSayHi}>
-          {hiCooldown ? '…' : villager ? `💬 TALK TO ${villager}` : '💬 TALK TO A VILLAGER'}
-        </button>
-      </div>
-
-      {liveData && commentsUrl && (
-        <div className="council-thread">
-          <div className="ct-title">REDDIT COUNCIL THREAD</div>
-          <div className="mini-cap">Debate today's crisis with your subreddit, then cast the binding vote below.</div>
-          <button
-            type="button"
-            className="say-hi council-comments"
-            data-comments-url={commentsUrl}
-            onClick={onOpenComments}
-          >
-            💬 OPEN CRISIS DISCUSSION · {liveData.crisisTitle}
-          </button>
-        </div>
+        </>
       )}
 
       <div className="p-sec">TODAY'S CRISIS</div>
@@ -2921,7 +3031,10 @@ export function App() {
   const [onboardBusy, setOnboardBusy] = useState(false);
   const [liveUsername, setLiveUsername] = useState(''); // Reddit username (prefills the survivor name)
   const [liveCityName, setLiveCityName] = useState<string | null>(null); // this city's ancient name (per-subreddit)
-  const [livePostId, setLivePostId] = useState<string | null>(null);
+  const [liveChatter, setLiveChatter] = useState<ChatterState | null>(null);
+  const [chatterCategory, setChatterCategory] = useState<ChatterCategory>('strategy');
+  const [chatterLoading, setChatterLoading] = useState(false);
+  const [chatterBusy, setChatterBusy] = useState(false);
   const [liveChallenge, setLiveChallenge] = useState<InitResponse['challenge'] | null>(null); // today's personal mission
   // Reconnect the City — the daily tile-rotation puzzle (fetched on open).
   const [puzzleOpen, setPuzzleOpen] = useState(false);
@@ -2980,6 +3093,7 @@ export function App() {
   const lbFetchedRef = useRef(false); // leaderboard fetched at least once
   const dashTabRef = useRef<DashTab>('map'); // open tab, readable inside the poll
   const mapViewRef = useRef<MapViewMode>('town');
+  const chatterCategoryRef = useRef<ChatterCategory>('strategy');
   const pledgedRef = useRef(false); // click guard (double-tap before re-render)
   const votedRef = useRef(false);
   const nextEvRef = useRef(3);
@@ -3175,7 +3289,6 @@ export function App() {
       setLiveEnergy({ effective: init.effectiveEnergy, used: init.player.energyUsedToday });
       setLiveUsername(init.player.username ?? '');
       setLiveCityName(init.cityName || null);
-      setLivePostId(init.postId || null);
       // Economy + land: state for the SHOP tab, cosmetics + districts for the scene.
       setLiveEconomy(init.economy ?? EMPTY_ECONOMY);
       setLiveLand(init.land ?? EMPTY_LAND);
@@ -3465,6 +3578,18 @@ export function App() {
       });
   }, [liveLb]);
 
+  const refreshChatter = useCallback(async (category: ChatterCategory) => {
+    setChatterLoading(true);
+    try {
+      const next = await getChatter(category);
+      if (chatterCategoryRef.current === category) setLiveChatter(next);
+    } catch {
+      // Preserve the last confirmed Reddit state during a transient network failure.
+    } finally {
+      if (chatterCategoryRef.current === category) setChatterLoading(false);
+    }
+  }, []);
+
   // Fetch the world once as soon as we're live, so the horizon settlements in
   // the 3D scene wear real city names without waiting for the WORLD tab.
   useEffect(() => {
@@ -3485,7 +3610,8 @@ export function App() {
       lbFetchedRef.current = true;
       refreshLb();
     }
-  }, [mode, dashTab, mapView, refreshWorld, refreshLb]);
+    if (dashTab === 'live') void refreshChatter(chatterCategory);
+  }, [mode, dashTab, mapView, chatterCategory, refreshWorld, refreshLb, refreshChatter]);
   useEffect(() => {
     if (mode !== 'live' || !statsOpen || lbFetchedRef.current) return;
     lbFetchedRef.current = true;
@@ -3503,13 +3629,14 @@ export function App() {
           applyInit(init, false);
           if (dashTabRef.current === 'map' && mapViewRef.current === 'world') refreshWorld();
           if (dashTabRef.current === 'top') refreshLb();
+          if (dashTabRef.current === 'live') void refreshChatter(chatterCategoryRef.current);
         })
         .catch(() => {
           // transient poll failure, keep showing the last known state
         });
     }, 30000);
     return () => window.clearInterval(id);
-  }, [mode, applyInit, refreshWorld, refreshLb]);
+  }, [mode, applyInit, refreshWorld, refreshLb, refreshChatter]);
 
   // ---- LIVE mode mutations (each guards the poll + double-taps via mutatingRef) ----
   const toastFailure = useCallback(
@@ -4258,16 +4385,43 @@ export function App() {
     }, 6000);
   }, [pushTalk, pushNotif]);
 
-  const commentsUrl = useMemo(() => {
-    const id = livePostId?.replace(/^t3_/, '').trim();
-    return id ? `https://www.reddit.com/comments/${id}` : null;
-  }, [livePostId]);
-
-  const onOpenComments = useCallback(() => {
-    if (!commentsUrl) return;
+  const openRedditUrl = useCallback((url: string) => {
+    if (!url) return;
     playSound('button_click');
-    navigateTo(commentsUrl);
-  }, [commentsUrl]);
+    navigateTo(url);
+  }, []);
+
+  const onChatterCategory = useCallback((category: ChatterCategory) => {
+    chatterCategoryRef.current = category;
+    setChatterCategory(category);
+  }, []);
+
+  const onChatterPost = useCallback(
+    async (text: string): Promise<boolean> => {
+      if (chatterBusy || mutatingRef.current) return false;
+      const category = chatterCategoryRef.current;
+      mutatingRef.current = true;
+      setChatterBusy(true);
+      try {
+        const response = await postChatter(category, text);
+        const author = response.postedAs.replace(/^u\//, '') || 'app account';
+        pushNotif('💬', `Posted publicly to Reddit as u/${author}.`, 'good');
+        await refreshChatter(category);
+        return true;
+      } catch (err) {
+        toastFailure(err, 'Reddit did not confirm the comment. Nothing was posted.');
+        return false;
+      } finally {
+        mutatingRef.current = false;
+        setChatterBusy(false);
+      }
+    },
+    [chatterBusy, pushNotif, refreshChatter, toastFailure],
+  );
+
+  const onOpenChatterThread = useCallback(() => {
+    if (liveChatter?.threadUrl) openRedditUrl(liveChatter.threadUrl);
+  }, [liveChatter, openRedditUrl]);
 
   // villager chip actions, wave at / deselect the clicked villager
   const onWaveAt = useCallback(() => {
@@ -4863,8 +5017,16 @@ export function App() {
           hiCooldown,
           onSayHi,
           villager,
-          commentsUrl,
-          onOpenComments,
+          chatter: {
+            state: liveChatter,
+            category: chatterCategory,
+            loading: chatterLoading,
+            busy: chatterBusy,
+            onCategory: onChatterCategory,
+            onPost: onChatterPost,
+            onOpenThread: onOpenChatterThread,
+            onOpenMessage: openRedditUrl,
+          },
           crisisVotes,
           myCrisisVote,
           onCrisisVote,

@@ -7,6 +7,8 @@ import { newCityState, resolveDay, type DayInputs } from '../game/resolver';
 import { utcDateString } from '../game/lazyResolve';
 import { KEYS } from '../storage/redisKeys';
 import { deriveWorldSeed, getStore, redisLike } from './api';
+import { chatterThreadUrl, ensureChatterHub } from '../chatter/hub';
+import { context, reddit } from '@devvit/web/server';
 
 export const menu = new Hono();
 
@@ -33,6 +35,22 @@ menu.post('/post-create', async (c) => {
     { navigateTo: `https://reddit.com${post.permalink}` },
     200,
   );
+});
+
+menu.post('/chatter-hub', async (c) => {
+  const store = getStore();
+  const city = await store.getCityState();
+  if (!city) {
+    return c.json<UiResponse>({ showToast: 'Open the game once before creating City Chatter.' }, 200);
+  }
+  try {
+    const subredditName = context.subredditName ?? (await reddit.getCurrentSubreddit()).name;
+    const hub = await ensureChatterHub(redisLike, subredditName, city);
+    return c.json<UiResponse>({ navigateTo: chatterThreadUrl(hub.permalink) }, 200);
+  } catch (error) {
+    console.error(`Error creating Chatter Hub: ${error}`);
+    return c.json<UiResponse>({ showToast: 'Could not create City Chatter. Try again shortly.' }, 200);
+  }
 });
 
 menu.post('/force-resolve', async (c) => {

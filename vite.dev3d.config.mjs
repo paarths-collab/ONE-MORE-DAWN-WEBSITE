@@ -320,6 +320,30 @@ const mockEarnCoin = () => {
   };
   return { gained, treasuryPaid };
 };
+const CHATTER_THREAD_URL = 'https://www.reddit.com/r/meadowbrook/comments/chatter_week_4/one_more_dawn_city_chatter_hub/';
+let mockChatterMessages = [
+  { id: 't1_chatter_1', category: 'strategy', author: 'ashen_fox', text: 'Fortify the north wall before spending the medicine.', createdAt: '2026-07-14T08:30:00.000Z' },
+  { id: 't1_chatter_2', category: 'raid', author: 'quiet_marrow', text: 'Keep one watch team near the outer fields.', createdAt: '2026-07-14T08:25:00.000Z' },
+];
+const chatterState = (category) => ({
+  type: 'chatter',
+  ready: true,
+  weekKey: '2026-07-13',
+  cityDay: 6,
+  category,
+  rootCommentId: `t1_${category}_day_6`,
+  threadUrl: CHATTER_THREAD_URL,
+  messages: mockChatterMessages
+    .filter((message) => message.category === category)
+    .map(({ category: _category, ...message }) => ({
+      ...message,
+      permalink: `${CHATTER_THREAD_URL}${message.id}/`,
+    })),
+  feedAvailable: true,
+  maxLength: 250,
+  cooldownSeconds: 15,
+  attributionNotice: 'Posting is optional and creates a public Reddit comment. During unapproved playtests, Reddit may attribute non-owner comments to the app account.',
+});
 const readBody = (req) => new Promise((r) => { let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => { try { r(JSON.parse(b || '{}')); } catch { r({}); } }); });
 const mockApi = () => ({
   name: 'mock-devvit-api',
@@ -370,6 +394,26 @@ const mockApi = () => ({
           type: 'puzzle_solve', accepted: true, stars, best: mockPuzzleBest, improved: first,
           reward: first ? '+3 standing · the district is back online' : null,
           solvedCount: mockPuzzleSolvedCount, bestMoves: 4, yourRank: 12,
+        });
+      }
+      if (path === '/api/chatter' && req.method === 'GET') {
+        const category = new URL(req.url ?? '', 'http://mock.local').searchParams.get('category') ?? 'strategy';
+        return send(res, chatterState(category));
+      }
+      if (path === '/api/chatter' && req.method === 'POST') {
+        const b = await readBody(req);
+        const text = typeof b.text === 'string' ? b.text.replace(/\s+/g, ' ').trim() : '';
+        if (!text || text.length > 250 || /https?:\/\/|www\./i.test(text)) {
+          return send(res, { status: 'error', message: 'Write a valid City Chatter message.' }, 400);
+        }
+        const category = ['strategy', 'raid', 'rebuilding', 'general'].includes(b.category) ? b.category : 'strategy';
+        const posted = { id: `t1_chatter_${mockChatterMessages.length + 1}`, category, author: 'mock_user', text, createdAt: new Date().toISOString() };
+        mockChatterMessages = [posted, ...mockChatterMessages];
+        return send(res, {
+          type: 'chatter-post',
+          message: { id: posted.id, author: posted.author, text: posted.text, createdAt: posted.createdAt, permalink: `${CHATTER_THREAD_URL}${posted.id}/` },
+          postedAs: 'mock_user',
+          threadUrl: CHATTER_THREAD_URL,
         });
       }
       if (path === '/api/action') {

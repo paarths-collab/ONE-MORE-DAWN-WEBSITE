@@ -36,6 +36,12 @@ import type {
   VoteResponse,
   WorldResponse,
 } from '../shared/types';
+import type {
+  ChatterCategory,
+  ChatterPostRequest,
+  ChatterPostResponse,
+  ChatterState,
+} from '../shared/chatter';
 
 /** Any failed API call: HTTP error (status + server message) or network/timeout (status 0). */
 export class ApiFailure extends Error {
@@ -159,3 +165,11 @@ export const solvePuzzle = (body: PuzzleSolveRequest): Promise<PuzzleSolveRespon
 
 export const getLeaderboard = (): Promise<LeaderboardResponse> =>
   request<LeaderboardResponse>('/api/leaderboard');
+
+export const getChatter = (category: ChatterCategory): Promise<ChatterState> =>
+  request<ChatterState>(`/api/chatter?category=${encodeURIComponent(category)}`);
+
+export const postChatter = (category: ChatterCategory, text: string): Promise<ChatterPostResponse> => {
+  const body: ChatterPostRequest = { category, text };
+  return request<ChatterPostResponse>('/api/chatter', body);
+};

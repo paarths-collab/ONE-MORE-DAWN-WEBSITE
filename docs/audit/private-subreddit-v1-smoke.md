@@ -84,7 +84,19 @@ checks below **inside that post's webview**.
 |---|---|---|
 | Back a council plan | Notification; plan locks | [ ] |
 | Try again | Disabled | [ ] |
-| Tap **OPEN REDDIT COMMENTS** | The current game post's Reddit comments open; returning preserves game state | [ ] |
+
+## 6a. Reddit City Chatter Hub
+
+| Check | Expected result | Pass |
+|---|---|---|
+| Run mod menu **"create/repair Chatter Hub"** | One weekly post opens with the dedicated Chatter Hub flair and four app-authored topic comments for the current city day | [ ] |
+| Open LIVE → Strategy / Raid / Rebuilding / General | Each category reads replies from its matching Reddit comment; switching categories does not mix messages | [ ] |
+| Read the composer disclosure | It clearly says posting is optional, public, and may use the app account during an unapproved playtest | [ ] |
+| Post a short message | A real Reddit comment appears only after Reddit confirms it; the game reports the actual author | [ ] |
+| Refresh / open the full thread | The message persists on Reddit and the in-game feed reads it back | [ ] |
+| Repeat immediately / repeat the same text | Cooldown and duplicate protection block spam with a clear error | [ ] |
+| Open a message's ↗ control | Native Reddit opens so reply, report, block/mute, and moderator tools remain available | [ ] |
+| Test with app owner and a second tester | Record whether `runAs: USER` is attributed to the person or app account; unapproved apps may fall back to the app account | [ ] |
 
 ## 7. The Marked pledge
 
@@ -157,6 +169,7 @@ checks below **inside that post's webview**.
 | Check | Expected result | Pass |
 |---|---|---|
 | Mod **"create game post"** | New game post opens/navigates correctly | [ ] |
+| Mod **"create/repair Chatter Hub"** | Weekly hub opens; rerunning repairs missing daily roots without duplicating the weekly post | [ ] |
 | Mod **"seed demo state"** | A populated Day-5 city loads | [ ] |
 | Mod **"force-resolve day"** | Day advances; Dawn Report appears | [ ] |
 | Mod **"reset city"** | New cycle starts; house/build/action state clears | [ ] |

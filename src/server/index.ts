@@ -7,17 +7,21 @@ import { mission } from './routes/mission';
 import { puzzle } from './routes/puzzle';
 import { shop } from './routes/shop';
 import { triggers } from './routes/triggers';
+import { chatter } from './routes/chatter';
+import { schedulerRoutes } from './routes/scheduler';
 
 const app = new Hono();
 const internal = new Hono();
 
 internal.route('/menu', menu);
 internal.route('/triggers', triggers);
+internal.route('/scheduler', schedulerRoutes);
 
 app.route('/api', api);
 app.route('/api/mission', mission);
 app.route('/api/puzzle', puzzle);
 app.route('/api/shop', shop);
+app.route('/api/chatter', chatter);
 app.route('/internal', internal);
 
 serve({

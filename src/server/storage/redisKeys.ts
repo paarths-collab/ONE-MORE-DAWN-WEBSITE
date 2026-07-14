@@ -66,4 +66,9 @@ export const KEYS = {
   puzzleProgress: (userId: string) => `puzzle:progress:${userId}`,
   puzzleDaily: (dailyId: string) => `puzzle:daily:${dailyId}`,
   puzzleClaim: (dailyId: string, userId: string) => `puzzle:claim:${dailyId}:${userId}`,
+  chatterMeta: 'chatter:meta',
+  chatterRoots: 'chatter:roots',
+  chatterProvisionLock: (weekKey: string) => `chatter:provision:${weekKey}`,
+  chatterCooldown: (userId: string) => `chatter:cooldown:${userId}`,
+  chatterDuplicate: (userId: string, fingerprint: number) => `chatter:duplicate:${userId}:${fingerprint}`,
 } as const;

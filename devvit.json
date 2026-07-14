@@ -17,6 +17,19 @@
     "dir": "dist/server",
     "entry": "index.cjs"
   },
+  "permissions": {
+    "reddit": {
+      "asUser": ["SUBMIT_COMMENT"]
+    }
+  },
+  "scheduler": {
+    "tasks": {
+      "maintain-chatter-hub": {
+        "endpoint": "/internal/scheduler/chatter-maintenance",
+        "cron": "5 0 * * *"
+      }
+    }
+  },
   "menu": {
     "items": [
       {
@@ -24,6 +37,13 @@
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/post-create"
+      },
+      {
+        "label": "One More Dawn: create/repair Chatter Hub",
+        "description": "Create this week's discussion hub and today's topic comments",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/chatter-hub"
       },
       {
         "label": "One More Dawn: force-resolve day",
