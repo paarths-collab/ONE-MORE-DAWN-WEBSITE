@@ -91,6 +91,13 @@ export const BALANCE = {
 
   // contribution scoring (leaderboard + faction rep later)
   contributionPerAction: 10,
+  // A daily streak now PAYS. Every `step` consecutive days adds `perStep` bonus
+  // standing to each accepted action, capped at `cap` (a +50% ceiling on the
+  // base 10, reached at a 15-day flame). Personal-ledger only (standing +
+  // leaderboard) — it never touches a city vital, so it cannot perturb the
+  // resolve / raid / Marked balance. Turns the streak from a pure cost (rekindle
+  // only ever spent standing) into a reason to keep the flame lit.
+  streakReward: { step: 3, perStep: 1, cap: 5 },
   // Streak insurance: restore a dead streak by burning standing. Cost scales
   // with the streak being saved, so long flames are precious, not free.
   rekindle: { minStreak: 3, costPerDay: 2 },
@@ -102,8 +109,14 @@ export const BALANCE = {
     // goal = min(goalMax, goalBase + ceil(activePlayers * goalPerActivePlayer))
     // where activePlayers = YESTERDAY's action-takers (stable all day, so the
     // goal shown at /init is exactly the goal the dawn resolver judges).
-    goalBase: 10,
-    goalPerActivePlayer: 4,
+    // Tuned so the Marked is SAVEABLE across the whole 5-20 active target range:
+    // with pledgePerTap 5 (one pledge/user/day), the max daily resolve is 5*P.
+    // Solving 5P >= goalBase + goalPerActivePlayer*P gives P >= 2 here, so even a
+    // 5-player sub saves at ~64% pledging (goal 16 vs max 25); a 20-player sub at
+    // ~46% (goal 46 vs 100). The old 10 + 4P made it 5P >= 10 + 4P -> P >= 10, i.e.
+    // literally unwinnable for the bottom half of the target range.
+    goalBase: 6,
+    goalPerActivePlayer: 2,
     goalMax: 200,
     pledgePerTap: 5, // "resolve" each one-tap pledge adds toward the goal
     savedMoraleBonus: 4, // dawn: goal met

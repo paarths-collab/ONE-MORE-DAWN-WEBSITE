@@ -43,6 +43,7 @@
 .pz-stat .v { font-family: var(--mono, 'JetBrains Mono', monospace); font-size: 15px; font-weight: 800; color: var(--pz-ink); }
 .pz-stat .v em { font-style: normal; font-size: 10px; color: var(--pz-mut); }
 .pz-stat.warn .v { color: #ff9a5b; }
+.pz-help { font-family: var(--mono, 'JetBrains Mono', monospace); font-size: clamp(9px, 2.5vw, 11px); line-height: 1.35; color: var(--pz-mut); text-align: center; }
 
 .pz-meter { width: 100%; display: flex; flex-direction: column; gap: 4px; margin-top: 1px; }
 .pz-meter .lab { display: flex; justify-content: space-between; font-family: var(--pixel, 'Silkscreen', monospace); font-size: 7.5px; letter-spacing: 1px; color: var(--pz-mut); }

@@ -21,7 +21,9 @@
     "entry": "index.cjs"
   },
   "permissions": {
+    "redis": true,
     "reddit": {
+      "scope": "moderator",
       "asUser": ["SUBMIT_COMMENT"]
     }
   },

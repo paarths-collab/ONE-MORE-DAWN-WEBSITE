@@ -777,10 +777,19 @@ api.post('/action', async (c) => {
   }
 
   const faction = BALANCE.factionPerAction[body.action];
+  // Streak dividend: a long daily flame adds bounded bonus standing to each
+  // accepted action (personal ledger only — never a city vital). streak 3 -> +1,
+  // 6 -> +2, ... capped at streakReward.cap. A fresh streak (1) adds nothing, so
+  // this leaves day-one balance untouched and only rewards sustained returning.
+  const streakBonus = Math.min(
+    BALANCE.streakReward.cap,
+    Math.floor(player.streak / BALANCE.streakReward.step) * BALANCE.streakReward.perStep,
+  );
+  const actionAward = BALANCE.contributionPerAction + streakBonus;
   const updated: PlayerProfile = {
     ...player,
     energyUsedToday: player.energyUsedToday + 1,
-    totalContribution: player.totalContribution + BALANCE.contributionPerAction,
+    totalContribution: player.totalContribution + actionAward,
   };
   const factionUpdated = faction
     ? withFactionRep(
@@ -834,7 +843,7 @@ api.post('/action', async (c) => {
   // a faction.
   await Promise.all([
     store.registerHouse(user.userId),
-    store.addContribution(user.userId, BALANCE.contributionPerAction),
+    store.addContribution(user.userId, actionAward),
     // Every accepted contribution feeds the shared shield pool that mends the dome.
     store.addDomeShield(BALANCE.dome.shieldPerContribution),
     ...(faction

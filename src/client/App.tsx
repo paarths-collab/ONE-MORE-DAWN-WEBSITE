@@ -306,7 +306,10 @@ const PLAN_LABELS: Record<string, string> = {
   send_scouts: '🧭 Send Scouts',
   treat_sick: '⛑️ Treat the Sick',
 };
-const STRATEGY_IDS: StrategyPlanId[] = ['stockpile_food', 'repair_power', 'prepare_raid', 'send_scouts', 'treat_sick'];
+// send_scouts is omitted in V1: it only earns council-unity via mission runs,
+// and expeditions are disabled this version, so offering it as a ballot option
+// would be a trap (it could win the vote yet never grant its unity morale).
+const STRATEGY_IDS: StrategyPlanId[] = ['stockpile_food', 'repair_power', 'prepare_raid', 'treat_sick'];
 const PLEDGE_KINDS: PledgeKind[] = ['stand_vigil', 'share_rations', 'run_messages', 'back_council'];
 const ACTION_IDS: ActionType[] = ['grow_food', 'repair_power', 'treat_sick', 'guard_wall'];
 const MARKED_ICONS: Record<Marked['kind'], string> = { person: '🧒', place: '🏚️', symbol: '🕯️' };
@@ -819,16 +822,42 @@ function VillageCanvas({
   onVillager: (name: string | null) => void;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
+  // WebGL-unavailable / GPU-blocklisted devices (real on Reddit mobile webviews)
+  // make createVillageScene throw at renderer construction. Surface it as the
+  // native offline-sheet chrome instead of letting it bubble uncaught.
+  const [initFailed, setInitFailed] = useState(false);
   useEffect(() => {
     const el = mountRef.current;
     if (!el) return undefined;
     // onChat / onBuilt / onVillager are optional scene hooks (added by another
     // agent) — the assertion keeps this compiling against either scene.ts.
-    const handle = createVillageScene(el, { onProgress, onLoad, onSelect, onPois, onChat, onBuilt, onVillager } as VillageHooks);
+    let handle: VillageHandle;
+    try {
+      handle = createVillageScene(el, { onProgress, onLoad, onSelect, onPois, onChat, onBuilt, onVillager } as VillageHooks);
+    } catch (err) {
+      console.error('village scene failed to initialise', err);
+      setInitFailed(true);
+      return undefined;
+    }
     onReady(handle);
     return () => handle.dispose();
     // mount once — callbacks are stable (useCallback in App)
   }, []);
+  if (initFailed) {
+    return (
+      <div className="hud offline on">
+        <div className="stats-back" />
+        <div className="offline-sheet card-bit">
+          <div className="offline-k">WEBGL UNAVAILABLE</div>
+          <h2>This game needs WebGL / hardware acceleration.</h2>
+          <p>Try a different browser or enable hardware acceleration.</p>
+          <button type="button" onClick={() => window.location.reload()}>
+            ↻ RETRY
+          </button>
+        </div>
+      </div>
+    );
+  }
   return <div ref={mountRef} className="canvas-mount" />;
 }
 
@@ -2408,6 +2437,12 @@ function StatsModal({
   worldLive: boolean;
   worldNote: string | null;
 }) {
+  // Move focus onto the close button when the ledger opens (it stays mounted and
+  // is only toggled by CSS, so autoFocus can't fire on open).
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (open) closeRef.current?.focus();
+  }, [open]);
   const ranked = Object.entries(contribs)
     .sort((a, b) => b[1].score - a[1].score)
     .map(([name, c], i) => ({ name, c, rank: i }));
@@ -2420,13 +2455,13 @@ function StatsModal({
       }))
     : WORLD_CITIES.map((c) => ({ ...c, status: c.id === 'you' ? youStatus : c.status, note: WORLD_STATUS[c.status].flavor }));
   return (
-    <div className={open ? 'hud stats-modal on' : 'hud stats-modal'}>
+    <div className={open ? 'hud stats-modal on' : 'hud stats-modal'} role="dialog" aria-modal="true" aria-labelledby="stats-modal-title">
       <div className="stats-back" onClick={onClose} />
       <div className="stats-sheet card-bit">
-        <button type="button" className="st-close" onClick={onClose} aria-label="Close stats">
+        <button type="button" className="st-close" onClick={onClose} aria-label="Close stats" ref={closeRef}>
           ✕
         </button>
-        <h2>CITY LEDGER · DAY {day}</h2>
+        <h2 id="stats-modal-title">CITY LEDGER · DAY {day}</h2>
 
         <div className="st-sec">CITY VITALS</div>
         <table className="st">
@@ -2641,13 +2676,13 @@ function DawnReportModal({
 }) {
   if (!report || !open) return null;
   return (
-    <div className="hud stats-modal dawn-report on">
+    <div className="hud stats-modal dawn-report on" role="dialog" aria-modal="true" aria-labelledby="dawn-report-title">
       <div className="stats-back" onClick={onClose} />
       <div className="stats-sheet card-bit">
-        <button type="button" className="st-close" onClick={onClose} aria-label="Close dawn report">
+        <button type="button" className="st-close" onClick={onClose} aria-label="Close dawn report" autoFocus>
           ✕
         </button>
-        <h2>DAWN REPORT · DAY {report.day}</h2>
+        <h2 id="dawn-report-title">DAWN REPORT · DAY {report.day}</h2>
         <div className="st-sec">THE CITY</div>
         {report.citySummary.length === 0 ? (
           <div className="mini-cap">a quiet night, nothing to report</div>
@@ -2900,9 +2935,9 @@ function Onboarding({
   const [name, setName] = useState(defaultName.slice(0, 24));
   const selectedLabel = ROLE_CATALOG.find((r) => r.id === selectedRole)?.label ?? '';
   return (
-    <div className="hud onboard on">
+    <div className="hud onboard on" role="dialog" aria-modal="true" aria-labelledby="onboard-title">
       <div className="onboard-sheet card-bit">
-        <button type="button" className="p-x" onClick={onDismiss} aria-label="Dismiss onboarding">
+        <button type="button" className="p-x" onClick={onDismiss} aria-label="Dismiss onboarding" autoFocus>
           ✕
         </button>
         <div className="ob-sub" style={{ color: 'var(--ink)', marginTop: 0, marginBottom: 10 }}>
@@ -2911,7 +2946,7 @@ function Onboarding({
           your daily action, vote on the crisis, pledge to save The Marked, and hold the wall, then come
           back at dawn to see what the community's choices did. The city remembers.
         </div>
-        <div className="ob-title">CHOOSE YOUR ROLE</div>
+        <div className="ob-title" id="onboard-title">CHOOSE YOUR ROLE</div>
         <div className="ob-sub">Your role shapes what you're best at. You can change it later.</div>
         <div className="ob-roles">
           {ROLE_CATALOG.map((r) => (
@@ -2971,11 +3006,17 @@ function FallenScreen({
   day: number;
   cityName: string;
 }) {
+  // No dismissable control (persistent memorial), so move focus onto the sheet
+  // itself when it mounts so screen-reader / keyboard users land inside it.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    sheetRef.current?.focus();
+  }, []);
   return (
-    <div className="hud fallen on">
-      <div className="fallen-sheet card-bit">
+    <div className="hud fallen on" role="dialog" aria-modal="true" aria-labelledby="fallen-title">
+      <div className="fallen-sheet card-bit" ref={sheetRef} tabIndex={-1}>
         <div className="fl-skull">💀</div>
-        <div className="fl-title">THE CITY HAS FALLEN</div>
+        <div className="fl-title" id="fallen-title">THE CITY HAS FALLEN</div>
         <div className="fl-epitaph">{epitaph}</div>
         <div className="fl-stats">
           <span>Survived {survivalDays} dawns</span>
@@ -4959,6 +5000,24 @@ export function App() {
   // Actions are dead while fallen: hide the hotbar, build dock, and dawn teaser.
   const showActionSurfaces = !showFallen;
 
+  // Shared Escape-to-close for the modal overlays: dismisses only the top-most
+  // open one (ordered by z-index), so a stack collapses one layer per press.
+  // FallenScreen has no dismissable close (persistent memorial), so it is not
+  // handled here on purpose.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (puzzleOpen) setPuzzleOpen(false);
+      else if (showOnboard) dismissOnboard();
+      else if (dawnOpen) setDawnOpen(false);
+      else if (statsOpen) setStatsOpen(false);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [puzzleOpen, showOnboard, dawnOpen, statsOpen, dismissOnboard]);
+
   // BUILD FROM ZERO — the panel's state: server truth in live, local synth in
   // demo, nothing in offline/connecting.
   const build: BuildStatus | null = isLive
@@ -5069,7 +5128,7 @@ export function App() {
         </div>
       )}
       {epic && (
-        <div className="epic-banner card-bit">
+        <div className="epic-banner card-bit" role="status" aria-live="polite">
           <div className="ep-t">{epic.title}</div>
           <div className="ep-s">{epic.sub}</div>
         </div>
@@ -5329,11 +5388,11 @@ export function App() {
       )}
       {showOnboard && <Onboarding busy={onboardBusy} defaultName={liveUsername} onEnter={onEnterCity} onDismiss={dismissOnboard} />}
       {puzzleOpen && puzzleData && (
-        <div className="puzzle-overlay">
+        <div className="puzzle-overlay" role="dialog" aria-modal="true" aria-label="Daily puzzle">
           <div className="puzzle-shell">
             <div className="puzzle-topbar">
               <span className="puzzle-daily">🔌 DAILY PUZZLE · {puzzleData.solvedCount} solved{puzzleData.bestMoves != null ? ` · best ${puzzleData.bestMoves}` : ''}</span>
-              <button type="button" className="puzzle-x" onClick={() => setPuzzleOpen(false)}>✕</button>
+              <button type="button" className="puzzle-x" onClick={() => setPuzzleOpen(false)} aria-label="Close puzzle" autoFocus>✕</button>
             </div>
             <PuzzleGame level={puzzleLevel ?? puzzleData.level} onSolved={onPuzzleSolved} onExit={() => setPuzzleOpen(false)} onNext={onPuzzleNext} />
             {puzzleBanner && (

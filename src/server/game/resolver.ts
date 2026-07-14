@@ -398,7 +398,14 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     const raidSeed = (city.worldSeed ^ Math.imul(city.cycle, 40503) ^ Math.imul(city.day, 97)) >>> 0;
     const volley = resolveVolley(raidSeed, inputs.dome);
     const pen = volley.penetrations;
-    const dampen = (inputs.actions['guard_wall'] ?? 0) * BALANCE.raid.guardDampenPerAction + fx.raidDampen;
+    // Mitigation = today's guard actions + building dampen + the city's ACCUMULATED
+    // defense vital (walls/watchtowers/vigil built up over prior days). Without the
+    // defense term the vital was purely cosmetic — a city with 100 defense but no
+    // guards today took a full raid. defense 40 -> +5, 100 -> +12 softening.
+    const dampen =
+      (inputs.actions['guard_wall'] ?? 0) * BALANCE.raid.guardDampenPerAction +
+      fx.raidDampen +
+      Math.floor(next.defense / 8);
     const pp = BALANCE.dome.perPenetration;
     const foodLoss = Math.max(0, pen * pp.food - dampen);
     const powerLoss = Math.max(0, pen * pp.power - dampen);

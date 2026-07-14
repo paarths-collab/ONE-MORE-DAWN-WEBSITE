@@ -16,6 +16,13 @@ import {
 } from '../../shared/treasury';
 import { KEYS } from './redisKeys';
 
+// Deep-rank scan cap. getContributionRank / the daily board are read on the hot
+// /init path; without a cap they pull the ENTIRE zset just to find one member's
+// index, so a viral sub (thousands of contributors) would transfer the whole
+// leaderboard on every landing. Top-CAP get an exact rank; past it we report
+// null (unranked) — the exact deep position isn't worth the full-zset transfer.
+const RANK_SCAN_CAP = 200;
+
 /** The subset of the Devvit redis client the store uses. Tests provide a fake. */
 export type RedisLike = {
   get(key: string): Promise<string | undefined>;
@@ -420,7 +427,7 @@ export class Store {
    * rank op). Null when the member has never contributed.
    */
   async getContributionRank(userId: string): Promise<number | null> {
-    const rows = await this.redis.zRange(KEYS.lbContribution, 0, -1, {
+    const rows = await this.redis.zRange(KEYS.lbContribution, 0, RANK_SCAN_CAP - 1, {
       reverse: true,
       by: 'rank',
     });

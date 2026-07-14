@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { context, redis } from '@devvit/web/server';
 import { hashString } from '../../shared/rng';
-import { initialRotations, solutionRotations } from '../../shared/puzzle';
+import { initialRotations, rotateEdges, solutionRotations, tileCells, TILE_EDGES } from '../../shared/puzzle';
 import { PUZZLE_LEVELS, puzzleLevelById } from '../../shared/puzzleLevels';
 import type { PuzzleDailyResponse, PuzzleSolveResponse } from '../../shared/types';
 import { DAILY_PUZZLE_LEVELS, dailyLevelId, puzzle } from './puzzle';
@@ -9,6 +9,24 @@ import { utcDateString } from '../game/lazyResolve';
 import { KEYS } from '../storage/redisKeys';
 import { Store } from '../storage/store';
 import { makeFakeRedis, type FakeRedis } from '../storage/store.test';
+
+/**
+ * The provable move floor for a FULL-solution submission: every tile whose
+ * solved edges differ from its scrambled start necessarily cost >=1 tap. The
+ * /solve route clamps client-reported `moves` up to this (anti-spoof), so these
+ * tests must submit realistic counts at/above it. Mirrors the route's own math.
+ * The daily pool (L1-L10) always keeps >=1 slack between this floor and the
+ * moveTarget, so `floor` and `floor + 1` are both within-target (3-star) solves.
+ */
+const provableFloor = (level: (typeof PUZZLE_LEVELS)[number]): number => {
+  const start = initialRotations(level);
+  const sol = solutionRotations(level);
+  let n = 0;
+  tileCells(level).forEach((tile, i) => {
+    if (rotateEdges(TILE_EDGES[tile.kind], start[i] ?? 0) !== rotateEdges(TILE_EDGES[tile.kind], sol[i] ?? 0)) n += 1;
+  });
+  return n;
+};
 
 /**
  * Route-level tests for the "Reconnect the City" daily puzzle. Same mocking
@@ -107,14 +125,15 @@ describe('POST /api/puzzle/solve — validation, scoring, reward', () => {
     const level = puzzleLevelById(daily.levelId)!;
     const rotations = solutionRotations(level);
 
-    const first = await solve({ levelId: daily.levelId, rotations, moves: 3, timeMs: 4200 });
+    const floor = provableFloor(level);
+    const first = await solve({ levelId: daily.levelId, rotations, moves: floor, timeMs: 4200 });
     expect(first.accepted).toBe(true);
     expect(first.stars).toBe(3);
-    expect(first.best).toEqual({ stars: 3, moves: 3, timeMs: 4200 });
+    expect(first.best).toEqual({ stars: 3, moves: floor, timeMs: 4200 });
     expect(first.improved).toBe(true);
     expect(first.reward).toBe('+3 standing · the district is back online');
     expect(first.solvedCount).toBe(1);
-    expect(first.bestMoves).toBe(3);
+    expect(first.bestMoves).toBe(floor);
     expect(first.yourRank).toBe(1);
     // The reward is banked as +3 lifetime standing.
     expect(await store.getContributionScore('t2_win')).toBe(3);
@@ -149,6 +168,7 @@ describe('POST /api/puzzle/solve — validation, scoring, reward', () => {
     const daily = await getDaily();
     const level = puzzleLevelById(daily.levelId)!;
     const rotations = solutionRotations(level);
+    const floor = provableFloor(level); // fewest possible moves for this board
     const over = level.moveTarget + 5; // solved but beyond the target -> 1 star
 
     // A sloppy over-target solve lands 1 star and sets the first record.
@@ -158,26 +178,27 @@ describe('POST /api/puzzle/solve — validation, scoring, reward', () => {
     expect(a.improved).toBe(true);
 
     // A clean solve (within target, all optional lit) is 3 stars -> replaces it.
-    const b = await solve({ levelId: daily.levelId, rotations, moves: 4, timeMs: 3000 });
+    // floor + 1 stays within target (the daily pool keeps >=1 slack over the floor).
+    const b = await solve({ levelId: daily.levelId, rotations, moves: floor + 1, timeMs: 3000 });
     expect(b.stars).toBe(3);
-    expect(b.best).toEqual({ stars: 3, moves: 4, timeMs: 3000 });
+    expect(b.best).toEqual({ stars: 3, moves: floor + 1, timeMs: 3000 });
     expect(b.improved).toBe(true);
 
-    // Fewer moves at the same star tier improves the record.
-    const c = await solve({ levelId: daily.levelId, rotations, moves: 2, timeMs: 5000 });
+    // Fewer moves at the same star tier improves the record (down to the floor).
+    const c = await solve({ levelId: daily.levelId, rotations, moves: floor, timeMs: 5000 });
     expect(c.improved).toBe(true);
-    expect(c.best).toEqual({ stars: 3, moves: 2, timeMs: 5000 });
+    expect(c.best).toEqual({ stars: 3, moves: floor, timeMs: 5000 });
 
     // More moves at the same tier does NOT (even with a faster time).
-    const d = await solve({ levelId: daily.levelId, rotations, moves: 6, timeMs: 10 });
+    const d = await solve({ levelId: daily.levelId, rotations, moves: floor + 1, timeMs: 10 });
     expect(d.improved).toBe(false);
-    expect(d.best).toEqual({ stars: 3, moves: 2, timeMs: 5000 });
+    expect(d.best).toEqual({ stars: 3, moves: floor, timeMs: 5000 });
 
     // Fewer stars never overwrite a better record.
     const e = await solve({ levelId: daily.levelId, rotations, moves: over + 2, timeMs: 1 });
     expect(e.stars).toBe(1);
     expect(e.improved).toBe(false);
-    expect(e.best).toEqual({ stars: 3, moves: 2, timeMs: 5000 });
+    expect(e.best).toEqual({ stars: 3, moves: floor, timeMs: 5000 });
   });
 
   it('records a personal best off the daily level but grants no city reward', async () => {
@@ -185,11 +206,12 @@ describe('POST /api/puzzle/solve — validation, scoring, reward', () => {
     const daily = await getDaily();
     const other = PUZZLE_LEVELS.find((l) => l.id !== daily.levelId)!;
 
-    const res = await solve({ levelId: other.id, rotations: solutionRotations(other), moves: 2, timeMs: 1000 });
+    const floor = provableFloor(other);
+    const res = await solve({ levelId: other.id, rotations: solutionRotations(other), moves: floor, timeMs: 1000 });
     expect(res.accepted).toBe(true);
     expect(res.stars).toBe(3);
     // Personal best is still saved...
-    expect(res.best).toEqual({ stars: 3, moves: 2, timeMs: 1000 });
+    expect(res.best).toEqual({ stars: 3, moves: floor, timeMs: 1000 });
     // ...but no daily reward and no daily standing for an off-daily solve.
     expect(res.reward).toBeNull();
     expect(res.solvedCount).toBe(0);
@@ -198,7 +220,7 @@ describe('POST /api/puzzle/solve — validation, scoring, reward', () => {
 
     // The saved best surfaces on the level-select list next time.
     const again = await getDaily();
-    expect(again.levels.find((l) => l.id === other.id)?.best).toEqual({ stars: 3, moves: 2, timeMs: 1000 });
+    expect(again.levels.find((l) => l.id === other.id)?.best).toEqual({ stars: 3, moves: floor, timeMs: 1000 });
   });
 
   it('ranks the fewest-moves solver first across two citizens', async () => {
@@ -206,19 +228,20 @@ describe('POST /api/puzzle/solve — validation, scoring, reward', () => {
     const daily = await getDaily();
     const level = puzzleLevelById(daily.levelId)!;
     const rotations = solutionRotations(level);
+    const floor = provableFloor(level);
 
-    await solve({ levelId: daily.levelId, rotations, moves: 8, timeMs: 6000 });
+    await solve({ levelId: daily.levelId, rotations, moves: floor + 5, timeMs: 6000 });
 
     ctx.userId = 't2_fast';
-    const fast = await solve({ levelId: daily.levelId, rotations, moves: 3, timeMs: 2000 });
+    const fast = await solve({ levelId: daily.levelId, rotations, moves: floor, timeMs: 2000 });
     expect(fast.solvedCount).toBe(2);
-    expect(fast.bestMoves).toBe(3);
+    expect(fast.bestMoves).toBe(floor);
     expect(fast.yourRank).toBe(1);
 
     ctx.userId = 't2_slow';
     const slowAgain = await getDaily();
     expect(slowAgain.yourRank).toBe(2);
     expect(slowAgain.solvedCount).toBe(2);
-    expect(slowAgain.bestMoves).toBe(3);
+    expect(slowAgain.bestMoves).toBe(floor);
   });
 });

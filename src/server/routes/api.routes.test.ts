@@ -272,6 +272,30 @@ describe('POST /action — atomic player profile', () => {
     expect(saved?.coinsEarnedToday).toBe(2);
   });
 
+  it('pays a bounded streak dividend on top of the base per-action standing', async () => {
+    await openUser('t2_streak', 'ember');
+    expect((await api.request('/role', postJson({ role: 'farmer' }))).status).toBe(200);
+    // A 9-day flame -> floor(9/3) * 1 = +3 bonus over the base contributionPerAction.
+    const p = (await store.getPlayer('t2_streak'))!;
+    await store.savePlayer({ ...p, streak: 9 });
+    const before = p.totalContribution;
+
+    expect((await api.request('/action', postJson({ action: 'grow_food' }))).status).toBe(200);
+
+    const award = BALANCE.contributionPerAction + 3;
+    expect((await store.getPlayer('t2_streak'))!.totalContribution).toBe(before + award);
+    // The leaderboard mirror gets the SAME streak-boosted award (stays in sync).
+    expect(await store.getContributionScore('t2_streak')).toBe(award);
+  });
+
+  it('a fresh streak earns only the base standing (no day-one inflation)', async () => {
+    await openUser('t2_fresh', 'spark');
+    expect((await api.request('/role', postJson({ role: 'farmer' }))).status).toBe(200);
+    // freshPlayer starts at streak 1 -> floor(1/3) = 0 bonus, so the base is unchanged.
+    expect((await api.request('/action', postJson({ action: 'grow_food' }))).status).toBe(200);
+    expect(await store.getContributionScore('t2_fresh')).toBe(BALANCE.contributionPerAction);
+  });
+
   it('never loses a concurrent action from the personal history blob', async () => {
     await openUser('t2_blob', 'blobber');
     expect((await api.request('/role', postJson({ role: 'guard' }))).status).toBe(200);

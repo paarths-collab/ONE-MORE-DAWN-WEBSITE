@@ -7,6 +7,8 @@ import {
   solutionRotations,
   starRating,
   tileCells,
+  TILE_EDGES,
+  TILE_STATES,
   type PuzzleLevel,
 } from './puzzle';
 import { PUZZLE_LEVELS } from './puzzleLevels';
@@ -117,10 +119,26 @@ describe('puzzle levels — every shipped level is well-formed and solvable', ()
       // It ships scrambled (needs work) and is solvable within the move target.
       const init = initialRotations(level);
       expect(init).not.toEqual(sol);
+      // The SHIPPED board must not already be won, or the player wins for free.
+      expect(evaluate(level, init).solved).toBe(false);
       const scrambledCount = init.filter((r, i) => r !== sol[i]).length;
       expect(level.moveTarget).toBeGreaterThanOrEqual(scrambledCount);
       // Every scrambled tile is reachable to its solution within the move budget.
-      expect(tileCells(level).length).toBeGreaterThan(0);
+      const tiles = tileCells(level);
+      expect(tiles.length).toBeGreaterThan(0);
+      // Every scrambled tile can be walked to its solution EDGES by repeated taps
+      // within its state count — catches an unreachable switch (odd parity toggle).
+      tiles.forEach((tile, i) => {
+        if (init[i] === sol[i]) return; // untouched tile — already at solution
+        const target = rotateEdges(TILE_EDGES[tile.kind], sol[i] ?? 0);
+        let rots = init.slice();
+        let reached = rotateEdges(TILE_EDGES[tile.kind], rots[i] ?? 0) === target;
+        for (let step = 0; step < TILE_STATES[tile.kind] && !reached; step++) {
+          rots = rotateTile(level, rots, i);
+          if (rotateEdges(TILE_EDGES[tile.kind], rots[i] ?? 0) === target) reached = true;
+        }
+        expect(reached).toBe(true);
+      });
     });
   }
 });
