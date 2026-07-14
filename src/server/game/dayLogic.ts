@@ -89,6 +89,9 @@ export const freshPlayer = (userId: string, username: string, cityDay: number): 
   coinsEarnedDay: 0,
   ownedCosmetics: [],
   equippedCosmetics: {},
+  treasuryProgress: 0,
+  treasuryBacklog: 0,
+  treasuryPaid: 0,
 });
 
 /** Highest title tier whose threshold is <= rep, or null below the first tier. */

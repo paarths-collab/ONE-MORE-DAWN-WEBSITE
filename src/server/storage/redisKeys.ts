@@ -12,6 +12,8 @@ export const KEYS = {
   housesMeta: 'houses:meta',
   landFunding: 'land:funding',
   landProjectLock: (projectId: string) => `land:lock:${projectId}`,
+  cityTreasury: 'city:treasury',
+  treasuryLock: 'city:treasury:lock',
   timeline: 'timeline',
   cityHistory: 'city:history',
   resolverLock: 'resolver:lock',

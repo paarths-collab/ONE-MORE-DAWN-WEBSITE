@@ -23,6 +23,7 @@ import {
   postShopEquip,
   postShopPurchase,
   postStrategy,
+  postTreasuryInvest,
   postVote,
 } from './api';
 import { isLocalHarnessHost, raidNoteFromEvents, raidOutcomeFromTimeline, worldUnavailableMessage } from './liveUi';
@@ -37,6 +38,7 @@ import {
   type LandExpansionState,
   type ShopItemId,
 } from '../shared/shop';
+import type { TreasuryState } from '../shared/treasury';
 import { navigateTo } from '@devvit/web/client';
 import { isMuted, playSound, preloadSounds, toggleMuted, unlockAudio } from './sound';
 import { isMusicMuted, playTrack, refreshMusicVolume, stopMusic, toggleMusicMuted, unlockMusic } from './music';
@@ -203,6 +205,13 @@ const EMPTY_ECONOMY: EconomyState = {
   equipped: {},
 };
 const EMPTY_LAND = landExpansionState({});
+const EMPTY_TREASURY: TreasuryState = {
+  balance: 0,
+  totalCollected: 0,
+  totalInvested: 0,
+  levyEvery: 10,
+  yours: { progress: 0, backlog: 0, paid: 0 },
+};
 const DEMO_ECONOMY: EconomyState = {
   coins: 18,
   earnedToday: 2,
@@ -211,6 +220,13 @@ const DEMO_ECONOMY: EconomyState = {
   equipped: { light: 'hearth_lantern' },
 };
 const DEMO_LAND = landExpansionState({ outer_fields: 120, river_ward: 96 });
+const DEMO_TREASURY: TreasuryState = {
+  balance: 18,
+  totalCollected: 42,
+  totalInvested: 24,
+  levyEvery: 10,
+  yours: { progress: 6, backlog: 0, paid: 2 },
+};
 
 // Server vitals caps (src/shared/balance.ts: food store 300, medicine 120,
 // power/morale/threat/defense 0..100). Demo keeps the old local maxes.
@@ -1044,23 +1060,30 @@ function LiveTab({
 function ShopTab({
   economy,
   land,
+  treasury,
   busy,
   disabled,
   onPurchase,
   onEquip,
   onDonate,
+  onTreasuryInvest,
 }: {
   economy: EconomyState;
   land: LandExpansionState;
+  treasury: TreasuryState;
   busy: boolean;
   disabled: boolean;
   onPurchase: (id: ShopItemId) => void;
   onEquip: (id: ShopItemId) => void;
   onDonate: (id: LandExpansionId, amount: number) => void;
+  onTreasuryInvest: (id: LandExpansionId, amount: number) => void;
 }) {
   const [view, setView] = useState<'house' | 'expand'>('house');
   const activeProject = land.projects.find((project) => project.available) ?? null;
   const maxDonation = activeProject ? Math.min(economy.coins, activeProject.remaining) : 0;
+  const treasuryInvestable = activeProject
+    ? Math.min(treasury.balance, activeProject.remaining)
+    : 0;
   const [donationAmount, setDonationAmount] = useState(1);
   useEffect(() => {
     setDonationAmount((amount) => Math.max(1, Math.min(amount, maxDonation || 1)));
@@ -1127,6 +1150,36 @@ function ShopTab({
           <div className="land-head">
             <span>VILLAGE LAND FUND</span>
             <small>SHARED BY THE WHOLE VILLAGE</small>
+          </div>
+          <div className="treasury-card">
+            <div className="tc-head">
+              <span>CITY TREASURY</span>
+              <strong>{treasury.balance} 🪙</strong>
+            </div>
+            <div className="tc-meta">
+              {treasury.totalCollected} collected · {treasury.totalInvested} invested
+            </div>
+            <div className="tc-share">
+              <span>YOUR CIVIC SHARE</span>
+              <span>{treasury.yours.paid} paid · {treasury.yours.progress}/{treasury.levyEvery} toward next</span>
+            </div>
+            {treasury.yours.backlog > 0 && (
+              <div className="tc-backlog">
+                {treasury.yours.backlog} Coin backlog · future contribution earnings settle it first
+              </div>
+            )}
+            {activeProject && (
+              <button
+                type="button"
+                className="treasury-invest"
+                disabled={busy || disabled || treasuryInvestable < 1}
+                onClick={() => onTreasuryInvest(activeProject.id, treasuryInvestable)}
+              >
+                {treasuryInvestable < 1
+                  ? 'TREASURY IS BUILDING'
+                  : `INVEST ${treasuryInvestable} 🪙 IN ${activeProject.name.toUpperCase()}`}
+              </button>
+            )}
           </div>
           <div className="shop-rows land-rows">
             {land.projects.map((project) => {
@@ -1593,11 +1646,13 @@ function CityDashboard({
   coachActive,
   economy,
   landState,
+  treasury,
   shopBusy,
   shopDisabled,
   onShopPurchase,
   onShopEquip,
   onLandDonate,
+  onTreasuryInvest,
 }: {
   open: boolean;
   setOpen: (b: boolean) => void;
@@ -1630,11 +1685,13 @@ function CityDashboard({
   coachActive: boolean;
   economy: EconomyState;
   landState: LandExpansionState;
+  treasury: TreasuryState;
   shopBusy: boolean;
   shopDisabled: boolean;
   onShopPurchase: (id: ShopItemId) => void;
   onShopEquip: (id: ShopItemId) => void;
   onLandDonate: (id: LandExpansionId, amount: number) => void;
+  onTreasuryInvest: (id: LandExpansionId, amount: number) => void;
 }) {
   return (
     <>
@@ -1695,11 +1752,13 @@ function CityDashboard({
           <ShopTab
             economy={economy}
             land={landState}
+            treasury={treasury}
             busy={shopBusy}
             disabled={shopDisabled}
             onPurchase={onShopPurchase}
             onEquip={onShopEquip}
             onDonate={onLandDonate}
+            onTreasuryInvest={onTreasuryInvest}
           />
         )}
 
@@ -2712,12 +2771,14 @@ export function App() {
   // Coin economy: balance + cosmetics from the server, land districts shared city-wide.
   const [liveEconomy, setLiveEconomy] = useState<EconomyState | null>(null);
   const [liveLand, setLiveLand] = useState<LandExpansionState | null>(null);
+  const [liveTreasury, setLiveTreasury] = useState<TreasuryState | null>(null);
   const [demoEconomy, setDemoEconomy] = useState<EconomyState>(() => ({
     ...DEMO_ECONOMY,
     owned: [...DEMO_ECONOMY.owned],
     equipped: { ...DEMO_ECONOMY.equipped },
   }));
   const [demoLand, setDemoLand] = useState<LandExpansionState>(DEMO_LAND);
+  const [demoTreasury, setDemoTreasury] = useState<TreasuryState>(DEMO_TREASURY);
   const [shopBusy, setShopBusy] = useState(false);
   const challengeDoneRef = useRef(false); // last seen done-state, for the completion cheer
   const [liveStreak, setLiveStreak] = useState(0); // consecutive-day streak (server-tracked)
@@ -2954,6 +3015,7 @@ export function App() {
       // Economy + land: state for the SHOP tab, cosmetics + districts for the scene.
       setLiveEconomy(init.economy ?? EMPTY_ECONOMY);
       setLiveLand(init.land ?? EMPTY_LAND);
+      setLiveTreasury(init.treasury ?? EMPTY_TREASURY);
       // Daily mission: track completion transitions so finishing mid-session
       // cheers exactly once (never on boot, never again on later polls).
       const ch = init.challenge ?? null;
@@ -3416,6 +3478,61 @@ export function App() {
     [demoEconomy, demoLand, shopBusy, pushNotif, pushEvent, showEpic, toastFailure],
   );
 
+  const onTreasuryInvest = useCallback(
+    (projectId: LandExpansionId, amount: number) => {
+      if (shopBusy || cityFallenRef.current || !Number.isSafeInteger(amount) || amount < 1) return;
+      if (modeRef.current === 'demo') {
+        const project = demoLand.projects.find((candidate) => candidate.id === projectId);
+        if (!project?.available) return;
+        const invested = Math.min(amount, project.remaining, demoTreasury.balance);
+        if (invested < 1) return;
+        const funding: Record<string, unknown> = {};
+        for (const current of demoLand.projects) funding[current.id] = current.funded;
+        funding[projectId] = project.funded + invested;
+        const nextLand = landExpansionState(funding);
+        const unlocked = nextLand.unlocked.includes(projectId) && !demoLand.unlocked.includes(projectId);
+        setDemoTreasury((current) => ({
+          ...current,
+          balance: current.balance - invested,
+          totalInvested: current.totalInvested + invested,
+        }));
+        setDemoLand(nextLand);
+        if (unlocked) {
+          playSound('dawn_report');
+          showEpic(`${project.name.toUpperCase()} OPEN`, 'funded by the shared city treasury');
+          pushEvent('🏛️', `${project.name} opened from the village treasury.`);
+        } else {
+          playSound('action_confirm');
+        }
+        pushNotif('🏛️', `${invested} treasury Coins invested in ${project.name}.`, 'good');
+        return;
+      }
+      if (modeRef.current !== 'live' || mutatingRef.current) return;
+      setShopBusy(true);
+      mutatingRef.current = true;
+      postTreasuryInvest(projectId, amount)
+        .then((res) => {
+          setLiveTreasury(res.treasury);
+          setLiveLand(res.land);
+          if (res.unlocked) {
+            const opened = res.land.projects.find((project) => project.id === projectId);
+            playSound('dawn_report');
+            showEpic(`${(opened?.name ?? 'NEW DISTRICT').toUpperCase()} OPEN`, 'funded by the shared city treasury');
+            pushEvent('🏛️', res.message);
+          } else {
+            playSound('action_confirm');
+          }
+          pushNotif('🏛️', res.message, 'good');
+        })
+        .catch((err) => toastFailure(err, 'the treasury transfer failed, try again'))
+        .finally(() => {
+          setShopBusy(false);
+          mutatingRef.current = false;
+        });
+    },
+    [demoLand, demoTreasury, shopBusy, pushNotif, pushEvent, showEpic, toastFailure],
+  );
+
   const onLiveVote = useCallback(
     (optionId: string) => {
       if (cityFallenRef.current || mutatingRef.current) return;
@@ -3555,7 +3672,8 @@ export function App() {
           setLiveEnergy({ effective: res.effectiveEnergy, used: res.player.energyUsedToday });
           setLiveActions(res.yourActionsToday);
           setLiveEconomy(res.economy);
-          if (res.coinsGained > 0) popFloat('+1 🪙');
+          if (res.treasuryPaid > 0) popFloat(`+${res.treasuryPaid} 🏛 TREASURY`);
+          else if (res.coinsGained > 0) popFloat('+1 🪙');
           playSound('action_confirm');
           pushNotif('🔨', `you added a day's labor to the ${nextName}`, 'good');
           // Mutation committed — release the single-flight guard BEFORE the
@@ -3704,6 +3822,11 @@ export function App() {
 
   const economy = mode === 'live' ? (liveEconomy ?? EMPTY_ECONOMY) : mode === 'demo' ? demoEconomy : EMPTY_ECONOMY;
   const landState = mode === 'live' ? (liveLand ?? EMPTY_LAND) : mode === 'demo' ? demoLand : EMPTY_LAND;
+  const treasury = mode === 'live'
+    ? (liveTreasury ?? EMPTY_TREASURY)
+    : mode === 'demo'
+      ? demoTreasury
+      : EMPTY_TREASURY;
   useEffect(() => {
     handleRef.current?.setHouseCosmetics?.(economy.equipped);
   }, [economy, loaded]);
@@ -4463,11 +4586,13 @@ export function App() {
         coachActive={coachStep !== null}
         economy={economy}
         landState={landState}
+        treasury={treasury}
         shopBusy={shopBusy}
         shopDisabled={(mode !== 'live' && mode !== 'demo') || cityFallen}
         onShopPurchase={onShopPurchase}
         onShopEquip={onShopEquip}
         onLandDonate={onLandDonate}
+        onTreasuryInvest={onTreasuryInvest}
       />
       {/* One flex bar so the fabs never overlap; the .hud wrapper (pointer-events:
           none) lets .hud * re-enable pointer events on the buttons inside.

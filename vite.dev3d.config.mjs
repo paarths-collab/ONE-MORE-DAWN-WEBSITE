@@ -65,6 +65,7 @@ const PLAYER = {
   // Roof (8) is one good day away — lets the smoke walk earn/buy/equip.
   coins: 4, coinsEarnedToday: 1, coinsEarnedCycle: 1, coinsEarnedDay: 6,
   ownedCosmetics: [], equippedCosmetics: {},
+  treasuryProgress: 6, treasuryBacklog: 0, treasuryPaid: 2,
 };
 // Shop catalog mirror (kept tiny; the real authority is src/shared/shop.ts).
 const SHOP_PRICES = { hearth_lantern: 3, crimson_banner: 5, garden_plot: 6, slate_roof: 8, dawn_gold_trim: 12 };
@@ -75,6 +76,18 @@ const economyOfMock = (p) => ({
   dailyCap: 5,
   owned: p.ownedCosmetics ?? [],
   equipped: p.equippedCosmetics ?? {},
+});
+let mockTreasury = { balance: 4, collected: 11, invested: 7 };
+const treasuryOfMock = (p) => ({
+  balance: mockTreasury.balance,
+  totalCollected: mockTreasury.collected,
+  totalInvested: mockTreasury.invested,
+  levyEvery: 10,
+  yours: {
+    progress: p.treasuryProgress ?? 0,
+    backlog: p.treasuryBacklog ?? 0,
+    paid: p.treasuryPaid ?? 0,
+  },
 });
 // Land districts mirror (authority: src/shared/shop.ts LAND_EXPANSIONS).
 // outer_fields sits 5 short of its target so the smoke can fund the unlock.
@@ -208,6 +221,7 @@ const currentInit = () => ({
   pledge: mockPledge,
   economy: economyOfMock(mockPlayer),
   land: landOfMock(),
+  treasury: treasuryOfMock(mockPlayer),
   houses: currentHouses(),
   ...(process.env.MOCK_CAMP ? { build: CAMP_BUILD, houses: CAMP_HOUSES, yourActionsToday: {} } : {}),
 });
@@ -215,8 +229,29 @@ const currentInit = () => ({
 const mockEarnCoin = () => {
   const earned = mockPlayer.coinsEarnedToday ?? 0;
   const gained = earned < 5 ? 1 : 0;
-  mockPlayer = { ...mockPlayer, coins: (mockPlayer.coins ?? 0) + gained, coinsEarnedToday: earned + gained };
-  return gained;
+  let coins = (mockPlayer.coins ?? 0) + gained;
+  const oldBacklog = mockPlayer.treasuryBacklog ?? 0;
+  const backlogPaid = Math.min(oldBacklog, gained, coins);
+  coins -= backlogPaid;
+  const progressTotal = (mockPlayer.treasuryProgress ?? 0) + 1;
+  const dueAdded = Math.floor(progressTotal / 10);
+  const newlyDuePaid = Math.min(dueAdded, coins);
+  coins -= newlyDuePaid;
+  const treasuryPaid = backlogPaid + newlyDuePaid;
+  mockPlayer = {
+    ...mockPlayer,
+    coins,
+    coinsEarnedToday: earned + gained,
+    treasuryProgress: progressTotal % 10,
+    treasuryBacklog: oldBacklog - backlogPaid + dueAdded - newlyDuePaid,
+    treasuryPaid: (mockPlayer.treasuryPaid ?? 0) + treasuryPaid,
+  };
+  mockTreasury = {
+    ...mockTreasury,
+    balance: mockTreasury.balance + treasuryPaid,
+    collected: mockTreasury.collected + treasuryPaid,
+  };
+  return { gained, treasuryPaid };
 };
 const readBody = (req) => new Promise((r) => { let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => { try { r(JSON.parse(b || '{}')); } catch { r({}); } }); });
 const mockApi = () => ({
@@ -241,15 +276,15 @@ const mockApi = () => ({
         const acts = b.action === 'build_city' ? { grow_food: 1, build_city: 1 } : { grow_food: 1, guard_wall: 1 };
         mockActions = acts;
         mockPlayer = { ...mockPlayer, energyUsedToday: 2 };
-        const gained = mockEarnCoin();
-        return send(res, { type: 'action', player: mockPlayer, effectiveEnergy: 3, yourActionsToday: acts, unlockedTitle: null, coinsGained: gained, economy: economyOfMock(mockPlayer) });
+        const award = mockEarnCoin();
+        return send(res, { type: 'action', player: mockPlayer, effectiveEnergy: 3, yourActionsToday: acts, unlockedTitle: null, coinsGained: award.gained, treasuryPaid: award.treasuryPaid, economy: economyOfMock(mockPlayer) });
       }
       if (path === '/api/vote') {
         mockHasHouse = true;
         mockCrisisVotes = { a: 13, b: 7, c: 5 };
         mockCrisisVote = 'a';
-        const gained = mockEarnCoin();
-        return send(res, { type: 'vote', crisisVotes: mockCrisisVotes, yourCrisisVote: mockCrisisVote, coinsGained: gained, economy: economyOfMock(mockPlayer) });
+        const award = mockEarnCoin();
+        return send(res, { type: 'vote', crisisVotes: mockCrisisVotes, yourCrisisVote: mockCrisisVote, coinsGained: award.gained, treasuryPaid: award.treasuryPaid, economy: economyOfMock(mockPlayer) });
       }
       if (path === '/api/shop/purchase') {
         const b = await readBody(req);
@@ -279,6 +314,24 @@ const mockApi = () => ({
           message: unlocked ? `${project.name} unlocked. The city frontier expands.` : `${donated} Coins pledged to ${project.name}. ${project.remaining - donated} remain.`,
         });
       }
+      if (path === '/api/shop/invest') {
+        const b = await readBody(req);
+        const state = landOfMock();
+        const project = state.projects.find((p) => p.id === b.projectId);
+        if (!project || !Number.isSafeInteger(b.amount) || b.amount <= 0) return send(res, { status: 'error', message: 'Choose a valid treasury amount.' }, 400);
+        if (!project.available) return send(res, { status: 'error', message: project.unlocked ? 'Already unlocked.' : 'Expand the connected district before this one first.' }, 409);
+        const invested = Math.min(b.amount, project.remaining);
+        if (mockTreasury.balance < invested) return send(res, { status: 'error', message: `The treasury holds only ${mockTreasury.balance} Coins.` }, 400);
+        mockTreasury = { ...mockTreasury, balance: mockTreasury.balance - invested, invested: mockTreasury.invested + invested };
+        mockLandFunding = { ...mockLandFunding, [project.id]: (mockLandFunding[project.id] ?? 0) + invested };
+        const next = landOfMock();
+        const unlocked = next.unlocked.includes(project.id);
+        return send(res, {
+          type: 'treasury-investment', projectId: project.id, invested, unlocked,
+          treasury: treasuryOfMock(mockPlayer), land: next,
+          message: unlocked ? `${project.name} unlocked with the village treasury.` : `${invested} treasury Coins invested in ${project.name}.`,
+        });
+      }
       if (path === '/api/shop/equip') {
         const b = await readBody(req);
         const slot = SHOP_SLOTS[b.itemId];
@@ -295,15 +348,15 @@ const mockApi = () => ({
         mockHasHouse = true;
         mockMarked = { ...MARKED, pledged: 26 };
         mockPledge = { ...PLEDGE, usedToday: true };
-        const gained = mockEarnCoin();
-        return send(res, { type: 'pledge', marked: mockMarked, pledge: mockPledge, player: mockPlayer, coinsGained: gained, economy: economyOfMock(mockPlayer) });
+        const award = mockEarnCoin();
+        return send(res, { type: 'pledge', marked: mockMarked, pledge: mockPledge, player: mockPlayer, coinsGained: award.gained, treasuryPaid: award.treasuryPaid, economy: economyOfMock(mockPlayer) });
       }
       if (path === '/api/strategy') {
         mockHasHouse = true;
         mockStrategyVotes = { prepare_raid: 10, stockpile_food: 6, repair_power: 4 };
         mockStrategyVote = 'prepare_raid';
-        const gained = mockEarnCoin();
-        return send(res, { type: 'strategy', strategyVotes: mockStrategyVotes, yourStrategyVote: mockStrategyVote, coinsGained: gained, economy: economyOfMock(mockPlayer) });
+        const award = mockEarnCoin();
+        return send(res, { type: 'strategy', strategyVotes: mockStrategyVotes, yourStrategyVote: mockStrategyVote, coinsGained: award.gained, treasuryPaid: award.treasuryPaid, economy: economyOfMock(mockPlayer) });
       }
       if (path === '/api/role') { const b = await readBody(req); mockPlayer = { ...mockPlayer, role: b.role ?? 'guard', roleChangedDay: 6 }; return send(res, { type: 'role', player: mockPlayer }); }
       if (path === '/api/avatar' && process.env.MOCK_AVATAR_FAIL) return send(res, { status: 'error', message: 'mock avatar failure' }, 503);
