@@ -120,7 +120,7 @@
 .pz-building { display: flex; align-items: center; justify-content: center; }
 .pz-bcard { position: relative; width: 88%; height: 88%; border-radius: 15%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 2px; background: #181209; border: 1.5px solid #3a3024; overflow: hidden; transition: background 0.35s, border-color 0.35s, box-shadow 0.35s; }
 .pz-bico { font-size: clamp(11px, 3.3vw, 21px); line-height: 1; filter: grayscale(0.75) brightness(0.62); transition: filter 0.35s; }
-.pz-blabel { font-family: var(--pixel, 'Silkscreen', monospace); font-size: clamp(4.5px, 1.35vw, 7.5px); letter-spacing: 0.2px; line-height: 1.1; text-align: center; color: var(--pz-mut); transition: color 0.35s; }
+.pz-blabel { font-family: var(--pixel, 'Silkscreen', monospace); font-size: clamp(6px, 1.35vw, 7.5px); letter-spacing: 0.2px; line-height: 1.1; text-align: center; color: var(--pz-mut); transition: color 0.35s; }
 .pz-building.req .pz-bcard { border-color: var(--pz-line); box-shadow: inset 0 0 0 1px rgba(232, 195, 74, 0.14); }
 .pz-building.opt .pz-bcard { border-style: dashed; border-color: #43392a; opacity: 0.92; }
 .pz-building.on .pz-bcard { background: radial-gradient(circle at 50% 28%, #3c2b0e, #1b1408); border-color: var(--pz-gold); border-style: solid; box-shadow: 0 0 15px rgba(232, 195, 74, 0.45), 0 0 22px rgba(95, 230, 255, 0.16), inset 0 0 11px rgba(232, 195, 74, 0.26); }

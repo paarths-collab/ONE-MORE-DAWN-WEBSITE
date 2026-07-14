@@ -893,7 +893,7 @@ function DayPill({
 // auto-dismisses after 5s (timers owned by App).
 function NotifStack({ notifs }: { notifs: Notif[] }) {
   return (
-    <div className="hud notifs">
+    <div className="hud notifs" role="status" aria-live="polite">
       {notifs.map((n) => (
         <div key={n.key} className={n.tone ? `notif on ${n.tone}` : 'notif on'}>
           <span className="ni">{n.icon}</span>
@@ -2359,7 +2359,7 @@ function RaidBanner({ phase }: { phase: RaidPhase }) {
         ? 'a fireball pierced the dome · −8 souls'
         : 'the dome decides tonight…';
   return (
-    <div className={cls}>
+    <div className={cls} role="status" aria-live="polite">
       <div className="rb-t">{title}</div>
       <div className="rb-s">{sub}</div>
     </div>
@@ -4162,6 +4162,14 @@ export function App() {
   }, []);
   const onProgress = useCallback((p: number) => setPct(p), []);
   const onLoad = useCallback(() => setLoaded(true), []);
+  // Loader failsafe: if a GLB download stalls, the LoadingManager never fires
+  // onLoad and the black loading screen would hang forever. Force-clear it after
+  // 15s so the player is never stuck (mirrors the 8s API-timeout spirit).
+  useEffect(() => {
+    if (loaded) return;
+    const id = window.setTimeout(() => setLoaded(true), 15000);
+    return () => window.clearTimeout(id);
+  }, [loaded]);
   const onSelect = useCallback((meta: BuildingMeta | null) => setSelected(meta), []);
   const onPois = useCallback((list: PoiInfo[]) => {
     poisRef.current = list;
