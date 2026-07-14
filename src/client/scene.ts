@@ -237,9 +237,16 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   const rng = makeRng(20260707);
   let disposed = false;
 
+  // mobile / low-end perf tier: small-viewport or coarse-pointer phones GPU-OOM
+  // on a 4096² shadow map at DPR 2, so trim both below. Desktop keeps the crisp
+  // defaults. matchMedia is optional-chained so headless QA never throws.
+  const lowEndTier =
+    window.matchMedia?.('(max-width: 900px)')?.matches === true ||
+    window.matchMedia?.('(pointer: coarse)')?.matches === true;
+
   // ---------- renderer / scene / camera / label layer ----------
   const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowEndTier ? 1.5 : 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.domElement.style.display = 'block';
@@ -322,7 +329,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   const sun = new THREE.DirectionalLight(PRESETS.dawn.sunColor, PRESETS.dawn.sunInt);
   sun.position.set(...PRESETS.dawn.sunPos);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(4096, 4096);
+  sun.shadow.mapSize.set(lowEndTier ? 2048 : 4096, lowEndTier ? 2048 : 4096);
   sun.shadow.camera.left = -90;
   sun.shadow.camera.right = 90;
   sun.shadow.camera.top = 90;
@@ -2274,6 +2281,21 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   }
   renderer.setAnimationLoop(tick);
 
+  // WebGL context-loss recovery: on mobile a dropped context blanks the canvas
+  // while draw calls keep firing. preventDefault() is REQUIRED for the browser
+  // to restore it; we halt the loop meanwhile and resume once it is back (the
+  // disposed guard keeps a late restore from reviving a torn-down scene).
+  const onContextLost = (e: Event) => {
+    e.preventDefault();
+    renderer.setAnimationLoop(null);
+  };
+  const onContextRestored = () => {
+    if (disposed) return;
+    renderer.setAnimationLoop(tick);
+  };
+  renderer.domElement.addEventListener('webglcontextlost', onContextLost);
+  renderer.domElement.addEventListener('webglcontextrestored', onContextRestored);
+
   // ---------- build-from-zero progression cue (setBuildStage) ----------
   // A tiny, additive overlay on top of the finished town: hide the palisade for a
   // fresh "Camp" and reveal a handful of persistent landmarks as buildings unlock.
@@ -3812,6 +3834,8 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       renderer.domElement.removeEventListener('pointermove', onMove);
       renderer.domElement.removeEventListener('pointerdown', onDown);
       renderer.domElement.removeEventListener('pointerup', onUp);
+      renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
+      renderer.domElement.removeEventListener('webglcontextrestored', onContextRestored);
       controls.dispose();
       scene.traverse((o) => {
         const mesh = o as THREE.Mesh;

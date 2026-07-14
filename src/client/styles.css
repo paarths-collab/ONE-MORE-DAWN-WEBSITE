@@ -87,7 +87,7 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .rekindle-chip .rk-tx { min-width: 0; }
 .rekindle-chip .rk-btn { flex: none; font-family: var(--pixel); font-size: 8.5px; letter-spacing: 1px; color: #171109; background: linear-gradient(180deg, #ffb45b, #e8843a); border: 1px solid #a3541f; border-radius: 8px; padding: 7px 10px; cursor: pointer; min-height: 32px; }
 .rekindle-chip .rk-btn:disabled { opacity: 0.6; cursor: default; }
-.mission-chip .p-x, .rekindle-chip .p-x { flex: none; width: 22px; height: 22px; min-height: 22px; font-size: 10px; }
+.mission-chip .p-x, .rekindle-chip .p-x { flex: none; width: 44px; height: 44px; min-height: 44px; font-size: 10px; }
 .mission-chip.urgent { border-color: #b8422f; }
 .mission-chip.urgent .mi-tx { color: #ffb09a; white-space: normal; }
 @media (max-width: 640px) { .rekindle-chip { top: 144px; left: 8px; max-width: calc(100vw - 110px); font-size: 9.5px; } .rekindle-chip .rk-tx { overflow: hidden; text-overflow: ellipsis; } }
@@ -341,7 +341,7 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .chatter-head .mini-cap { margin-top: 3px; text-align: left; }
 .chatter-week { flex: none; font: 8px/1.2 var(--pixel); color: var(--mut); }
 .chatter-topics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin: 9px 0 7px; }
-.chatter-topics button { min-width: 0; min-height: 36px; padding: 5px 4px; overflow-wrap: anywhere; font: 8px/1.25 var(--pixel); color: var(--mut); background: rgba(255, 255, 255, 0.02); border: 1px solid #2f2828; border-radius: 5px; cursor: pointer; }
+.chatter-topics button { min-width: 0; min-height: 44px; padding: 5px 4px; overflow-wrap: anywhere; font: 8px/1.25 var(--pixel); color: var(--mut); background: rgba(255, 255, 255, 0.02); border: 1px solid #2f2828; border-radius: 5px; cursor: pointer; }
 .chatter-topics button.on { color: #ffe9ad; border-color: var(--line); background: rgba(232, 195, 74, 0.1); }
 .chatter-feed { min-height: 66px; max-height: 178px; overflow-y: auto; border-top: 1px solid #241f1a; border-bottom: 1px solid #241f1a; }
 .chatter-empty { padding: 14px 6px; font: 9px/1.45 var(--mono); color: var(--mut); text-align: center; }
@@ -349,13 +349,13 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .chatter-message:last-child { border-bottom: 0; }
 .chatter-author { margin-bottom: 3px; font: 8px/1.2 var(--pixel); color: #8eabf5; }
 .chatter-text { overflow-wrap: anywhere; font: 9.5px/1.4 var(--mono); color: var(--ink); }
-.chatter-open-message { position: absolute; top: 7px; right: 2px; width: 24px; height: 24px; padding: 0; color: var(--gold); background: transparent; border: 1px solid #2f2828; border-radius: 5px; cursor: pointer; }
+.chatter-open-message { position: absolute; top: 7px; right: 2px; width: 44px; height: 44px; padding: 0; color: var(--gold); background: transparent; border: 1px solid #2f2828; border-radius: 5px; cursor: pointer; }
 .chatter-compose { margin-top: 7px; }
 .chatter-compose textarea { display: block; width: 100%; min-height: 48px; resize: vertical; padding: 7px; color: var(--ink); background: rgba(8, 7, 7, 0.6); border: 1px solid #3f3522; border-radius: 5px; font: 10px/1.4 var(--mono); }
 .chatter-compose textarea:focus { outline: 1px solid var(--gold); border-color: var(--gold); }
 .chatter-compose-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 5px; }
 .chatter-compose-meta span { font: 8px/1 var(--pixel); color: var(--mut); }
-.chatter-compose-meta button { min-height: 36px; padding: 6px 9px; font: 8px/1.2 var(--pixel); color: #171109; background: var(--gold); border: 1px solid #80651f; border-radius: 5px; cursor: pointer; }
+.chatter-compose-meta button { min-height: 44px; padding: 6px 9px; font: 8px/1.2 var(--pixel); color: #171109; background: var(--gold); border: 1px solid #80651f; border-radius: 5px; cursor: pointer; }
 .chatter-compose-meta button:disabled { opacity: 0.45; cursor: default; }
 .chatter-disclosure { margin-top: 6px; font: 9px/1.4 var(--mono); color: var(--mut); }
 .chatter-thread { margin-top: 7px; border-radius: 5px; }
@@ -416,7 +416,7 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 
 /* ---- shared panel chrome (used by dashboard header/sections) ---- */
 .p-head { display: flex; align-items: center; justify-content: space-between; font-family: var(--pixel); font-size: 11px; letter-spacing: 2px; color: var(--gold); margin-bottom: 4px; }
-.p-x { background: none; border: 1px solid #2f2828; border-radius: 7px; color: var(--mut); font-size: 11px; width: 24px; height: 24px; cursor: pointer; }
+.p-x { background: none; border: 1px solid #2f2828; border-radius: 7px; color: var(--mut); font-size: 11px; width: 44px; height: 44px; min-width: 44px; min-height: 44px; cursor: pointer; }
 .p-sec { font-family: var(--pixel); font-size: 8px; letter-spacing: 1.5px; color: var(--mut); margin: 14px 0 8px; }
 
 /* ---- TOWN MINIMAP (map tab) ---- */
@@ -493,7 +493,7 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .stats-sheet::-webkit-scrollbar { width: 7px; }
 .stats-sheet::-webkit-scrollbar-thumb { background: #3a332c; border-radius: 6px; }
 .stats-sheet h2 { font-family: var(--pixel); font-size: 13px; letter-spacing: 2px; color: var(--gold); margin-bottom: 4px; }
-.st-close { position: absolute; top: 14px; right: 14px; background: none; border: 1px solid #2f2828; border-radius: 7px; color: var(--mut); font-size: 12px; width: 28px; height: 28px; cursor: pointer; }
+.st-close { position: absolute; top: 14px; right: 14px; background: none; border: 1px solid #2f2828; border-radius: 7px; color: var(--mut); font-size: 12px; width: 44px; height: 44px; cursor: pointer; }
 .st-sec { font-family: var(--pixel); font-size: 8px; letter-spacing: 1.5px; color: var(--mut); margin: 16px 0 6px; }
 table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 10.5px; color: var(--ink); }
 .st th { font-family: var(--pixel); font-size: 7px; letter-spacing: 1px; color: var(--mut); text-align: left; padding: 5px 8px; border-bottom: 1px solid #2f2828; }
@@ -828,4 +828,22 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
   .onboard-sheet, .fallen-sheet { max-height: 94vh; overflow-y: auto; }
   .ob-title { font-size: 14px; }
   .fl-title { font-size: 15px; }
+}
+
+/* Honor the OS "reduce motion" setting: still the looping HUD animations (raid
+   pulse, build-armed pulse, the loader sun, Maren's bob/blink/talk/lantern) and
+   the raid-banner shake. The 3D scene already respects reduced-motion; this
+   brings the DOM overlay in line. */
+@media (prefers-reduced-motion: reduce) {
+  .raid.soon,
+  .build.armed,
+  .loader .sun,
+  .coach .co-avatar,
+  .co-eyes,
+  .co-halo,
+  .talking .co-mouth-open,
+  .talking .co-mouth-closed,
+  .raid-banner.bad { animation: none !important; }
+  /* the banner's reveal animates a transform (scale); drop it so it snaps in */
+  .raid-banner { transition: none !important; }
 }
