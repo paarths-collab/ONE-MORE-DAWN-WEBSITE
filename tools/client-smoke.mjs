@@ -500,8 +500,13 @@ async function liveSmoke(url) {
           return true;
         })()`);
         await cdp.clickButton('POST TO REDDIT');
-        await cdp.waitFor(`(document.querySelector('.chatter-feed')?.textContent || '').includes('Protect the outer fields before dusk.')`, 'confirmed Reddit comment returns to the chatter feed');
+        // The attribution toast fires the instant the POST resolves and self-dismisses
+        // after 5s (pushNotif) — BEFORE refreshChatter repaints the feed. Assert it
+        // first, while it is fresh: on a slow CI runner the feed refresh can otherwise
+        // outlast the 5s toast window, so checking the persistent feed comment first
+        // would let the transient toast expire before we look for it (flaky timeout).
         await cdp.waitFor(`document.body.innerText.includes('Posted publicly to Reddit as u/mock_user')`, 'Reddit attribution confirmation');
+        await cdp.waitFor(`(document.querySelector('.chatter-feed')?.textContent || '').includes('Protect the outer fields before dusk.')`, 'confirmed Reddit comment returns to the chatter feed');
         const chatterAfterPost = await cdp.eval(`(() => ({
           draft: document.querySelector('.chatter-compose textarea')?.value || '',
           author: document.querySelector('.chatter-message .chatter-author')?.textContent || ''
