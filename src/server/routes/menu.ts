@@ -4,7 +4,7 @@ import { requireModerator } from '../core/moderator';
 import { createPost } from '../core/post';
 import { seedDemoCity } from '../game/demoSeed';
 import { newCityState, resolveDay, type DayInputs } from '../game/resolver';
-import { utcDateString } from '../game/lazyResolve';
+import { applyRaidAftermath, utcDateString } from '../game/lazyResolve';
 import { KEYS } from '../storage/redisKeys';
 import { deriveWorldSeed, getStore, redisLike } from './api';
 import { chatterThreadUrl, ensureChatterHub } from '../chatter/hub';
@@ -80,10 +80,16 @@ menu.post('/force-resolve', async (c) => {
     dome: await store.getDomeSegments(),
   };
   const { city: next, entry, marked, raid } = resolveDay(city, inputs);
-  // Keep the dome consistent on the force-resolve path too (blocked hits drain it).
-  if (raid && next.status === 'alive') await store.setDomeSegments(raid.segmentsAfter);
+  // Full raid aftermath — house damage, casualties, and the Dawn Report cinematic
+  // — not just the dome, so a mod-triggered raid produces the SAME state as a real
+  // dawn (previously force-resolve only drained the dome and the aftermath never
+  // rendered). Shared with the lazy path via applyRaidAftermath.
+  const finalEntry =
+    raid && next.status === 'alive'
+      ? await applyRaidAftermath(store, raid, city, entry, inputs.dome)
+      : entry;
   await store.snapshotCity(next);
-  await store.appendTimeline(entry);
+  await store.appendTimeline(finalEntry);
   await store.setMarkedOutcome(city.day, marked);
   await store.setCityState(next);
   await store.setCityMeta({ lastResolvedDate: utcDateString(new Date()) });

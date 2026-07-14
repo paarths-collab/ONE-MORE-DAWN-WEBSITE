@@ -1,10 +1,67 @@
-import type { ActionType, CityState, Role } from '../../shared/types';
+import type { ActionType, CityState, Role, TimelineEntry } from '../../shared/types';
 import { BALANCE } from '../../shared/balance';
 import { KEYS } from '../storage/redisKeys';
 import type { RedisLike } from '../storage/store';
 import { Store } from '../storage/store';
-import { newCityState, resolveDay, type DayInputs } from './resolver';
+import { newCityState, resolveDay, type DayInputs, type ResolveResult } from './resolver';
 import { laborForStatus, selectRaidDamage } from './reconstruction';
+
+/**
+ * Turn a resolved raid into persisted post-raid state: drains the dome, marks
+ * struck homes into the shared rebuild queue, and returns the timeline entry
+ * enriched with the `raidAftermath` the Dawn Report cinematic reads. Shared by
+ * the lazy dawn path AND the moderator force-resolve so both produce identical
+ * state (force-resolve previously only saved the dome — no casualties/aftermath).
+ * `city` is the PRE-resolve city (its day/cycle/seed pick the struck homes).
+ */
+export const applyRaidAftermath = async (
+  store: Store,
+  raid: NonNullable<ResolveResult['raid']>,
+  city: CityState,
+  entry: TimelineEntry,
+  domeBefore: number[],
+): Promise<TimelineEntry> => {
+  // Persist the dome the raid left behind (blocked fireballs drained segments).
+  await store.setDomeSegments(raid.segmentsAfter);
+  const rows = await store.getHouseRows();
+  let destroyedNames: string[] = [];
+  let housesDamaged = 0;
+  let required = 0;
+  if (rows.length > 0) {
+    const players = await store.getAllPlayers();
+    const nameByUser: Record<string, string> = {};
+    for (const p of players) nameByUser[p.userId] = p.username;
+    const userByIndex: Record<number, string> = {};
+    for (const r of rows) userByIndex[r.index] = r.userId;
+    const seed = (city.worldSeed ^ Math.imul(city.cycle, 40503) ^ Math.imul(city.day, 97)) >>> 0;
+    const picked = selectRaidDamage(rows.map((r) => r.index), raid.outcome, seed);
+    const damageEntries: Record<string, 'destroyed' | 'damaged'> = {};
+    for (const idx of picked.destroy) { const u = userByIndex[idx]; if (u) damageEntries[u] = 'destroyed'; }
+    for (const idx of picked.damage) { const u = userByIndex[idx]; if (u) damageEntries[u] = 'damaged'; }
+    await store.setHouseDamage(damageEntries);
+    destroyedNames = picked.destroy.map((idx) => nameByUser[userByIndex[idx] ?? ''] ?? 'a survivor');
+    housesDamaged = picked.damage.length;
+    required =
+      picked.destroy.length * laborForStatus('destroyed') + picked.damage.length * laborForStatus('damaged');
+  }
+  const aftermath = {
+    held: raid.outcome === 'held',
+    wallBreached: raid.outcome !== 'held',
+    housesDestroyed: destroyedNames,
+    housesDamaged,
+    reconstructionRequired: required,
+    fireballs: raid.fireballs,
+    penetrations: raid.penetrations,
+    soulsLost: raid.soulsLost,
+    segmentsBefore: domeBefore,
+    segmentsAfter: raid.segmentsAfter,
+  };
+  const extra =
+    destroyedNames.length > 0
+      ? [`The raid took ${destroyedNames.length} home(s). No citizen rebuilds alone; the city has begun.`]
+      : [];
+  return { ...entry, raidAftermath: aftermath, events: [...entry.events, ...extra] };
+};
 
 export const utcDateString = (now: Date): string => now.toISOString().slice(0, 10);
 
@@ -179,46 +236,7 @@ export const runLazyResolution = async (
     // is cleared by the next Phoenix pass, so only apply it while still alive.
     let finalEntry = entry;
     if (raid && nextCity.status === 'alive') {
-      // Persist the dome the raid left behind (blocked fireballs drained segments).
-      await store.setDomeSegments(raid.segmentsAfter);
-      const rows = await store.getHouseRows();
-      let destroyedNames: string[] = [];
-      let housesDamaged = 0;
-      let required = 0;
-      if (rows.length > 0) {
-        const players = await store.getAllPlayers();
-        const nameByUser: Record<string, string> = {};
-        for (const p of players) nameByUser[p.userId] = p.username;
-        const userByIndex: Record<number, string> = {};
-        for (const r of rows) userByIndex[r.index] = r.userId;
-        const seed = (city.worldSeed ^ Math.imul(city.cycle, 40503) ^ Math.imul(city.day, 97)) >>> 0;
-        const picked = selectRaidDamage(rows.map((r) => r.index), raid.outcome, seed);
-        const damageEntries: Record<string, 'destroyed' | 'damaged'> = {};
-        for (const idx of picked.destroy) { const u = userByIndex[idx]; if (u) damageEntries[u] = 'destroyed'; }
-        for (const idx of picked.damage) { const u = userByIndex[idx]; if (u) damageEntries[u] = 'damaged'; }
-        await store.setHouseDamage(damageEntries);
-        destroyedNames = picked.destroy.map((idx) => nameByUser[userByIndex[idx] ?? ''] ?? 'a survivor');
-        housesDamaged = picked.damage.length;
-        required =
-          picked.destroy.length * laborForStatus('destroyed') + picked.damage.length * laborForStatus('damaged');
-      }
-      const aftermath = {
-        held: raid.outcome === 'held',
-        wallBreached: raid.outcome !== 'held',
-        housesDestroyed: destroyedNames,
-        housesDamaged,
-        reconstructionRequired: required,
-        fireballs: raid.fireballs,
-        penetrations: raid.penetrations,
-        soulsLost: raid.soulsLost,
-        segmentsBefore: domeBefore,
-        segmentsAfter: raid.segmentsAfter,
-      };
-      const extra =
-        destroyedNames.length > 0
-          ? [`The raid took ${destroyedNames.length} home(s). No citizen rebuilds alone; the city has begun.`]
-          : [];
-      finalEntry = { ...entry, raidAftermath: aftermath, events: [...entry.events, ...extra] };
+      finalEntry = await applyRaidAftermath(store, raid, city, entry, domeBefore);
     }
 
     await store.snapshotCity(nextCity);

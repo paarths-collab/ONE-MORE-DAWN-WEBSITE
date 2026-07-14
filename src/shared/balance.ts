@@ -102,8 +102,14 @@ export const BALANCE = {
     // goal = min(goalMax, goalBase + ceil(activePlayers * goalPerActivePlayer))
     // where activePlayers = YESTERDAY's action-takers (stable all day, so the
     // goal shown at /init is exactly the goal the dawn resolver judges).
-    goalBase: 10,
-    goalPerActivePlayer: 4,
+    // Tuned so the Marked is SAVEABLE across the whole 5-20 active target range:
+    // with pledgePerTap 5 (one pledge/user/day), the max daily resolve is 5*P.
+    // Solving 5P >= goalBase + goalPerActivePlayer*P gives P >= 2 here, so even a
+    // 5-player sub saves at ~64% pledging (goal 16 vs max 25); a 20-player sub at
+    // ~46% (goal 46 vs 100). The old 10 + 4P made it 5P >= 10 + 4P -> P >= 10, i.e.
+    // literally unwinnable for the bottom half of the target range.
+    goalBase: 6,
+    goalPerActivePlayer: 2,
     goalMax: 200,
     pledgePerTap: 5, // "resolve" each one-tap pledge adds toward the goal
     savedMoraleBonus: 4, // dawn: goal met

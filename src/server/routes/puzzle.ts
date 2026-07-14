@@ -6,7 +6,7 @@ import type {
   PuzzleSolveRequest,
   PuzzleSolveResponse,
 } from '../../shared/types';
-import { evaluate, starRating } from '../../shared/puzzle';
+import { evaluate, initialRotations, rotateEdges, starRating, tileCells, TILE_EDGES } from '../../shared/puzzle';
 import { PUZZLE_LEVELS, puzzleLevelById } from '../../shared/puzzleLevels';
 import { hashString } from '../../shared/rng';
 import { utcDateString } from '../game/lazyResolve';
@@ -96,8 +96,23 @@ puzzle.post('/solve', async (c) => {
 
   // Clamp the client-reported counters to sane, non-negative integers so a
   // malformed or hostile payload can never mint negative moves/time or NaN stars.
-  const moves = Math.max(0, Math.floor(Number(body.moves) || 0));
+  const reportedMoves = Math.max(0, Math.floor(Number(body.moves) || 0));
   const timeMs = Math.max(0, Math.floor(Number(body.timeMs) || 0));
+
+  // `moves` feeds both the star tier and the daily rank (fewest moves), so it
+  // cannot be trusted below a PROVABLE floor: every tile whose submitted rotation
+  // opens different edges than its scrambled start necessarily cost at least one
+  // tap. Clamp UP to that lower bound so a crafted `moves: 0` can't spoof rank or
+  // steal the within-target star. The non-negative clamp above stays the floor
+  // for garbage input.
+  const startRots = initialRotations(level);
+  let minMoves = 0;
+  tileCells(level).forEach((tile, i) => {
+    const startEdges = rotateEdges(TILE_EDGES[tile.kind], startRots[i] ?? 0);
+    const endEdges = rotateEdges(TILE_EDGES[tile.kind], Math.floor(Number(body.rotations[i]) || 0));
+    if (startEdges !== endEdges) minMoves += 1;
+  });
+  const moves = Math.max(reportedMoves, minMoves);
 
   const ev = evaluate(level, body.rotations);
   const accepted = ev.solved;

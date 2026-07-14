@@ -82,7 +82,10 @@ const buildLevel = (spec: LevelSpec): PuzzleLevel => {
     const [x, y] = kk.split(',').map(Number) as [number, number];
     const { kind, sol } = tileFromEdges(e);
     const scrambled = scrambleKeys.has(kk);
-    const off = scrambled ? (kind === 'straight' ? 1 : 3) : 0; // 1 tap from solved when scrambled
+    const isSwitch = switchKeys.has(kk);
+    // Scramble one tap away from solved. A switch steps by 2 (180° toggle), so its
+    // offset MUST be even or it could never rotate back onto its solution — force 2.
+    const off = scrambled ? (isSwitch ? 2 : kind === 'straight' ? 1 : 3) : 0;
     cells.push({
       t: 'tile', x, y, kind, sol,
       rot: (sol + off) & 3,
@@ -400,7 +403,7 @@ const L14 = buildLevel({
     [[3, 3], [3, 4], [4, 4], [5, 4]], // -> storehouse
   ],
   switches: [[3, 3]], // a switch tile the player toggles to feed both branches
-  scramble: [[1, 3], [3, 2], [4, 4], [0, 2]],
+  scramble: [[3, 3], [1, 3], [3, 2], [4, 4], [0, 2]], // includes the switch so its toggle is actually needed
 });
 
 const L15 = buildLevel({
@@ -423,7 +426,7 @@ const L15 = buildLevel({
   ],
   switches: [[3, 3]], // the balancing switch that feeds both arms
   locked: [[3, 4], [1, 3]],
-  scramble: [[2, 3], [4, 3], [0, 3], [0, 1], [5, 3], [6, 3], [6, 1], [1, 1], [2, 0]],
+  scramble: [[3, 3], [2, 3], [4, 3], [0, 3], [0, 1], [5, 3], [6, 3], [6, 1], [1, 1], [2, 0]], // includes the switch so its toggle is actually needed
 });
 
 // ---------------------------------------------------------------------------

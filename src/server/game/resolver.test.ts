@@ -212,6 +212,43 @@ describe('resolveDay', () => {
     expect(resolveDay(city({ threat: 100 }), inp)).toEqual(resolveDay(city({ threat: 100 }), inp));
   });
 
+  it('reports a HELD raid: a full dome blocks every fireball, no souls lost', () => {
+    const full = Array.from({ length: BALANCE.dome.segments }, () => BALANCE.dome.segmentMax);
+    const { raid } = resolveDay(
+      city({ threat: 100, food: 200, population: 120, defense: 0 }),
+      { ...noInputs, dome: full },
+    );
+    expect(raid).not.toBeNull();
+    expect(raid!.outcome).toBe('held');
+    expect(raid!.penetrations).toBe(0);
+    expect(raid!.soulsLost).toBe(0);
+  });
+
+  it('reports a BREACH: a shattered dome penetrates and costs souls', () => {
+    // noInputs.dome is [0×6] (shattered) -> every fireball penetrates. With no
+    // defense and no guards the dampen is 0, so the toll is exactly the raw
+    // per-penetration population cost — this pins the casualty math end to end.
+    const { raid } = resolveDay(
+      city({ threat: 100, food: 200, population: 120, defense: 0 }),
+      noInputs,
+    );
+    expect(raid).not.toBeNull();
+    expect(raid!.outcome).toBe('breach');
+    expect(raid!.penetrations).toBeGreaterThan(0);
+    expect(raid!.soulsLost).toBe(raid!.penetrations * BALANCE.dome.perPenetration.population);
+  });
+
+  it('accumulated defense mitigates raid casualties and losses', () => {
+    // Identical seed inputs (same worldSeed/cycle/day) -> identical seeded volley,
+    // so the two cities take the SAME penetrations; only the defense dampen differs.
+    const bare = resolveDay(city({ threat: 100, food: 200, population: 120, defense: 0 }), noInputs);
+    const walled = resolveDay(city({ threat: 100, food: 200, population: 120, defense: 80 }), noInputs);
+    expect(walled.raid!.penetrations).toBe(bare.raid!.penetrations);
+    // defense 80 -> floor(80/8) = 10 softening: fewer souls lost, more food kept.
+    expect(walled.raid!.soulsLost).toBeLessThan(bare.raid!.soulsLost);
+    expect(walled.city.food).toBeGreaterThan(bare.city.food);
+  });
+
   describe('city traits (W1)', () => {
     it('worldSeed 0 is the neutral path: standard trait, unmodified start values', () => {
       const fresh = newCityState(1); // default worldSeed 0

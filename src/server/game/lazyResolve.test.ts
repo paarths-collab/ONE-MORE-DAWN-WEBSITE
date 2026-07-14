@@ -136,4 +136,58 @@ describe('runLazyResolution', () => {
     expect(again.city.cycle).toBe(3);
     expect(again.city.day).toBe(1);
   });
+
+  it('a triggered raid persists house damage, a worn dome, and the casualty aftermath', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    await runLazyResolution(store, redis, new Date('2026-07-04T10:00:00Z'), 0);
+    // Prime a city that will raid at the next dawn: at the trigger threshold, a
+    // shattered dome (every fireball penetrates), and real homes to strike.
+    await store.setCityState({ ...newCityState(1), day: 1, threat: 100, food: 200, population: 120, defense: 0 });
+    const homes: [string, string][] = [['t2_a', 'ana'], ['t2_b', 'ben'], ['t2_c', 'cid'], ['t2_d', 'dee'], ['t2_e', 'eli']];
+    for (const [id, name] of homes) {
+      await store.savePlayer(freshPlayer(id, name, 1));
+      await store.registerHouse(id);
+    }
+    await store.setDomeSegments([0, 0, 0, 0, 0, 0]);
+
+    const { city } = await runLazyResolution(store, redis, new Date('2026-07-05T10:00:00Z'), 0);
+    expect(city.day).toBe(2);
+    expect(city.status).toBe('alive'); // survives the raid, does not fall
+
+    // The dawn timeline carries the aftermath the Dawn Report cinematic reads.
+    const aftermath = (await store.getTimeline(3))[0]?.raidAftermath;
+    expect(aftermath).toBeTruthy();
+    expect(aftermath!.held).toBe(false);
+    expect(aftermath!.penetrations).toBeGreaterThan(0);
+    expect(aftermath!.soulsLost).toBeGreaterThan(0);
+    expect(aftermath!.housesDestroyed.length).toBeGreaterThan(0);
+    expect(aftermath!.reconstructionRequired).toBeGreaterThan(0);
+
+    // Persisted: the dome wore down to the reported after-state, and the struck
+    // homes entered the shared rebuild queue.
+    expect(await store.getDomeSegments()).toEqual(aftermath!.segmentsAfter);
+    expect(Object.keys(await store.getHouseDamage()).length).toBeGreaterThan(0);
+  });
+
+  it('Phoenix Dawn: a lapsed veteran banks a rekindle-able flame across the new cycle', async () => {
+    const redis = makeFakeRedis();
+    const store = new Store(redis);
+    await runLazyResolution(store, redis, new Date('2026-07-04T10:00:00Z'), 0);
+    await store.setCityState({ ...newCityState(2), day: 9, status: 'fallen' as const });
+    // Active at the fall (lastActiveDay === fallenDay) -> keeps the live streak.
+    await store.savePlayer({ ...freshPlayer('t2_here', 'present', 9), streak: 7 });
+    // Lapsed BEFORE the fall with streak >= rekindle.minStreak -> the live streak
+    // breaks, but is banked as a rekindle-able lapsedStreak, not lost.
+    await store.savePlayer({ ...freshPlayer('t2_gone', 'lapsed', 5), streak: 6, lapsedStreak: 0 });
+
+    await runLazyResolution(store, redis, new Date('2026-07-05T10:00:00Z'), 0);
+
+    expect(await store.getPlayer('t2_here')).toMatchObject({ streak: 7, lastActiveDay: 0 });
+    expect(await store.getPlayer('t2_gone')).toMatchObject({
+      streak: 1, // live streak broken by the lapse
+      lapsedStreak: 6, // ...but preserved to rekindle in the new cycle
+      lastActiveDay: -1,
+    });
+  });
 });

@@ -81,6 +81,12 @@ function Conduit({ kind }: { kind: TileKind }) {
   );
 }
 
+// Human list of a tile's open sides (bits N=1,E=2,S=4,W=8) for the aria-label,
+// so the board is solvable non-visually.
+const DIR_NAMES = ['north', 'east', 'south', 'west'] as const;
+const openDirections = (edges: number): string =>
+  DIR_NAMES.filter((_, i) => (edges & (1 << i)) !== 0).join(', ');
+
 const fmtTime = (ms: number): string => {
   const s = Math.max(0, Math.floor(ms / 1000));
   const mm = String(Math.floor(s / 60)).padStart(2, '0');
@@ -261,6 +267,7 @@ export function PuzzleGame(props: {
       const powered = ev.poweredTiles[i] ?? false;
       const deg = (spin[i] ?? 0) * 90;
       const locked = cell.locked ?? false;
+      const dirs = openDirections(rotateEdges(TILE_EDGES[cell.kind], rotations[i] ?? 0));
       const cls = `pz-tile${powered ? ' on' : ''}${locked ? ' locked' : ''}${shakeIdx === i ? ' shake' : ''}`;
       return (
         <button
@@ -269,7 +276,7 @@ export function PuzzleGame(props: {
           className={cls}
           style={cellStyle}
           onClick={() => onTile(i)}
-          aria-label={`Conduit tile${locked ? ', locked' : ''}${powered ? ', powered' : ''}`}
+          aria-label={`${cell.kind} conduit, open ${dirs}${powered ? ', powered' : ''}${locked ? ', locked' : ''}`}
         >
           <div className="pz-spin" style={{ transform: `rotate(${deg}deg)` }}>
             <Conduit kind={cell.kind} />
@@ -375,6 +382,8 @@ export function PuzzleGame(props: {
             </span>
           </div>
         </div>
+
+        <div className="pz-help">Tap conduits to rotate. Wire ⚡ to every lit building.</div>
 
         {hasFinite && (
           <div className={ev.overloaded ? 'pz-meter over' : 'pz-meter'}>
