@@ -27,6 +27,8 @@ vi.mock('@devvit/web/server', () => ({
     getCurrentSubreddit: vi.fn(),
     getCurrentUsername: vi.fn(),
     submitCustomPost: vi.fn(),
+    submitPost: vi.fn(),
+    submitComment: vi.fn(),
   },
   redis: {},
 }));
@@ -40,9 +42,11 @@ const redditMock = reddit as unknown as {
   getCurrentUser: Mock;
   getCurrentSubreddit: Mock;
   submitCustomPost: Mock;
+  submitPost: Mock;
+  submitComment: Mock;
 };
 
-const MENU_ROUTES = ['/post-create', '/force-resolve', '/reset', '/seed-demo'] as const;
+const MENU_ROUTES = ['/post-create', '/chatter-hub', '/force-resolve', '/reset', '/seed-demo'] as const;
 
 const asLoggedOut = () => {
   ctx.userId = undefined;
@@ -212,6 +216,28 @@ describe('/internal/menu/* authorization', () => {
     const body = (await res.json()) as { navigateTo?: string };
     expect(body.navigateTo).toBe('https://reddit.com/r/testsub/comments/abc/');
     expect(redditMock.submitCustomPost).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets a moderator create and open the weekly City Chatter hub', async () => {
+    asModerator();
+    await store.setCityState({ ...newCityState(1), day: 4 });
+    redditMock.submitPost.mockResolvedValue({
+      id: 't3_week123',
+      permalink: '/r/testsub/comments/week123/city_chatter_hub/',
+    });
+    let root = 0;
+    redditMock.submitComment.mockImplementation(async () => {
+      root += 1;
+      return { id: `t1_root${root}` };
+    });
+
+    const res = await menu.request('/chatter-hub', { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      navigateTo: 'https://www.reddit.com/r/testsub/comments/week123/city_chatter_hub/',
+    });
+    expect(redditMock.submitPost).toHaveBeenCalledTimes(1);
+    expect(redditMock.submitComment).toHaveBeenCalledTimes(4);
   });
 
   it('falls back to getCurrentSubreddit() when context has no subreddit name', async () => {

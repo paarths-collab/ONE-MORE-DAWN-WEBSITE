@@ -20,7 +20,7 @@ Narration: "Choose your survivor, spend three energy, complete a personal missio
 
 **0:14-0:25 - Reddit decides**
 
-[Open LIVE. Briefly show Open Reddit Comments, cast a crisis vote, select a council strategy, pledge to The Marked.]
+[Open LIVE. Briefly show the City Chatter Hub's real Reddit replies, cast a crisis vote, select a council strategy, pledge to The Marked.]
 
 Narration: "Debate in the Reddit thread, then lock in the community's crisis, strategy, and who it refuses to lose."
 

@@ -54,8 +54,9 @@ The client runs in three honest modes, decided by one `/api/init` call:
    contributor raises their own house** — the first contributor founds the city
    and the town fills one redditor at a time.
 5. **Decide together** — vote on the day's **crisis**, back a **council** plan,
-   and **pledge** to save **The Marked**. Open the current post's real Reddit
-   comments to debate first; binding decisions remain in-game.
+   and **pledge** to save **The Marked**. The weekly **City Chatter Hub** brings
+   Reddit comments into the LIVE panel for strategy, raids, rebuilding, and
+   general discussion; binding decisions remain in-game.
 6. **Brace** — watch the **raid countdown**; raids resolve at dawn.
 7. **Return** — the **Dawn Report** shows what the community's choices did, and the
    city timeline remembers it. If the city falls, a memorial holds for the day,
@@ -65,8 +66,9 @@ The client runs in three honest modes, decided by one `/api/init` call:
 ## Why it's Reddit-native
 
 - **The subreddit is the parliament** — the community casts the daily crisis vote
-  and council plan, with the current post's comments one tap away for debate;
-  the game *uses* a real community instead of simulating one.
+  and council plan, while an app-created weekly Chatter Hub organizes real
+  Reddit discussion beneath daily prompts; the game *uses* a real community
+  instead of simulating one.
 - **Consequences are collective and delayed** — food, threat, and the raid clock
   carry overnight; come back tomorrow for the fallout.
 - **No realtime needed** — everything is async through shared Redis state. One app
@@ -91,7 +93,7 @@ src/
     game/     resolver · dayLogic · lazyResolve · missionRules · marked ·
               pledges · drama · standing · village · world · demoSeed
     routes/   api (init/role/avatar/action/vote/strategy/pledge/world/…) ·
-              mission · menu · triggers
+              chatter · mission · menu · scheduler · triggers
     storage/  store · redisKeys · worldRegistry
   client/
     App.tsx       React HUD: onboarding, dashboard, live/demo/offline, modals
@@ -167,6 +169,11 @@ Deliberately cut or hidden for a small, honest V1 (see `docs/V1_SCOPE.md`):
   the UI.
 - **One city per subreddit** — every game post in the same subreddit reads the
   same shared city state for this V1.
+- **City Chatter posts are public Reddit actions** — the composer is optional,
+  discloses the side effect, waits for Reddit confirmation, and links each
+  message back to native Reddit moderation. In unapproved playtests, Reddit may
+  attribute a non-owner's `runAs: USER` comment to the app account; verify real
+  attribution during the private-subreddit smoke test.
 - **Live raids are forecast/report-driven** — the animated raid cinematic runs in
   demo mode only.
 - **`npm audit`** reports transitive vulnerabilities through the Devvit toolchain —

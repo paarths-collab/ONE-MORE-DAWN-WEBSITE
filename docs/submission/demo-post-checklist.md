@@ -22,7 +22,7 @@ and feed reflect real people, not just the seed:
 - [ ] cast the crisis vote
 - [ ] back a council plan
 - [ ] take a city action
-- [ ] optionally leave one real Reddit strategy comment ("save food or prep for the raid?")
+- [ ] leave one real Reddit strategy comment through the City Chatter Hub
 - [ ] return after a force-resolve / the next dawn to see the Dawn Report
 
 ## 3. Proof to capture before submitting
@@ -36,7 +36,7 @@ Fill these in from the live post right before you submit:
 | Pledges on The Marked | 20+ | _TBD_ |
 | Crisis votes | 10+ | _TBD_ |
 | Council backers | 8+ | _TBD_ |
-| Optional Reddit strategy comments | 0-5 | _TBD_ |
+| City Chatter Reddit comments | 3-5 | _TBD_ |
 | Dawn Report generated | yes | _TBD_ |
 | Timeline days visible | 3+ | _TBD_ |
 

@@ -314,9 +314,32 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .tk.you .ta { color: var(--gold); }
 .say-hi { margin-top: 2px; width: 100%; font-family: var(--pixel); font-size: 8.5px; letter-spacing: 1px; color: #0c0a0a; background: linear-gradient(180deg, #f5d76e, #c99a2e); border: 1px solid #7a6120; border-radius: 10px; padding: 8px; cursor: pointer; }
 .say-hi:disabled { opacity: 0.5; cursor: default; }
-.council-thread { margin-top: 12px; padding: 10px; border: 1px solid #3f3522; border-radius: 8px; background: rgba(232, 195, 74, 0.05); }
 .ct-title { font-family: var(--pixel); font-size: 8px; letter-spacing: 1px; color: var(--gold); margin-bottom: 5px; }
-.council-comments { margin-top: 8px; min-height: 34px; }
+
+/* ---- Reddit-native City Chatter ---- */
+.chatter-hub { border-top: 1px solid #3f3522; border-bottom: 1px solid #3f3522; padding: 10px 0; }
+.chatter-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.chatter-head .mini-cap { margin-top: 3px; text-align: left; }
+.chatter-week { flex: none; font: 7px/1.2 var(--pixel); color: var(--mut); }
+.chatter-topics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin: 9px 0 7px; }
+.chatter-topics button { min-width: 0; min-height: 32px; padding: 5px 4px; overflow-wrap: anywhere; font: 7px/1.25 var(--pixel); color: var(--mut); background: rgba(255, 255, 255, 0.02); border: 1px solid #2f2828; border-radius: 5px; cursor: pointer; }
+.chatter-topics button.on { color: #ffe9ad; border-color: var(--line); background: rgba(232, 195, 74, 0.1); }
+.chatter-feed { min-height: 66px; max-height: 178px; overflow-y: auto; border-top: 1px solid #241f1a; border-bottom: 1px solid #241f1a; }
+.chatter-empty { padding: 14px 6px; font: 9px/1.45 var(--mono); color: var(--mut); text-align: center; }
+.chatter-message { position: relative; padding: 7px 28px 7px 4px; border-bottom: 1px solid #241f1a; }
+.chatter-message:last-child { border-bottom: 0; }
+.chatter-author { margin-bottom: 3px; font: 7px/1.2 var(--pixel); color: #8eabf5; }
+.chatter-text { overflow-wrap: anywhere; font: 9.5px/1.4 var(--mono); color: var(--ink); }
+.chatter-open-message { position: absolute; top: 7px; right: 2px; width: 24px; height: 24px; padding: 0; color: var(--gold); background: transparent; border: 1px solid #2f2828; border-radius: 5px; cursor: pointer; }
+.chatter-compose { margin-top: 7px; }
+.chatter-compose textarea { display: block; width: 100%; min-height: 48px; resize: vertical; padding: 7px; color: var(--ink); background: rgba(8, 7, 7, 0.6); border: 1px solid #3f3522; border-radius: 5px; font: 10px/1.4 var(--mono); }
+.chatter-compose textarea:focus { outline: 1px solid var(--gold); border-color: var(--gold); }
+.chatter-compose-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 5px; }
+.chatter-compose-meta span { font: 7px/1 var(--pixel); color: var(--mut); }
+.chatter-compose-meta button { min-height: 32px; padding: 6px 9px; font: 7px/1.2 var(--pixel); color: #171109; background: var(--gold); border: 1px solid #80651f; border-radius: 5px; cursor: pointer; }
+.chatter-compose-meta button:disabled { opacity: 0.45; cursor: default; }
+.chatter-disclosure { margin-top: 6px; font: 8px/1.4 var(--mono); color: var(--mut); }
+.chatter-thread { margin-top: 7px; border-radius: 5px; }
 
 /* ---- build mode ---- */
 .build.armed { outline: 3px solid #57c06a; outline-offset: 2px; animation: buildPulse 1.2s ease-in-out infinite; }

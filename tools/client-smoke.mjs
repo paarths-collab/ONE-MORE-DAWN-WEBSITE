@@ -480,14 +480,34 @@ async function liveSmoke(url) {
       if (label === 'LIVE') await completeContextLesson(cdp, 'WE DECIDE TOGETHER');
       if (label === 'TOP') await completeContextLesson(cdp, 'THE RECORD');
       if (label === 'LIVE') {
-        await cdp.waitFor('document.body.innerText.includes("VILLAGER VOICES")', 'LIVE tab identifies scripted villager dialogue');
+        await cdp.waitFor('!!document.querySelector(".chatter-hub") && document.body.innerText.includes("CITY CHATTER HUB")', 'Reddit City Chatter loads');
         const livePanel = await cdp.eval(`document.querySelector('.dash')?.innerText || ''`);
-        assert(!livePanel.includes('SAY HI'), 'Scripted villager dialogue must not masquerade as Reddit participation.');
-        assert(livePanel.includes('REDDIT COUNCIL THREAD'), 'Real Reddit discussion must be clearly separated from villager dialogue.');
-        const comments = await cdp.eval(`(() => { const b = document.querySelector('.council-comments'); return b ? { text: b.closest('.council-thread')?.textContent || '', url: b.dataset.commentsUrl || '' } : null; })()`);
-        assert(comments && /OPEN CRISIS DISCUSSION/.test(comments.text), 'LIVE tab offers the real Reddit crisis discussion.');
-        assert(comments.text.includes('First Light'), 'Reddit discussion CTA must name the crisis being debated.');
-        assert(comments.url.endsWith('/comments/mock'), `council thread should target the current post, saw "${comments.url}".`);
+        assert(!livePanel.includes('SAY HI'), 'LIVE discussion must not masquerade as a Reddit action.');
+        assert(livePanel.includes('Posting is optional and creates a public Reddit comment'), 'City Chatter must disclose its public Reddit side effect.');
+        assert(livePanel.includes('app account'), 'Unapproved-playtest attribution limitation must stay visible.');
+        assert(livePanel.includes('ashen_fox') && livePanel.includes('Fortify the north wall'), 'City Chatter should render Reddit-sourced strategy replies.');
+        const chatterThread = await cdp.eval(`document.querySelector('.chatter-thread')?.dataset.commentsUrl || ''`);
+        assert(chatterThread.includes('/r/meadowbrook/comments/chatter_week_4/'), `City Chatter should target its weekly Reddit post, saw "${chatterThread}".`);
+
+        await cdp.clickSelectorContaining('.chatter-topics button', 'Raid');
+        await cdp.waitFor(`(document.querySelector('.chatter-feed')?.textContent || '').includes('quiet_marrow')`, 'Raid chatter category loads from Reddit');
+        await cdp.eval(`(() => {
+          const field = document.querySelector('.chatter-compose textarea');
+          const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+          if (!field || !setter) return false;
+          setter.call(field, 'Protect the outer fields before dusk.');
+          field.dispatchEvent(new Event('input', { bubbles: true }));
+          return true;
+        })()`);
+        await cdp.clickButton('POST TO REDDIT');
+        await cdp.waitFor(`(document.querySelector('.chatter-feed')?.textContent || '').includes('Protect the outer fields before dusk.')`, 'confirmed Reddit comment returns to the chatter feed');
+        await cdp.waitFor(`document.body.innerText.includes('Posted publicly to Reddit as u/mock_user')`, 'Reddit attribution confirmation');
+        const chatterAfterPost = await cdp.eval(`(() => ({
+          draft: document.querySelector('.chatter-compose textarea')?.value || '',
+          author: document.querySelector('.chatter-message .chatter-author')?.textContent || ''
+        }))()`);
+        assert(chatterAfterPost.draft === '', 'City Chatter should clear the draft only after Reddit confirms the post.');
+        assert(chatterAfterPost.author.includes('mock_user'), 'Confirmed post should show its actual Reddit author.');
       }
       if (label === 'WORLD') {
         await cdp.waitFor('document.querySelectorAll(".wm-city").length >= 2', 'multiple world cities render');
