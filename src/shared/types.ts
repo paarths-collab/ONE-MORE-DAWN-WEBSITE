@@ -7,6 +7,7 @@ import type {
   ShopItemId,
 } from './shop';
 import type { TreasuryState } from './treasury';
+import type { PuzzleLevel } from './puzzle';
 
 // ---------- Core enums ----------
 
@@ -593,4 +594,37 @@ export type LeaderboardResponse = {
   contributors: LeaderboardEntry[];
   scouts: LeaderboardEntry[];
   factions: Record<FactionId, { rep: number; standing: number }>;
+};
+
+// ---------- Reconnect the City (daily tile-rotation puzzle) ----------
+
+/** A player's best result on a puzzle level: stars, fewest moves, fastest time. */
+export type PuzzleScore = { stars: 0 | 1 | 2 | 3; moves: number; timeMs: number };
+
+/** GET /api/puzzle — today's daily puzzle plus the player's standing on it. */
+export type PuzzleDailyResponse = {
+  type: 'puzzle';
+  dailyId: string; // UTC date key, e.g. "2026-07-14"
+  levelId: number;
+  level: PuzzleLevel; // full level data; the client runs the shared engine on it
+  yourBest: PuzzleScore | null; // your best on today's level (this daily)
+  solvedCount: number; // citizens who solved today's puzzle
+  bestMoves: number | null; // fewest moves anyone used today
+  yourRank: number | null; // your rank on today's board (1 = fastest)
+  // Every shipped level + your best on each, for the level-select list.
+  levels: { id: number; name: string; chapter: number; best: PuzzleScore | null }[];
+};
+
+/** POST /api/puzzle/solve — submit a finished board for validation + scoring. */
+export type PuzzleSolveRequest = { levelId: number; rotations: number[]; moves: number; timeMs: number };
+export type PuzzleSolveResponse = {
+  type: 'puzzle_solve';
+  accepted: boolean; // server re-ran the engine and the board really is solved
+  stars: 0 | 1 | 2 | 3;
+  best: PuzzleScore | null; // your (possibly new) best on this level
+  improved: boolean; // this run beat your previous best
+  reward: string | null; // city contribution granted (once per daily), e.g. "+2 power restored"
+  solvedCount: number;
+  bestMoves: number | null;
+  yourRank: number | null;
 };

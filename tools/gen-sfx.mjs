@@ -100,15 +100,38 @@ const DOME = {
   },
 };
 
+// --- Reconnect-puzzle cues: ffmpeg-composed CC0 derivatives of the base cues ---
+// Same recipe style as the dome cues above (pitch / echo / trim). All outputs
+// are 16-bit mono WAV at 44.1 kHz.
+const PUZZLE = {
+  // very short, crisp mechanical tick/click when a tile is rotated (fires often)
+  puzzle_rotate: {
+    from: 'button_click',
+    filter: 'asetrate=44100*0.88,aresample=44100,highpass=f=180,atrim=0:0.06',
+  },
+  // bright rising blip when a building lights up / a link completes
+  puzzle_connect: {
+    from: 'vote_cast',
+    filter: 'asetrate=44100*1.30,aresample=44100,highpass=f=380,atrim=0:0.16,aecho=0.9:0.6:12:0.2',
+  },
+  // warm, triumphant short chime when a level is completed
+  puzzle_win: {
+    from: 'action_confirm',
+    filter: 'asetrate=44100*1.10,aresample=44100,aecho=0.85:0.8:40|75:0.5|0.3,atrim=0:0.5,bass=g=2',
+  },
+};
+
+const DERIVED = { ...DOME, ...PUZZLE };
 const hasFfmpeg = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
 if (!hasFfmpeg) {
   console.warn(
-    `ffmpeg not found on PATH — skipped ${Object.keys(DOME).length} dome cues. ` +
+    `ffmpeg not found on PATH — skipped ${Object.keys(DERIVED).length} derived cues ` +
+      `(${Object.keys(DOME).length} dome + ${Object.keys(PUZZLE).length} puzzle). ` +
       `Install ffmpeg and re-run \`node tools/gen-sfx.mjs\` to (re)generate them.`,
   );
 } else {
   let n = 0;
-  for (const [name, { from, filter }] of Object.entries(DOME)) {
+  for (const [name, { from, filter }] of Object.entries(DERIVED)) {
     const src = join(OUT, `${from}.wav`);
     const dst = join(OUT, `${name}.wav`);
     const r = spawnSync(
@@ -119,5 +142,7 @@ if (!hasFfmpeg) {
     if (r.status !== 0) throw new Error(`ffmpeg failed for ${name} (from ${from})`);
     n++;
   }
-  console.log(`wrote ${n} dome cues (ffmpeg derivatives) to ${OUT}`);
+  console.log(
+    `wrote ${n} derived cues (${Object.keys(DOME).length} dome + ${Object.keys(PUZZLE).length} puzzle ffmpeg derivatives) to ${OUT}`,
+  );
 }

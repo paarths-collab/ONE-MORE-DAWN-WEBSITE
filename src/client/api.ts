@@ -16,6 +16,9 @@ import type {
   PledgeKind,
   PledgeRequest,
   PledgeResponse,
+  PuzzleDailyResponse,
+  PuzzleSolveRequest,
+  PuzzleSolveResponse,
   RekindleResponse,
   Role,
   RoleRequest,
@@ -153,6 +156,12 @@ export const postAvatar = (avatar: AvatarConfig): Promise<AvatarResponse> => {
 };
 
 export const getWorld = (): Promise<WorldResponse> => request<WorldResponse>('/api/world');
+
+// Reconnect the City — the daily tile-rotation puzzle.
+export const getPuzzle = (): Promise<PuzzleDailyResponse> => request<PuzzleDailyResponse>('/api/puzzle');
+
+export const solvePuzzle = (body: PuzzleSolveRequest): Promise<PuzzleSolveResponse> =>
+  request<PuzzleSolveResponse>('/api/puzzle/solve', body);
 
 export const getLeaderboard = (): Promise<LeaderboardResponse> =>
   request<LeaderboardResponse>('/api/leaderboard');

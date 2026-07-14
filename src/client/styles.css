@@ -178,6 +178,24 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .dome-bar i { display: block; height: 100%; background: linear-gradient(90deg, #33c6e6, #7ff0ff); border-radius: 6px; transition: width 0.4s; }
 .dome-repair-meta { font-family: var(--mono); font-size: 8px; color: var(--mut); white-space: nowrap; }
 
+/* ---- Reconnect the City: CITY-tab entry card + fullscreen puzzle overlay ---- */
+.puzzle-card { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; cursor: pointer; margin-bottom: 12px; padding: 11px 12px; border: 1px solid #2f6f80; border-radius: 12px; background: linear-gradient(180deg, #05232b, transparent); color: inherit; }
+.puzzle-card:disabled { opacity: 0.6; cursor: default; }
+.pc-icon { font-size: 22px; }
+.pc-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.pc-badge { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; font-family: var(--pixel); font-size: 7px; letter-spacing: 0.6px; color: #ffd25b; background: rgba(255, 199, 64, 0.12); border: 1px solid rgba(255, 199, 64, 0.36); border-radius: 999px; padding: 2px 7px 1px; margin-bottom: 2px; }
+.pc-title { font-family: var(--pixel); font-size: 11px; letter-spacing: 0.5px; color: #7ff0ff; }
+.pc-sub { font-family: var(--mono); font-size: 8.5px; color: var(--mut); }
+.pc-cta { font-family: var(--pixel); font-size: 11px; color: #06222a; background: linear-gradient(180deg, #7ff0ff, #33c6e6); border-radius: 7px; padding: 6px 12px; white-space: nowrap; }
+.puzzle-overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(6, 10, 16, 0.86); backdrop-filter: blur(3px); padding: 10px; }
+.puzzle-shell { position: relative; width: min(96vw, 620px); max-height: 96vh; display: flex; flex-direction: column; }
+.puzzle-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.puzzle-daily { font-family: var(--mono); font-size: 9px; color: #7ff0ff; }
+.puzzle-x { font-family: var(--pixel); font-size: 13px; color: var(--mut); background: transparent; border: 1px solid var(--line); border-radius: 8px; width: 34px; height: 34px; cursor: pointer; }
+.puzzle-result { margin-top: 8px; text-align: center; }
+.pr-line { font-family: var(--pixel); font-size: 12px; color: var(--gold); }
+.pr-share { font-family: var(--mono); font-size: 9px; color: var(--mut); margin-top: 3px; }
+
 /* ---- dashboard tabs ---- */
 .dash-tabs { display: flex; width: 100%; gap: 0; margin-bottom: 12px; border: 1px solid #2f2828; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, 0.02); }
 .dash-tab { flex: 1; min-width: 0; font-family: var(--pixel); font-size: 7px; letter-spacing: 0.25px; color: var(--mut); background: none; border: none; padding: 9px 2px; cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s; }

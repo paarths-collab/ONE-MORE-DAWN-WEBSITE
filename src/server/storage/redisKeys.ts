@@ -55,6 +55,17 @@ export const KEYS = {
   // so a reset can never leak last cycle's claims into the new one.
   challengeDone: (cycle: number, day: number, userId: string) =>
     `challenge:${cycle}:${day}:${userId}`,
+
+  // "Reconnect the City" daily puzzle. `puzzleProgress` is a per-user hash
+  // (levelId -> JSON PuzzleScore) holding the LIFETIME best on each level — a
+  // personal record that, like the contribution leaderboard, survives Phoenix
+  // rebirth and clears only on a full mod reset. `puzzleDaily` is a date-keyed
+  // zset (member=userId, score=fewest moves) for today's shared board.
+  // `puzzleClaim` is the NX gate that grants the city reward at most once per
+  // player per daily.
+  puzzleProgress: (userId: string) => `puzzle:progress:${userId}`,
+  puzzleDaily: (dailyId: string) => `puzzle:daily:${dailyId}`,
+  puzzleClaim: (dailyId: string, userId: string) => `puzzle:claim:${dailyId}:${userId}`,
   chatterMeta: 'chatter:meta',
   chatterRoots: 'chatter:roots',
   chatterProvisionLock: (weekKey: string) => `chatter:provision:${weekKey}`,

@@ -131,6 +131,22 @@ menu.post('/reset', async (c) => {
       KEYS.dayChallenges(old?.cycle ?? cycle, d),
     );
   }
+
+  // "Reconnect the City": a full mod reset wipes puzzle progress too — it's a
+  // lifetime per-user record treated like the contribution leaderboard, which
+  // this reset also clears (Phoenix rebirth, by contrast, KEEPS it). Devvit
+  // redis can't enumerate per-user keys, so derive them from the known players
+  // (read before the players hash is deleted below); the date-keyed daily board
+  // + today's claims go too. Orphaned past-date boards are never re-read.
+  const puzzleToday = utcDateString(new Date());
+  keysToDelete.push(KEYS.puzzleDaily(puzzleToday));
+  for (const player of await store.getAllPlayers()) {
+    keysToDelete.push(
+      KEYS.puzzleProgress(player.userId),
+      KEYS.puzzleClaim(puzzleToday, player.userId),
+    );
+  }
+
   // Long cycles build a big key list — delete in bounded batches so a single
   // del never carries hundreds of keys.
   for (let i = 0; i < keysToDelete.length; i += 100) {

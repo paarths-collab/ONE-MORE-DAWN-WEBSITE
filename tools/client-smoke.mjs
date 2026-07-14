@@ -500,8 +500,13 @@ async function liveSmoke(url) {
           return true;
         })()`);
         await cdp.clickButton('POST TO REDDIT');
-        await cdp.waitFor(`(document.querySelector('.chatter-feed')?.textContent || '').includes('Protect the outer fields before dusk.')`, 'confirmed Reddit comment returns to the chatter feed');
+        // The attribution toast fires the instant the POST resolves and self-dismisses
+        // after 5s (pushNotif) — BEFORE refreshChatter repaints the feed. Assert it
+        // first, while it is fresh: on a slow CI runner the feed refresh can otherwise
+        // outlast the 5s toast window, so checking the persistent feed comment first
+        // would let the transient toast expire before we look for it (flaky timeout).
         await cdp.waitFor(`document.body.innerText.includes('Posted publicly to Reddit as u/mock_user')`, 'Reddit attribution confirmation');
+        await cdp.waitFor(`(document.querySelector('.chatter-feed')?.textContent || '').includes('Protect the outer fields before dusk.')`, 'confirmed Reddit comment returns to the chatter feed');
         const chatterAfterPost = await cdp.eval(`(() => ({
           draft: document.querySelector('.chatter-compose textarea')?.value || '',
           author: document.querySelector('.chatter-message .chatter-author')?.textContent || ''
@@ -809,6 +814,39 @@ async function reconstructionSmoke(url) {
   }
 }
 
+// Reconnect the City: open the daily puzzle from the CITY tab, solve it with the
+// Hint button, and confirm the "district connected" payoff + server score/reward.
+async function puzzleSmoke(url) {
+  const { cdp, close } = await openPage(url);
+  try {
+    await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("VAELMAR")', 'puzzle city boot');
+    await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'puzzle loader exit');
+    let g = 0;
+    while (g++ < 12 && (await cdp.eval(`!!document.querySelector('.coach')`))) {
+      await cdp.eval(`document.querySelector('.coach .co-next')?.click()`);
+      await sleep(100);
+    }
+    await cdp.clickButton('CITY');
+    await completeContextLesson(cdp, 'WE BUILD TOGETHER');
+    // The daily-puzzle entry card, then open the board.
+    await cdp.waitFor(`!!document.querySelector('.puzzle-card')`, 'the RECONNECT THE CITY entry shows on the CITY tab');
+    await cdp.eval(`document.querySelector('.puzzle-card')?.click()`);
+    await cdp.waitFor(`!!document.querySelector('.pz-root')`, 'the puzzle board opens');
+    assert(await cdp.eval(`document.body.innerText.toLowerCase().includes('dark district')`), "the board names today's level.");
+    // Solve it with the Hint button (each hint nudges a tile toward its solution).
+    for (let i = 0; i < 30; i++) {
+      if (await cdp.eval(`!!document.querySelector('.pz-banner')`)) break;
+      await cdp.eval(`[...document.querySelectorAll('.pz-btn.hint')].find((b) => !b.disabled)?.click()`);
+      await sleep(110);
+    }
+    await cdp.waitFor(`!!document.querySelector('.pz-banner') && document.body.innerText.includes('THE DISTRICT')`, 'the district lights up once every required building is reconnected');
+    // The solve posts to the server; the reward / share line surfaces.
+    await cdp.waitFor(`document.body.innerText.includes('reconnected in') || document.body.innerText.includes('district is back online')`, 'the solve is scored and the city reward lands');
+  } finally {
+    await close();
+  }
+}
+
 async function campSmoke(url) {
   const { cdp, close } = await openPage(url);
   try {
@@ -1000,5 +1038,6 @@ await withServer('mock-live refresh failure', 4648, { MOCK_INIT_FAIL_AFTER_MUTAT
 await withServer('mock-live leaderboard failure', 4649, { MOCK_LEADERBOARD_FAIL: '1' }, leaderboardFailureSmoke);
 await withServer('mock-live optional name failure', 4650, { MOCK_ROLE_NULL: '1', MOCK_AVATAR_FAIL: '1' }, optionalNameFailureSmoke);
 await withServer('mock-live raid reconstruction', 4651, { MOCK_RAID_AFTERMATH: '1' }, reconstructionSmoke);
+await withServer('mock-live daily puzzle', 4652, {}, puzzleSmoke);
 
 console.log('client smoke passed');

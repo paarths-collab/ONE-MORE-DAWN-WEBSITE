@@ -9,7 +9,9 @@ no attribution required, credited as a courtesy). The three "big moment" cues
 (pitch shifts + echo), which remain CC0. The six raid-siege and reconstruction
 cues (`siege_bell`, `fireball`, `impact_hit`, `wall_crack`, `house_collapse`,
 `rebuild_done`) are likewise ffmpeg-composed derivatives of the shipped CC0
-cues, and also remain CC0.
+cues, and also remain CC0. The three reconnect-puzzle cues (`puzzle_rotate`,
+`puzzle_connect`, `puzzle_win`) are likewise ffmpeg-composed derivatives of the
+shipped CC0 base cues (pitch / echo / trim), and also remain CC0.
 
 | File | Event | Built from | Pack | License |
 |---|---|---|---|---|
@@ -31,6 +33,9 @@ cues, and also remain CC0.
 | `dome_pierce.wav` | fireball pierces the dome | ffmpeg derivative of `raid_warning.wav` (reversed, pitch up, airy tearing echo) | Interface Sounds | CC0 |
 | `dome_shatter.wav` | dome overwhelmed / city falls | ffmpeg derivative of `pledge.wav` (pitch up, highpass, multi-tap glassy shatter) | Interface Sounds | CC0 |
 | `dome_repair.wav` | dome panel mended | ffmpeg derivative of `dawn_report.wav` (pitch up, trimmed, tremolo rising restore chime) | Music Jingles | CC0 |
+| `puzzle_rotate.wav` | tile rotated (reconnect puzzle) | ffmpeg derivative of `button_click.wav` (`asetrate=44100*0.88`, highpass 180 Hz, trimmed to a short mechanical tick) | Interface Sounds | CC0 |
+| `puzzle_connect.wav` | building lights / link completes | ffmpeg derivative of `vote_cast.wav` (`asetrate=44100*1.30` rising blip, highpass 380 Hz, light echo) | Interface Sounds | CC0 |
+| `puzzle_win.wav` | reconnect level completed | ffmpeg derivative of `action_confirm.wav` (`asetrate=44100*1.10`, warm doubled-chime echo, `bass=g=2` lift) | Interface Sounds | CC0 |
 
 The earlier procedural placeholders can still be regenerated with
 `node tools/gen-sfx.mjs` if these files are ever removed.
@@ -59,7 +64,7 @@ different extension (e.g. `.ogg`), change the single `EXT` constant in
 only** (avoid CC-BY-NC / Sampling+ / unclear); [OpenGameArt](https://opengameart.org)
 — check every file's license individually.
 
-_Last updated: 2026-07-14 · current sfx = Kenney CC0 (Interface Sounds + Music Jingles), plus ten ffmpeg-composed raid-siege / reconstruction / energy-dome derivatives (still CC0)._
+_Last updated: 2026-07-14 · current sfx = Kenney CC0 (Interface Sounds + Music Jingles), plus thirteen ffmpeg-composed raid-siege / reconstruction / energy-dome / reconnect-puzzle derivatives (still CC0)._
 
 ## Background music (V1)
 

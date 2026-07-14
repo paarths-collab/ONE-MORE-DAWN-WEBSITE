@@ -349,6 +349,22 @@ const mockApi = () => ({
   name: 'mock-devvit-api',
   configureServer(server) {
     const send = (res, obj, status = 200) => { res.statusCode = status; res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(obj)); };
+    // Reconnect the City daily puzzle mock: a tiny valid, solvable board (4 tiles,
+    // each one tap from its solution) so the smoke's Hint-to-solve walk works.
+    const MOCK_PUZZLE_LEVEL = {
+      id: 1, name: 'The Dark District', chapter: 1, width: 3, height: 3, moveTarget: 6,
+      cells: [
+        { t: 'source', x: 0, y: 2, capacity: -1 },
+        { t: 'tile', x: 0, y: 1, kind: 'straight', rot: 1, sol: 0 }, // up col 0 (scrambled)
+        { t: 'tile', x: 0, y: 0, kind: 'corner', rot: 0, sol: 1 }, // turn east
+        { t: 'tile', x: 1, y: 0, kind: 'straight', rot: 0, sol: 1 }, // -> clinic
+        { t: 'building', x: 2, y: 0, kind: 'clinic', required: true },
+        { t: 'tile', x: 1, y: 2, kind: 'straight', rot: 0, sol: 1 }, // -> optional house
+        { t: 'building', x: 2, y: 2, kind: 'house', required: false },
+      ],
+    };
+    let mockPuzzleBest = null;
+    let mockPuzzleSolvedCount = 41;
     // Root middleware matching only exact /api/<name> paths (a `.use('/api')`
     // mount would also swallow the client's own /api.ts module → app never loads).
     server.middlewares.use(async (req, res, next) => {
@@ -358,6 +374,28 @@ const mockApi = () => ({
       if (path === '/api/world') return send(res, WORLD);
       if (path === '/api/leaderboard' && process.env.MOCK_LEADERBOARD_FAIL) return send(res, { status: 'error', message: 'mock leaderboard failure' }, 503);
       if (path === '/api/leaderboard') return send(res, LEADERBOARD);
+      if (path === '/api/puzzle') {
+        return send(res, {
+          type: 'puzzle', dailyId: '2026-07-14', levelId: MOCK_PUZZLE_LEVEL.id, level: MOCK_PUZZLE_LEVEL,
+          yourBest: mockPuzzleBest, solvedCount: mockPuzzleSolvedCount, bestMoves: 4,
+          yourRank: mockPuzzleBest ? 12 : null,
+          levels: [{ id: 1, name: MOCK_PUZZLE_LEVEL.name, chapter: 1, best: mockPuzzleBest }],
+        });
+      }
+      if (path === '/api/puzzle/solve') {
+        const b = await readBody(req);
+        const moves = Number(b.moves) || 0;
+        const stars = moves <= MOCK_PUZZLE_LEVEL.moveTarget ? 3 : 1;
+        const first = !mockPuzzleBest;
+        const score = { stars, moves, timeMs: Number(b.timeMs) || 0 };
+        if (first || stars > mockPuzzleBest.stars || (stars === mockPuzzleBest.stars && moves < mockPuzzleBest.moves)) mockPuzzleBest = score;
+        if (first) mockPuzzleSolvedCount += 1;
+        return send(res, {
+          type: 'puzzle_solve', accepted: true, stars, best: mockPuzzleBest, improved: first,
+          reward: first ? '+3 standing · the district is back online' : null,
+          solvedCount: mockPuzzleSolvedCount, bestMoves: 4, yourRank: 12,
+        });
+      }
       if (path === '/api/chatter' && req.method === 'GET') {
         const category = new URL(req.url ?? '', 'http://mock.local').searchParams.get('category') ?? 'strategy';
         return send(res, chatterState(category));

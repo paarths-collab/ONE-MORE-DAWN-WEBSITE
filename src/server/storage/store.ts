@@ -1,5 +1,5 @@
 import type {
-  ActionType, CityState, FactionId, PledgeKind, PlayerProfile, TimelineEntry, VoteTally,
+  ActionType, CityState, FactionId, PledgeKind, PlayerProfile, PuzzleScore, TimelineEntry, VoteTally,
 } from '../../shared/types';
 import { isPledgeKind, type PledgerEntry } from '../game/pledges';
 import { freshSegments, normalizeSegments } from '../game/dome';
@@ -92,6 +92,19 @@ const isTimelineShape = (v: unknown): v is TimelineEntry =>
   typeof v.headline === 'string' &&
   Array.isArray(v.events) &&
   isRecord(v.deltas);
+
+const isPuzzleScoreShape = (v: unknown): v is PuzzleScore =>
+  isRecord(v) &&
+  (v.stars === 0 || v.stars === 1 || v.stars === 2 || v.stars === 3) &&
+  typeof v.moves === 'number' &&
+  typeof v.timeMs === 'number';
+
+/** Strictly better: more stars, then (tie) fewer moves, then (tie) faster time. */
+const isBetterPuzzleScore = (next: PuzzleScore, prev: PuzzleScore): boolean => {
+  if (next.stars !== prev.stars) return next.stars > prev.stars;
+  if (next.moves !== prev.moves) return next.moves < prev.moves;
+  return next.timeMs < prev.timeMs;
+};
 
 export class Store {
   constructor(private readonly redis: RedisLike) {}
@@ -585,5 +598,66 @@ export class Store {
 
   async snapshotCity(city: CityState): Promise<void> {
     await this.redis.hSet(KEYS.cityHistory, { [String(city.day)]: JSON.stringify(city) });
+  }
+
+  // ----- Reconnect the City (daily tile-rotation puzzle) -----
+  /** Every level's personal best for this user (levelId -> PuzzleScore). Corrupt
+   *  or wrong-shape entries are silently skipped, like every other read path. */
+  async getPuzzleProgress(userId: string): Promise<Record<number, PuzzleScore>> {
+    const raw = await this.redis.hGetAll(KEYS.puzzleProgress(userId));
+    const out: Record<number, PuzzleScore> = {};
+    for (const [levelId, json] of Object.entries(raw)) {
+      const parsed = safeParse<unknown>(json, null);
+      if (isPuzzleScoreShape(parsed)) out[Number(levelId)] = parsed;
+    }
+    return out;
+  }
+
+  /**
+   * Overwrite the user's best on a level ONLY when strictly better (more stars,
+   * then fewer moves, then faster time). A record can never regress. Returns the
+   * resulting best and whether this run improved it.
+   */
+  async setPuzzleScore(
+    userId: string,
+    levelId: number,
+    score: PuzzleScore,
+  ): Promise<{ best: PuzzleScore; improved: boolean }> {
+    const raw = await this.redis.hGet(KEYS.puzzleProgress(userId), String(levelId));
+    const parsed = safeParse<unknown>(raw, null);
+    const previous = isPuzzleScoreShape(parsed) ? parsed : null;
+    if (previous && !isBetterPuzzleScore(score, previous)) {
+      return { best: previous, improved: false };
+    }
+    await this.redis.hSet(KEYS.puzzleProgress(userId), { [String(levelId)]: JSON.stringify(score) });
+    return { best: score, improved: true };
+  }
+
+  /** Record today's daily result (zset member=userId, score=moves). Keeps the
+   *  player's FEWEST moves — a slower repeat never worsens their standing. */
+  async recordPuzzleDaily(dailyId: string, userId: string, moves: number): Promise<void> {
+    const current = await this.redis.zScore(KEYS.puzzleDaily(dailyId), userId);
+    if (current === undefined || moves < current) {
+      await this.redis.zAdd(KEYS.puzzleDaily(dailyId), { member: userId, score: moves });
+    }
+  }
+
+  /**
+   * The player's standing on today's board: 1-based rank (fewest moves first),
+   * how many citizens solved it, and the fewest moves anyone posted. Computed
+   * from one ascending zRange (RedisLike exposes no rank/card op), mirroring
+   * getContributionRank.
+   */
+  async puzzleDailyStanding(
+    dailyId: string,
+    userId: string,
+  ): Promise<{ rank: number | null; solvedCount: number; bestMoves: number | null }> {
+    const rows = await this.redis.zRange(KEYS.puzzleDaily(dailyId), 0, -1, { by: 'rank' });
+    const idx = rows.findIndex((r) => r.member === userId);
+    return {
+      rank: idx === -1 ? null : idx + 1,
+      solvedCount: rows.length,
+      bestMoves: rows.length > 0 ? rows[0]!.score : null,
+    };
   }
 }
