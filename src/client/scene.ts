@@ -95,14 +95,32 @@ export type VillageHandle = {
    */
   setHouseCosmetics: (equipped: HouseCosmetics | null) => void;
   /**
-   * Play the stylized siege-at-dawn raid cinematic (6-12s, pooled + self-
-   * terminating). Shifts the sky red-orange, then arcs `fireballs` glowing
-   * projectiles from beyond the wall onto the wall, gate, watchtower, the houses
-   * in hitHouseIndices and a street tile, each landing with a flash, ember burst,
-   * dust ring and a brief scene shake. 'breach'/'fallen' break a wall segment and
-   * leave lingering smoke; 'fallen' hazes the whole town. Never throws.
+   * Update the protective energy dome: a translucent hemisphere over the whole
+   * city, split into 6 arc panels. `segments` are the 6 panel shields (0..100):
+   * ~100 = a bright, near-clear shimmer; mid = dimmer; low = hairline cracks;
+   * 0 = a dark shattered gap. Panels ease smoothly toward the new values. Builds
+   * the dome lazily, so it is safe to call before the scene finishes; idempotent
+   * and never throws. Extra entries beyond 6 are ignored.
    */
-  playRaidCinematic: (opts: { outcome: 'held' | 'breach' | 'fallen'; fireballs: number; hitHouseIndices: number[] }) => void;
+  setDome: (segments: number[]) => void;
+  /**
+   * Play the stylized dome raid cinematic (6-14s, pooled + self-terminating).
+   * Shifts the sky red-orange, then drops each fireball straight down from high
+   * above onto its target dome `segment`, staggered. A `blocked` fireball strikes
+   * the panel with an energy ripple + spark and stops (the panel flares, then
+   * dims); an unblocked one pierces the panel (a white flash + momentary gap) and
+   * continues down to a house from `hitHouseIndices` (round-robin), landing with
+   * the existing flash, ember burst, dust ring, lingering plume and scene shake.
+   * 'breach'/'fallen' break a wall segment and leave lingering smoke; 'fallen'
+   * hazes the whole town. Never throws.
+   */
+  playRaidCinematic: (opts: { outcome: 'held' | 'breach' | 'fallen'; fireballs: { power: number; segment: number; blocked: boolean }[]; hitHouseIndices: number[] }) => void;
+  /**
+   * Heal one dome panel back to full over ~1s with a rising shimmer that clears
+   * its cracks. Self-terminating from the tick. Out-of-range segments are
+   * ignored. Never throws.
+   */
+  repairDomeSegment: (segment: number) => void;
   /**
    * Render raid aftermath on specific houses: 'damaged' = scorch + darkened roof
    * + a smoke wisp; 'destroyed' = burnt broken foundation + rubble + lingering
@@ -2678,7 +2696,11 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     from: THREE.Vector3; to: THREE.Vector3; peak: number;
     startAt: number; dur: number; t: number;
     state: 0 | 1 | 2; // 0 idle, 1 pending (waiting for startAt), 2 flying
-    houseIndex: number; // >=0 when this arc strikes a specific house
+    houseIndex: number; // >=0 when this fireball ultimately strikes a specific house
+    segment: number;    // dome panel this fireball falls onto (0..DOME_SEG-1)
+    blocked: boolean;   // true = stops on the shield; false = pierces through to a house
+    pierced: boolean;   // (non-blocked) the dome-pierce event has already fired
+    houseHit: THREE.Vector3; // second-leg target once it punches through the panel
   };
   type Impact = {
     flash: THREE.Mesh; flashMat: THREE.MeshBasicMaterial;
@@ -2710,6 +2732,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
   const _dir = new THREE.Vector3();
   const _dir2 = new THREE.Vector3();
   const _up = new THREE.Vector3(0, 1, 0);
+  const _fwd = new THREE.Vector3(0, 0, 1); // ring default normal (orients dome ripples)
   const _q = new THREE.Quaternion();
 
   function ensureSiege() {
@@ -2729,7 +2752,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       trail.renderOrder = 2;
       core.visible = trail.visible = puff.visible = false;
       scene.add(core, trail, puff);
-      fireballs.push({ core, trail, puff, from: new THREE.Vector3(), to: new THREE.Vector3(), peak: 6, startAt: 0, dur: 1.2, t: 0, state: 0, houseIndex: -1 });
+      fireballs.push({ core, trail, puff, from: new THREE.Vector3(), to: new THREE.Vector3(), peak: 6, startAt: 0, dur: 1.2, t: 0, state: 0, houseIndex: -1, segment: 0, blocked: false, pierced: false, houseHit: new THREE.Vector3() });
     }
     // impact kit: flash (additive), ground dust ring, ember burst (8 points)
     const flashGeo = new THREE.SphereGeometry(1, 12, 10);
@@ -2794,6 +2817,321 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     siegeBeaconMesh.visible = false;
     scene.add(siegeBeaconMesh);
     siegeReady = true;
+  }
+
+  // ---------- protective energy dome (setDome / repairDomeSegment) ----------
+  // A translucent hemisphere arching over the whole plateau, split into DOME_SEG
+  // azimuthal arc panels. Each panel's look is driven by a 0..100 shield: full = a
+  // bright near-clear shimmer; mid = dimmer; low = hairline cracks; 0 = a dark
+  // shattered gap. Built once (lazily) and pooled — the tick eases each panel's
+  // opacity/colour toward its shield and decays the transient block/pierce flares,
+  // so there are no per-frame allocations and no extra lights (additive meshes
+  // only). Falling fireballs (below) strike or pierce these panels. Radius arches
+  // clear of the palisade (plateauR ~45..71) and above every roof.
+  const DOME_SEG = 6;
+  const DOME_R = 74;
+  const DOME_CY = 0.5;              // equator sits just above the ground plane
+  const DOME_STRIKE_THETA = 0.86;  // polar angle (from the top) of a panel's hit point
+  const domeCenter = new THREE.Vector3(0, DOME_CY, 0);
+  const DOME_HI = new THREE.Color(0x8fd8ff);   // full-charge shield tint (icy energy)
+  const DOME_LO = new THREE.Color(0x33100c);   // drained tint (dark ember -> additive gap)
+  const DOME_WHITE = new THREE.Color(0xffffff);
+  type DomePanel = {
+    mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial;
+    cracks: THREE.LineSegments; crackMat: THREE.LineBasicMaterial;
+    hue: THREE.Color; // scratch colour reused each frame (no per-frame alloc)
+  };
+  type DomeFx = {
+    flash: THREE.Mesh; flashMat: THREE.MeshBasicMaterial;
+    ring: THREE.Mesh; ringMat: THREE.MeshBasicMaterial;
+    sparks: THREE.Points; sparkMat: THREE.PointsMaterial;
+    sparkPos: Float32Array; sparkVel: Float32Array; sparkAttr: THREE.BufferAttribute;
+    t: number; dur: number; active: boolean;
+  };
+  const MAX_DOMEFX = 4;
+  const domePanels: DomePanel[] = [];
+  const domeFx: DomeFx[] = [];
+  const domeShield = new Float32Array(DOME_SEG); // target shield 0..100 per panel
+  const domeDisp = new Float32Array(DOME_SEG);   // eased displayed shield (smooth setDome/repair)
+  const domeFlare = new Float32Array(DOME_SEG);  // transient bright flash 0..1 (tick decays)
+  const domeGap = new Float32Array(DOME_SEG);    // transient pierce gap 0..1 (tick decays)
+  const domeRepairT = new Float32Array(DOME_SEG); // repair shimmer clock (>=0 active), -1 idle
+  domeShield.fill(100); // intact until the first setDome
+  domeDisp.fill(100);
+  domeRepairT.fill(-1);
+  let domeReady = false;
+
+  // world-space point on the dome surface at the centre of a panel (segment)
+  function domeHitPoint(segment: number, out: THREE.Vector3) {
+    const az = (segment + 0.5) * ((Math.PI * 2) / DOME_SEG);
+    const st = Math.sin(DOME_STRIKE_THETA);
+    out.set(
+      domeCenter.x + DOME_R * st * Math.cos(az),
+      domeCenter.y + DOME_R * Math.cos(DOME_STRIKE_THETA),
+      domeCenter.z + DOME_R * st * Math.sin(az),
+    );
+    return out;
+  }
+
+  function ensureDome() {
+    if (domeReady) return;
+    const step = (Math.PI * 2) / DOME_SEG;
+    const seam = 0.03; // small phi gap so the 6 panels read as separate panels
+    const pv = new THREE.Vector3();
+    for (let i = 0; i < DOME_SEG; i++) {
+      const phiStart = i * step + seam * 0.5;
+      const phiLen = step - seam;
+      const geo = new THREE.SphereGeometry(DOME_R, 8, 14, phiStart, phiLen, 0, Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({
+        color: DOME_HI.clone(), transparent: true, opacity: 0.16,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide, fog: false,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(domeCenter);
+      mesh.renderOrder = 1;
+      scene.add(mesh);
+      // deterministic hairline cracks across the panel (seeded off the panel index)
+      const crackRng = makeRng(90210 + i * 613);
+      const cracksN = 3;
+      const hops = 4; // segments per crack
+      const cpos = new Float32Array(cracksN * hops * 2 * 3);
+      let w = 0;
+      const onSphere = (az: number, th: number, v: THREE.Vector3) => {
+        const s2 = Math.sin(th);
+        v.set(
+          domeCenter.x + (DOME_R + 0.15) * s2 * Math.cos(az),
+          domeCenter.y + (DOME_R + 0.15) * Math.cos(th),
+          domeCenter.z + (DOME_R + 0.15) * s2 * Math.sin(az),
+        );
+      };
+      for (let c = 0; c < cracksN; c++) {
+        let a = phiStart + phiLen * (0.2 + crackRng() * 0.6);
+        let th = 0.28 + crackRng() * 0.9;
+        onSphere(a, th, pv);
+        let px = pv.x, py = pv.y, pz = pv.z;
+        for (let h = 0; h < hops; h++) {
+          a += (crackRng() - 0.5) * phiLen * 0.5;
+          th = Math.max(0.08, Math.min(Math.PI / 2 - 0.04, th + (crackRng() - 0.5) * 0.5));
+          onSphere(a, th, pv);
+          cpos[w++] = px; cpos[w++] = py; cpos[w++] = pz;
+          cpos[w++] = pv.x; cpos[w++] = pv.y; cpos[w++] = pv.z;
+          px = pv.x; py = pv.y; pz = pv.z;
+        }
+      }
+      const cgeo = new THREE.BufferGeometry();
+      cgeo.setAttribute('position', new THREE.BufferAttribute(cpos, 3));
+      const crackMat = new THREE.LineBasicMaterial({
+        color: 0xaad8ff, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+      });
+      const cracks = new THREE.LineSegments(cgeo, crackMat);
+      cracks.renderOrder = 2;
+      cracks.visible = false;
+      scene.add(cracks);
+      domePanels.push({ mesh, mat, cracks, crackMat, hue: new THREE.Color() });
+    }
+    // faint structural ribs along the 6 panel seams + the base ring (constant glow)
+    const ribPts: number[] = [];
+    for (let i = 0; i < DOME_SEG; i++) {
+      const az = i * step;
+      let px = 0, py = 0, pz = 0, has = false;
+      const N = 10;
+      for (let k = 0; k <= N; k++) {
+        const th = (k / N) * (Math.PI / 2);
+        const s2 = Math.sin(th);
+        pv.set(domeCenter.x + DOME_R * s2 * Math.cos(az), domeCenter.y + DOME_R * Math.cos(th), domeCenter.z + DOME_R * s2 * Math.sin(az));
+        if (has) ribPts.push(px, py, pz, pv.x, pv.y, pv.z);
+        px = pv.x; py = pv.y; pz = pv.z; has = true;
+      }
+    }
+    {
+      const N = 60;
+      let px = 0, py = 0, pz = 0, has = false;
+      for (let k = 0; k <= N; k++) {
+        const az = (k / N) * Math.PI * 2;
+        pv.set(domeCenter.x + DOME_R * Math.cos(az), domeCenter.y + 0.2, domeCenter.z + DOME_R * Math.sin(az));
+        if (has) ribPts.push(px, py, pz, pv.x, pv.y, pv.z);
+        px = pv.x; py = pv.y; pz = pv.z; has = true;
+      }
+    }
+    const rgeo = new THREE.BufferGeometry();
+    rgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ribPts), 3));
+    const ribMat = new THREE.LineBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    const ribs = new THREE.LineSegments(rgeo, ribMat);
+    ribs.renderOrder = 1;
+    scene.add(ribs);
+    // shared hit / ripple / spark pool for blocks + pierces (mesh-based, no lights)
+    const fxFlashGeo = new THREE.SphereGeometry(1, 10, 8);
+    const fxRingGeo = new THREE.RingGeometry(0.4, 0.85, 20);
+    for (let i = 0; i < MAX_DOMEFX; i++) {
+      const flashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+      const flash = new THREE.Mesh(fxFlashGeo, flashMat);
+      flash.renderOrder = 5; flash.visible = false;
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+      const ring = new THREE.Mesh(fxRingGeo, ringMat);
+      ring.renderOrder = 5; ring.visible = false;
+      const sn = 8;
+      const sparkPos = new Float32Array(sn * 3);
+      const sparkVel = new Float32Array(sn * 3);
+      const sgeo = new THREE.BufferGeometry();
+      const sparkAttr = new THREE.BufferAttribute(sparkPos, 3);
+      sgeo.setAttribute('position', sparkAttr);
+      const sparkMat = new THREE.PointsMaterial({ color: 0xcfeeff, size: 0.5, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+      const sparks = new THREE.Points(sgeo, sparkMat);
+      sparks.visible = false;
+      scene.add(flash, ring, sparks);
+      domeFx.push({ flash, flashMat, ring, ringMat, sparks, sparkMat, sparkPos, sparkVel, sparkAttr, t: 0, dur: 0.55, active: false });
+    }
+    domeReady = true;
+  }
+
+  // ripple + spark burst on the shield at a strike point (normal points outward)
+  function triggerDomeFx(px: number, py: number, pz: number, nx: number, ny: number, nz: number, flashHex: number, ringHex: number, sparkHex: number) {
+    let fx = domeFx.find((f) => !f.active);
+    if (!fx) fx = domeFx[0]!;
+    fx.active = true;
+    fx.t = 0;
+    fx.dur = 0.55;
+    fx.flashMat.color.setHex(flashHex);
+    fx.flash.position.set(px, py, pz);
+    fx.flash.scale.setScalar(0.6);
+    fx.flash.visible = true;
+    fx.flashMat.opacity = 1;
+    fx.ringMat.color.setHex(ringHex);
+    _dir.set(nx, ny, nz).normalize();
+    _q.setFromUnitVectors(_fwd, _dir);
+    fx.ring.position.set(px, py, pz);
+    fx.ring.quaternion.copy(_q);
+    fx.ring.scale.setScalar(1);
+    fx.ring.visible = true;
+    fx.ringMat.opacity = 0.9;
+    // two tangents to the normal, so sparks spray across the panel surface
+    _dir2.set(0, 1, 0);
+    if (Math.abs(_dir.y) > 0.9) _dir2.set(1, 0, 0);
+    _sv1.crossVectors(_dir, _dir2).normalize();
+    _dir2.crossVectors(_dir, _sv1).normalize();
+    fx.sparkMat.color.setHex(sparkHex);
+    const sn = fx.sparkPos.length / 3;
+    for (let k = 0; k < sn; k++) {
+      fx.sparkPos[k * 3] = px;
+      fx.sparkPos[k * 3 + 1] = py;
+      fx.sparkPos[k * 3 + 2] = pz;
+      const ang = (k / sn) * Math.PI * 2; // deterministic fan (no Math.random)
+      const rad = 2 + (k % 3);
+      const outw = 1.5 + (k % 2);
+      fx.sparkVel[k * 3] = (_sv1.x * Math.cos(ang) + _dir2.x * Math.sin(ang)) * rad + _dir.x * outw;
+      fx.sparkVel[k * 3 + 1] = (_sv1.y * Math.cos(ang) + _dir2.y * Math.sin(ang)) * rad + _dir.y * outw + 1.2;
+      fx.sparkVel[k * 3 + 2] = (_sv1.z * Math.cos(ang) + _dir2.z * Math.sin(ang)) * rad + _dir.z * outw;
+    }
+    fx.sparks.visible = true;
+    fx.sparkMat.opacity = 1;
+    fx.sparkAttr.needsUpdate = true;
+  }
+
+  // a fireball hits the shield: flare the panel + ripple; pierce also flashes white
+  // and opens a momentary gap (the tick eases it shut again)
+  function triggerDomeStrike(segment: number, point: THREE.Vector3, pierce: boolean) {
+    const seg = ((segment % DOME_SEG) + DOME_SEG) % DOME_SEG;
+    domeFlare[seg] = 1;
+    const nx = point.x - domeCenter.x;
+    const ny = point.y - domeCenter.y;
+    const nz = point.z - domeCenter.z;
+    if (pierce) {
+      domeGap[seg] = 1;
+      triggerDomeFx(point.x, point.y, point.z, nx, ny, nz, 0xffffff, 0xffffff, 0xffffff);
+    } else {
+      triggerDomeFx(point.x, point.y, point.z, nx, ny, nz, 0xbfe6ff, 0x9fd0ff, 0xcfeeff);
+    }
+  }
+
+  function setDome(segments: number[]) {
+    try {
+      ensureDome();
+      if (!Array.isArray(segments)) return;
+      for (let i = 0; i < DOME_SEG; i++) {
+        const raw = segments[i];
+        if (raw == null || !Number.isFinite(raw)) continue;
+        domeShield[i] = Math.max(0, Math.min(100, raw));
+      }
+    } catch {
+      /* dome overlay, never throw into the caller */
+    }
+  }
+
+  function repairDomeSegment(segment: number) {
+    try {
+      ensureDome();
+      const seg = Math.round(segment);
+      if (!Number.isFinite(seg) || seg < 0 || seg >= DOME_SEG) return;
+      domeShield[seg] = 100;      // eased up by the tick over ~1s
+      domeRepairT[seg] = 0;       // rising-shimmer envelope (self-terminates in advanceDome)
+    } catch {
+      /* never throw into the caller */
+    }
+  }
+
+  function advanceDome(dt: number, t: number) {
+    if (!domeReady) return;
+    const ek = 1 - Math.exp(-dt * 3.2);
+    for (let i = 0; i < DOME_SEG; i++) {
+      const panel = domePanels[i]!;
+      const disp = domeDisp[i]! + (domeShield[i]! - domeDisp[i]!) * ek; // ease toward setDome / repair
+      domeDisp[i] = disp;
+      let flare = domeFlare[i]!;
+      flare = flare > 0.001 ? flare * Math.exp(-dt * 3.4) : 0;
+      domeFlare[i] = flare;
+      let gap = domeGap[i]!;
+      gap = gap > 0.001 ? gap * Math.exp(-dt * 5.0) : 0;
+      domeGap[i] = gap;
+      let shimmer = 0; // rising repair shimmer, ~1s, self-terminating
+      const rt = domeRepairT[i]!;
+      if (rt >= 0) {
+        const rp = rt + dt;
+        if (rp >= 1) domeRepairT[i] = -1;
+        else { domeRepairT[i] = rp; shimmer = Math.sin(rp * Math.PI); }
+      }
+      const q = Math.max(0, Math.min(1, disp / 100));
+      // colour: drained -> dark ember, full -> icy energy; flares/repair push white
+      panel.hue.copy(DOME_LO).lerp(DOME_HI, q);
+      const white = Math.min(1, flare + shimmer * 0.7);
+      panel.hue.lerp(DOME_WHITE, white);
+      panel.mat.color.copy(panel.hue);
+      // opacity: subtle base that breathes, brighter with charge, dips during a gap
+      const breathe = 0.85 + 0.15 * Math.sin(t * 1.4 + i * 1.7);
+      let op = (0.05 + 0.13 * q) * breathe + flare * 0.5 + shimmer * 0.35;
+      op *= 1 - gap * 0.92; // a pierced panel briefly opens then re-forms
+      panel.mat.opacity = Math.max(0, Math.min(0.85, op));
+      // cracks: hairlines appear below ~50% shield, fade out under a repair shimmer
+      const crackA = Math.max(0, Math.min(1, (0.5 - q) / 0.5)) * (1 - shimmer);
+      panel.crackMat.opacity = crackA * 0.85;
+      panel.cracks.visible = crackA > 0.02;
+    }
+    // dome hit / ripple / spark bursts: flash grows + fades, ring expands, sparks arc
+    for (const fx of domeFx) {
+      if (!fx.active) continue;
+      fx.t += dt;
+      const p = Math.min(1, fx.t / fx.dur);
+      fx.flash.scale.setScalar(0.6 + p * 2.2);
+      fx.flashMat.opacity = Math.max(0, 1 - p);
+      fx.ring.scale.setScalar(1 + p * 3.2);
+      fx.ringMat.opacity = 0.9 * (1 - p);
+      const sn = fx.sparkPos.length / 3;
+      for (let k = 0; k < sn; k++) {
+        const vy = fx.sparkVel[k * 3 + 1]!;
+        fx.sparkPos[k * 3] = fx.sparkPos[k * 3]! + fx.sparkVel[k * 3]! * dt;
+        fx.sparkPos[k * 3 + 1] = fx.sparkPos[k * 3 + 1]! + vy * dt;
+        fx.sparkPos[k * 3 + 2] = fx.sparkPos[k * 3 + 2]! + fx.sparkVel[k * 3 + 2]! * dt;
+        fx.sparkVel[k * 3 + 1] = vy - 7 * dt;
+      }
+      fx.sparkAttr.needsUpdate = true;
+      fx.sparkMat.opacity = Math.max(0, 1 - p);
+      if (p >= 1) {
+        fx.active = false;
+        fx.flash.visible = false;
+        fx.ring.visible = false;
+        fx.sparks.visible = false;
+      }
+    }
   }
 
   // ---------- wall breach (revealed on breach/fallen, hidden on held) ----------
@@ -3087,13 +3425,13 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     if (fb.houseIndex >= 0) triggerPlume(fb.to.x, fb.to.y + 1.4, fb.to.z); // struck house catches fire
     shakeMag = Math.max(shakeMag, siegeHeavy ? 0.5 : 0.22);
   }
-  function playRaidCinematic(opts: { outcome: 'held' | 'breach' | 'fallen'; fireballs: number; hitHouseIndices: number[] }) {
+  function playRaidCinematic(opts: { outcome: 'held' | 'breach' | 'fallen'; fireballs: { power: number; segment: number; blocked: boolean }[]; hitHouseIndices: number[] }) {
     try {
       ensureSiege();
+      ensureDome();
       const outcome = opts && (opts.outcome === 'breach' || opts.outcome === 'fallen') ? opts.outcome : 'held';
       siegeHeavy = outcome !== 'held';
-      const requested = opts && Number.isFinite(opts.fireballs) ? Math.round(opts.fireballs) : siegeHeavy ? 5 : 2;
-      const count = Math.max(1, Math.min(MAX_FIREBALLS, requested));
+      const list = opts && Array.isArray(opts.fireballs) ? opts.fireballs : [];
       const hitIdx = opts && Array.isArray(opts.hitHouseIndices) ? opts.hitHouseIndices : [];
       const { houses } = ensureGrowOrder();
 
@@ -3101,43 +3439,43 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       setWallBreach(siegeHeavy);
       hazeTarget = outcome === 'fallen' ? 0.16 : 0;
 
-      // target order: struck houses first (so small fireball counts still hit
-      // homes), then the wall, the gate, the watchtower, and a street tile
-      const targets: { x: number; y: number; z: number; house: number }[] = [];
-      const seen = new Set<number>();
-      for (const raw of hitIdx) {
-        const idx = Math.round(raw);
-        if (seen.has(idx)) continue;
-        const g = houses[idx];
-        if (!g) continue;
-        seen.add(idx);
-        targets.push({ x: g.position.x, y: 0.8, z: g.position.z, house: idx });
-      }
-      const ga = GATE_ANGLES[0]!;
-      const [gx, gz] = gates[0]!;
-      const wallA = ga + 0.28;
-      const wallR = plateauR(wallA) - 2.6;
-      targets.push({ x: Math.cos(wallA) * wallR, y: 2.0, z: Math.sin(wallA) * wallR, house: -1 }); // wall
-      targets.push({ x: gx, y: 1.0, z: gz, house: -1 }); // gate
-      const towR = plateauR(ga) - 2.6;
-      targets.push({ x: Math.cos(ga + 0.09) * towR, y: 3.4, z: Math.sin(ga + 0.09) * towR, house: -1 }); // watchtower
-      targets.push({ x: gx * 0.42, y: 0.4, z: gz * 0.42, house: -1 }); // street tile
-
+      // fireballs now FALL straight down onto their dome panel; pierced ones then
+      // plunge on to a house from hitHouseIndices (round-robin over the list).
+      const count = Math.max(0, Math.min(MAX_FIREBALLS, list.length));
       const warmup = 0.55;
       const stagger = 0.36;
+      let houseCursor = 0;
       for (let i = 0; i < count; i++) {
+        const spec = list[i]!;
         const fb = fireballs[i]!;
-        const tg = targets[i % targets.length]!;
-        const ang = Math.atan2(tg.z, tg.x);
-        const outR = plateauR(ang) + 16 + Math.random() * 8; // start high, beyond the wall
-        fb.from.set(Math.cos(ang) * outR, 40 + Math.random() * 12, Math.sin(ang) * outR);
-        fb.to.set(tg.x, tg.y, tg.z);
-        fb.peak = 5 + Math.random() * 4;
-        fb.dur = 1.05 + Math.random() * 0.4;
+        const segment = spec && Number.isFinite(spec.segment) ? ((Math.round(spec.segment) % DOME_SEG) + DOME_SEG) % DOME_SEG : i % DOME_SEG;
+        const blocked = !!(spec && spec.blocked);
+        fb.segment = segment;
+        fb.blocked = blocked;
+        fb.pierced = false;
+        // first leg: from high above the dome, straight down onto the panel point
+        domeHitPoint(segment, fb.to);
+        fb.from.set(fb.to.x, 96 + (i % 3) * 6, fb.to.z); // staggered entry heights, above the dome
+        // second leg (pierced only): the next resolvable house, else straight down
+        fb.houseIndex = -1;
+        fb.houseHit.set(fb.to.x, 0.6, fb.to.z);
+        if (!blocked && hitIdx.length > 0) {
+          for (let s = 0; s < hitIdx.length; s++) {
+            const idx = Math.round(hitIdx[(houseCursor + s) % hitIdx.length]!);
+            const g = houses[idx];
+            if (g) {
+              fb.houseIndex = idx;
+              fb.houseHit.set(g.position.x, 0.8, g.position.z);
+              houseCursor = (houseCursor + s + 1) % hitIdx.length;
+              break;
+            }
+          }
+        }
+        fb.peak = 0; // steep vertical fall, no arc bow
+        fb.dur = 0.9 + (i % 4) * 0.06; // deterministic per-index variety
         fb.startAt = warmup + i * stagger;
         fb.t = 0;
         fb.state = 1;
-        fb.houseIndex = tg.house;
         fb.core.visible = fb.trail.visible = fb.puff.visible = false;
       }
       for (let i = count; i < fireballs.length; i++) {
@@ -3147,9 +3485,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       }
       siegeActive = true;
       siegeElapsed = 0;
-      const lastStart = warmup + (count - 1) * stagger;
+      const lastStart = warmup + (Math.max(1, count) - 1) * stagger;
       const linger = siegeHeavy ? 3.6 : 2.4;
-      siegeDuration = Math.max(6, Math.min(14, lastStart + 1.5 + linger + (outcome === 'fallen' ? 3 : 0)));
+      siegeDuration = Math.max(6, Math.min(14, lastStart + 1.8 + linger + (outcome === 'fallen' ? 3 : 0)));
     } catch {
       /* cinematic is cosmetic, never throw into the caller */
     }
@@ -3166,6 +3504,8 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
       }
       damageSmokeAttr.needsUpdate = true;
     }
+    // the dome breathes + heals independent of a cinematic, so advance it first
+    advanceDome(dt, t);
     if (!siegeReady) return;
 
     if (siegeActive) siegeElapsed += dt;
@@ -3184,24 +3524,39 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
         fb.t += dt;
         const p = Math.min(1, fb.t / fb.dur);
         _sv1.lerpVectors(fb.from, fb.to, p);
-        _sv1.y += fb.peak * Math.sin(Math.PI * p); // slight bow onto the descent
         fb.core.position.copy(_sv1);
         fb.core.scale.setScalar(1 + 0.2 * Math.sin(t * 40 + fb.startAt * 10)); // flicker
         fb.core.visible = true;
-        _dir.subVectors(fb.to, fb.from);
-        _dir.y = 0;
-        _dir.normalize();
-        _dir2.set(-_dir.x, 0.35, -_dir.z).normalize(); // tail points back + slightly up
+        // steep plunge: the trail points back up the full 3D travel direction
+        _dir.subVectors(fb.to, fb.from).normalize();
+        _dir2.copy(_dir).multiplyScalar(-1);
         _q.setFromUnitVectors(_up, _dir2);
         fb.trail.position.copy(_sv1);
         fb.trail.quaternion.copy(_q);
         fb.trail.visible = true;
-        fb.puff.position.set(_sv1.x - _dir.x * 1.2, _sv1.y + 0.2, _sv1.z - _dir.z * 1.2);
+        fb.puff.position.set(_sv1.x - _dir.x * 1.2, _sv1.y - _dir.y * 1.2, _sv1.z - _dir.z * 1.2);
         fb.puff.visible = true;
         if (p >= 1) {
-          fb.state = 0;
-          fb.core.visible = fb.trail.visible = fb.puff.visible = false;
-          onFireballLand(fb);
+          if (fb.blocked) {
+            // stopped dead on the shield: panel ripple + spark, no house damage
+            fb.state = 0;
+            fb.core.visible = fb.trail.visible = fb.puff.visible = false;
+            triggerDomeStrike(fb.segment, fb.to, false);
+          } else if (!fb.pierced) {
+            // punches through: white flash + a momentary gap, then keep falling
+            fb.pierced = true;
+            triggerDomeStrike(fb.segment, fb.to, true);
+            fb.from.copy(fb.to);       // continue from the dome hit down to the house
+            fb.to.copy(fb.houseHit);
+            fb.t = 0;
+            fb.dur = 0.5;              // quick second-leg plunge onto the house
+            anyFlying = true;
+          } else {
+            // reached the house: existing impact / ember / dust / plume + shake
+            fb.state = 0;
+            fb.core.visible = fb.trail.visible = fb.puff.visible = false;
+            onFireballLand(fb);
+          }
         } else {
           anyFlying = true;
         }
@@ -3306,7 +3661,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     setBuildStage,
     setHouses,
     setHouseCosmetics,
+    setDome,
     playRaidCinematic,
+    repairDomeSegment,
     setHouseDamage,
     rebuildHouse,
     setLandParcels,

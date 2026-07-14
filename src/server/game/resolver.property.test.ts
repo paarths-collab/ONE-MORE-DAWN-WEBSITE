@@ -101,6 +101,7 @@ const dayInputsArb: fc.Arbitrary<DayInputs> = fc.record({
     back_council: nat(50),
   }),
   markedActivePlayers: nat(80),
+  dome: fc.array(nat(100), { minLength: 6, maxLength: 6 }),
 }) as fc.Arbitrary<DayInputs>;
 
 describe('resolver — property based', () => {

@@ -28,6 +28,7 @@ const noInputs = (): DayInputs => ({
   markedPledged: 0,
   pledges: {},
   markedActivePlayers: 0,
+  dome: [0, 0, 0, 0, 0, 0],
 });
 
 /**

@@ -85,8 +85,9 @@ export const runLazyResolution = async (
       // and the timeline — the city remembers every cycle, including its falls.
       const keysToDelete: string[] = [
         KEYS.housesIndex, KEYS.housesMeta, KEYS.markedOutcomes,
-        // Raid damage and the shared rebuild queue reset with the fallen city.
-        KEYS.housesDamage, KEYS.housesRebuild,
+        // Raid damage, the shared rebuild queue, and the dome reset with the fallen
+        // city — the reborn dome reads fresh (getDomeSegments falls back to full).
+        KEYS.housesDamage, KEYS.housesRebuild, KEYS.dome,
       ];
       for (let d = 1; d <= fallenDay + 1; d++) {
         keysToDelete.push(
@@ -154,6 +155,9 @@ export const runLazyResolution = async (
       // Yesterday's action-takers scale the Marked goal (see BALANCE.marked).
       store.getAllUserActions(city.day - 1),
     ]);
+    // The dome's shields going into the raid (charged by daily challenges since the
+    // last dawn). Captured before resolve so the aftermath can show before/after.
+    const domeBefore = await store.getDomeSegments();
     const inputs: DayInputs = {
       actions,
       missions,
@@ -165,6 +169,7 @@ export const runLazyResolution = async (
       markedPledged,
       pledges,
       markedActivePlayers: Object.keys(yesterdayUserActions).length,
+      dome: domeBefore,
     };
     const { city: nextCity, entry, marked, raid } = resolveDay(city, inputs);
 
@@ -174,7 +179,12 @@ export const runLazyResolution = async (
     // is cleared by the next Phoenix pass, so only apply it while still alive.
     let finalEntry = entry;
     if (raid && nextCity.status === 'alive') {
+      // Persist the dome the raid left behind (blocked fireballs drained segments).
+      await store.setDomeSegments(raid.segmentsAfter);
       const rows = await store.getHouseRows();
+      let destroyedNames: string[] = [];
+      let housesDamaged = 0;
+      let required = 0;
       if (rows.length > 0) {
         const players = await store.getAllPlayers();
         const nameByUser: Record<string, string> = {};
@@ -187,22 +197,27 @@ export const runLazyResolution = async (
         for (const idx of picked.destroy) { const u = userByIndex[idx]; if (u) damageEntries[u] = 'destroyed'; }
         for (const idx of picked.damage) { const u = userByIndex[idx]; if (u) damageEntries[u] = 'damaged'; }
         await store.setHouseDamage(damageEntries);
-        const destroyedNames = picked.destroy.map((idx) => nameByUser[userByIndex[idx] ?? ''] ?? 'a survivor');
-        const required =
+        destroyedNames = picked.destroy.map((idx) => nameByUser[userByIndex[idx] ?? ''] ?? 'a survivor');
+        housesDamaged = picked.damage.length;
+        required =
           picked.destroy.length * laborForStatus('destroyed') + picked.damage.length * laborForStatus('damaged');
-        const aftermath = {
-          held: raid.outcome === 'held',
-          wallBreached: raid.outcome !== 'held',
-          housesDestroyed: destroyedNames,
-          housesDamaged: picked.damage.length,
-          reconstructionRequired: required,
-        };
-        const extra =
-          destroyedNames.length > 0
-            ? [`The raid took ${destroyedNames.length} home(s). No citizen rebuilds alone; the city has begun.`]
-            : [];
-        finalEntry = { ...entry, raidAftermath: aftermath, events: [...entry.events, ...extra] };
       }
+      const aftermath = {
+        held: raid.outcome === 'held',
+        wallBreached: raid.outcome !== 'held',
+        housesDestroyed: destroyedNames,
+        housesDamaged,
+        reconstructionRequired: required,
+        fireballs: raid.fireballs,
+        penetrations: raid.penetrations,
+        segmentsBefore: domeBefore,
+        segmentsAfter: raid.segmentsAfter,
+      };
+      const extra =
+        destroyedNames.length > 0
+          ? [`The raid took ${destroyedNames.length} home(s). No citizen rebuilds alone; the city has begun.`]
+          : [];
+      finalEntry = { ...entry, raidAftermath: aftermath, events: [...entry.events, ...extra] };
     }
 
     await store.snapshotCity(nextCity);

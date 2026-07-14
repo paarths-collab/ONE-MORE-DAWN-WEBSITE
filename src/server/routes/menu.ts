@@ -59,8 +59,11 @@ menu.post('/force-resolve', async (c) => {
     markedPledged: await store.getMarkedPledge(city.day),
     pledges: await store.getPledgeKindCounts(city.day),
     markedActivePlayers: Object.keys(await store.getAllUserActions(city.day - 1)).length,
+    dome: await store.getDomeSegments(),
   };
-  const { city: next, entry, marked } = resolveDay(city, inputs);
+  const { city: next, entry, marked, raid } = resolveDay(city, inputs);
+  // Keep the dome consistent on the force-resolve path too (blocked hits drain it).
+  if (raid && next.status === 'alive') await store.setDomeSegments(raid.segmentsAfter);
   await store.snapshotCity(next);
   await store.appendTimeline(entry);
   await store.setMarkedOutcome(city.day, marked);
@@ -90,6 +93,7 @@ menu.post('/reset', async (c) => {
     KEYS.housesMeta,
     KEYS.housesDamage,
     KEYS.housesRebuild,
+    KEYS.dome,
     KEYS.landFunding,
     KEYS.markedOutcomes,
   ];

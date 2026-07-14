@@ -15,6 +15,7 @@ const noInputs: DayInputs = {
   markedPledged: 0,
   pledges: {},
   markedActivePlayers: 0,
+  dome: [60, 60, 60, 60, 60, 60],
 };
 
 const B = BALANCE.build.buildings;

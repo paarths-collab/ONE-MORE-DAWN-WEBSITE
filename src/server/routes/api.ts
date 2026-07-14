@@ -12,6 +12,7 @@ import type {
   AvatarResponse,
   CityState,
   DamagedHouse,
+  DomeState,
   DawnReport,
   ReconstructionState,
   FactionId,
@@ -50,6 +51,7 @@ import { buildVillagers, buildZones, maskName } from '../game/village';
 import { bumpRoleRep, effectiveEnergy, freshPlayer, resetPlayerForDay } from '../game/dayLogic';
 import { awardContributionCoin } from '../game/economy';
 import { damagedHouses, nextRebuildTarget, reconstructionState, type HouseRow } from '../game/reconstruction';
+import { applyRepairs, chargeSegmentIndex, energyPct, mostDamagedSegment } from '../game/dome';
 import { runLazyResolution, utcDateString } from '../game/lazyResolve';
 import { resolveDay } from '../game/resolver';
 import { beginUserLock } from '../game/userLock';
@@ -155,6 +157,54 @@ export const buildReconstruction = async (
       progress: {},
     };
   }
+};
+
+/** The dome's live state for the HUD (segments, energy %, repair pool, next mend). */
+export const buildDomeState = async (store: Store): Promise<DomeState> => {
+  try {
+    const { segments, shield } = await store.getDomeState();
+    return {
+      segments,
+      energyPct: energyPct(segments),
+      shield,
+      repairThreshold: BALANCE.dome.repairThreshold,
+      nextRepairSegment: mostDamagedSegment(segments),
+    };
+  } catch {
+    return { segments: [], energyPct: 0, shield: 0, repairThreshold: BALANCE.dome.repairThreshold, nextRepairSegment: null };
+  }
+};
+
+/**
+ * Auto-repair the dome from the shared shield pool: while the pool can afford a
+ * mend and a damaged panel exists, fully restore the weakest one. Optimistic CAS
+ * on the shared dome hash (watch -> read -> write) so concurrent contributors can
+ * never double-spend the pool. Returns the segment indices repaired (for the
+ * client to animate), or [] when nothing was mended. Never throws.
+ */
+export const settleDomeRepairs = async (store: Store, lockRedis: { watch: (...keys: string[]) => Promise<import('../game/userLock').LockTx> }): Promise<number[]> => {
+  const repairedAll: number[] = [];
+  try {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const tx = await lockRedis.watch(KEYS.dome);
+      const { segments, shield } = await store.getDomeState();
+      const res = applyRepairs(segments, shield);
+      if (res.repaired.length === 0) {
+        await tx.unwatch();
+        return repairedAll;
+      }
+      await tx.multi();
+      const fields: Record<string, string> = { shield: String(res.pool) };
+      for (let i = 0; i < res.segments.length; i++) fields[`seg${i}`] = String(res.segments[i]);
+      await tx.hSet(KEYS.dome, fields);
+      const results = await tx.exec();
+      if (results.length > 0) return [...repairedAll, ...res.repaired];
+      // Watched-key conflict: another contributor mended concurrently. Retry.
+    }
+  } catch {
+    // A failed settle is harmless — the next contribution will mend.
+  }
+  return repairedAll;
 };
 
 export const buildHouseSummary = async (store: Store, userId: string): Promise<HouseSummary> => {
@@ -363,6 +413,7 @@ api.get('/init', async (c) => {
     markedPledged: 0,
     pledges: {},
     markedActivePlayers: 0,
+    dome: await store.getDomeSegments(),
   }).city;
   const forecast: Forecast = {
     food: projected.food,
@@ -481,7 +532,15 @@ api.get('/init', async (c) => {
       '1',
       { nx: true, expiration: 3 * 24 * 3600 },
     );
-    if (claimed) await store.addContribution(user.userId, challengeDef.reward);
+    if (claimed) {
+      await store.addContribution(user.userId, challengeDef.reward);
+      // Completing your daily challenge REINFORCES the dome: the community's daily
+      // effort is what charges the shield for the next raid (once per user/day).
+      await store.chargeDomeSegment(
+        chargeSegmentIndex(user.userId, city.day, city.worldSeed),
+        BALANCE.dome.chargePerChallenge,
+      );
+    }
   }
   const challenge = { ...challengeDef, progress: chState.progress, done: chState.done };
 
@@ -496,6 +555,9 @@ api.get('/init', async (c) => {
   // Shared rebuild queue: computed once, reused for the owner line + response.
   const reconstruction = await buildReconstruction(store);
   const myDamage = reconstruction.damage[user.userId] ?? null;
+  // Settle any pending dome mends the shared pool can now afford, then snapshot it.
+  if (city.status === 'alive') await settleDomeRepairs(store, redis);
+  const dome = await buildDomeState(store);
   let dawnReport: DawnReport | null = null;
   if (!brandNew && timelinePreview && timelinePreview.day === city.day - 1) {
     const yourImpact: string[] = [];
@@ -579,6 +641,7 @@ api.get('/init', async (c) => {
     ),
     houses,
     reconstruction: reconstruction.state,
+    dome,
     marked,
     pledge,
     drama,
@@ -758,10 +821,14 @@ api.post('/action', async (c) => {
   await Promise.all([
     store.registerHouse(user.userId),
     store.addContribution(user.userId, BALANCE.contributionPerAction),
+    // Every accepted contribution feeds the shared shield pool that mends the dome.
+    store.addDomeShield(BALANCE.dome.shieldPerContribution),
     ...(faction
       ? [store.bumpFactionInfluence(city.day, faction, BALANCE.factionRepPerAction)]
       : []),
   ]);
+  // With the pool topped up, auto-repair the weakest panel(s) the pool can afford.
+  const domeRepaired = await settleDomeRepairs(store, redis);
 
   return c.json<ActionResponse>({
     type: 'action',
@@ -773,6 +840,8 @@ api.post('/action', async (c) => {
     economy: coined.economy,
     reconstruction: (await buildReconstruction(store)).state,
     rebuilt,
+    dome: await buildDomeState(store),
+    domeRepaired: domeRepaired.length > 0 ? domeRepaired : null,
   });
 });
 
@@ -828,6 +897,7 @@ api.post('/vote', async (c) => {
     return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
   }
   await store.registerHouse(user.userId);
+  await store.addDomeShield(BALANCE.dome.shieldPerContribution);
 
   return c.json<VoteResponse>({
     type: 'vote',
@@ -879,6 +949,7 @@ api.post('/strategy', async (c) => {
     return c.json<ApiError>({ status: 'error', message: 'Busy, try again' }, 409);
   }
   await store.registerHouse(user.userId);
+  await store.addDomeShield(BALANCE.dome.shieldPerContribution);
 
   return c.json<StrategyResponse>({
     type: 'strategy',
@@ -951,6 +1022,7 @@ api.post('/pledge', async (c) => {
   await Promise.all([
     store.registerHouse(user.userId),
     store.addContribution(user.userId, BALANCE.contributionPerPledge),
+    store.addDomeShield(BALANCE.dome.shieldPerContribution),
   ]);
 
   const [pledged, pledgers, allYesterdayActions, markedOutcome] = await Promise.all([

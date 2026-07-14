@@ -415,6 +415,48 @@ describe('POST /action — community reconstruction', () => {
   });
 });
 
+describe('energy dome — charge, shield pool, auto-repair', () => {
+  it('GET /init returns a fresh, fully-charged dome for a new city', async () => {
+    await openUser('t_dome_a', 'domer');
+    const init = (await (await api.request('/init')).json()) as InitResponse;
+    expect(init.dome.segments).toHaveLength(BALANCE.dome.segments);
+    expect(init.dome.segments.every((s) => s === BALANCE.dome.segmentStart)).toBe(true);
+    expect(init.dome.energyPct).toBe(
+      Math.round((BALANCE.dome.segmentStart / BALANCE.dome.segmentMax) * 100),
+    );
+    expect(init.dome.shield).toBe(0);
+    expect(init.dome.nextRepairSegment).toBeNull();
+  });
+
+  it('an accepted contribution feeds the shield pool but does not mend an intact dome', async () => {
+    await onboardAndAct('t_dome_b', 'domerb', 'farmer', 'grow_food');
+    await fake.hSet(KEYS.dome, { shield: '0' }); // isolate this contribution's gain
+    ctx.userId = 't_dome_b';
+    const res = await api.request('/action', postJson({ action: 'grow_food' }));
+    const body = (await res.json()) as ActionResponse;
+    expect(body.domeRepaired).toBeNull();
+    expect(body.dome.shield).toBe(BALANCE.dome.shieldPerContribution);
+    expect(body.dome.segments.every((s) => s === BALANCE.dome.segmentMax || s === BALANCE.dome.segmentStart)).toBe(true);
+  });
+
+  it('auto-repairs the weakest panel when the shield pool crosses the threshold', async () => {
+    await onboardAndAct('t_dome_c', 'domerc', 'farmer', 'grow_food');
+    // A raid shattered panel 2; the shared pool sits one short of a mend.
+    await store.setDomeSegments([60, 60, 0, 60, 60, 60]);
+    await fake.hSet(KEYS.dome, { shield: String(BALANCE.dome.repairThreshold - 1) });
+    ctx.userId = 't_dome_c';
+    const res = await api.request('/action', postJson({ action: 'grow_food' }));
+    const body = (await res.json()) as ActionResponse;
+    // This contribution's shield point tips the pool over: the weakest panel mends.
+    expect(body.domeRepaired).toEqual([2]);
+    expect(body.dome.segments[2]).toBe(BALANCE.dome.segmentMax);
+    expect(body.dome.shield).toBe(0);
+    // And the mend persists to the next /init.
+    const init = (await (await api.request('/init')).json()) as InitResponse;
+    expect(init.dome.segments[2]).toBe(BALANCE.dome.segmentMax);
+  });
+});
+
 describe('POST /mission — V1 scope gate', () => {
   it('rejects direct mission calls even when the hidden endpoint is discovered', async () => {
     ctx.userId = 't2_curious';

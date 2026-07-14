@@ -216,13 +216,32 @@ export type HouseStatus = 'standing' | 'damaged' | 'destroyed' | 'rebuilding';
 /** A house the raid struck, for the scene to render as ruins and the UI to name. */
 export type DamagedHouse = { index: number; username: string; status: 'destroyed' | 'damaged' };
 
-/** What last night's raid did to the city's homes and wall. */
+/** One fireball in a raid volley: its rolled power, the dome segment it struck,
+ *  and whether the shield blocked it (power <= shield) or it punched through. */
+export type RaidFireball = { power: number; segment: number; blocked: boolean };
+
+/** The protective energy dome: 6 segment shields, the shared repair pool, and the
+ *  derived HUD readouts. Charged by daily challenges, drained by raids, mended by
+ *  the pool auto-repairing the weakest panel. */
+export type DomeState = {
+  segments: number[];          // per-segment shield 0..100 (length = BALANCE.dome.segments)
+  energyPct: number;           // average shield as a 0..100 percent (HUD "Dome Energy")
+  shield: number;              // shared repair pool accumulated toward the next mend
+  repairThreshold: number;     // pool needed to auto-repair one segment fully
+  nextRepairSegment: number | null; // the weakest panel the pool will mend next
+};
+
+/** What last night's raid did to the dome, the city's homes and its people. */
 export type RaidAftermath = {
-  held: boolean;               // the wall held (no souls lost)
-  wallBreached: boolean;       // a breach cost souls/homes
+  held: boolean;               // the dome held (no souls lost)
+  wallBreached: boolean;       // a breach cost souls/homes (a fireball pierced the dome)
   housesDestroyed: string[];   // usernames whose homes were destroyed
   housesDamaged: number;       // count of homes damaged
   reconstructionRequired: number; // total labor to restore them all
+  fireballs: RaidFireball[];   // the volley that fell (for the cinematic)
+  penetrations: number;        // fireballs that pierced the dome
+  segmentsBefore: number[];    // dome shields going into the raid
+  segmentsAfter: number[];     // dome shields after the raid (blocked hits drained them)
 };
 
 /** The shared rebuild queue: the whole city restores destroyed/damaged homes. */
@@ -301,6 +320,8 @@ export type InitResponse = {
   houses: HouseSummary;
   /** Shared rebuild queue: destroyed/damaged homes the whole city restores. */
   reconstruction: ReconstructionState;
+  /** The protective energy dome the raid tests its fireballs against. */
+  dome: DomeState;
   // ---- Reddit-native hook layer (Plan 1) ----
   marked: Marked;
   pledge: PledgeInfo;
@@ -410,6 +431,10 @@ export type ActionResponse = {
   reconstruction: ReconstructionState;
   /** Set when this labor just RESTORED a home the whole city rebuilt. */
   rebuilt: { username: string; index: number } | null;
+  /** The dome after this contribution's shield gain + any auto-repair. */
+  dome: DomeState;
+  /** Segment indices auto-repaired by this contribution (null when none). */
+  domeRepaired: number[] | null;
 };
 
 /** crisisId pins the vote to the crisis the client was showing — a client held

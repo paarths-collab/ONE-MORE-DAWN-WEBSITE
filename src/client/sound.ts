@@ -19,7 +19,11 @@ export type SfxName =
   | 'impact_hit'
   | 'wall_crack'
   | 'house_collapse'
-  | 'rebuild_done';
+  | 'rebuild_done'
+  | 'dome_block'
+  | 'dome_pierce'
+  | 'dome_shatter'
+  | 'dome_repair';
 
 const EXT = 'wav'; // change to 'ogg'/'mp3' if you swap in Kenney files with that extension
 const NAMES: SfxName[] = [
@@ -37,6 +41,10 @@ const NAMES: SfxName[] = [
   'wall_crack',
   'house_collapse',
   'rebuild_done',
+  'dome_block',
+  'dome_pierce',
+  'dome_shatter',
+  'dome_repair',
 ];
 const MUTE_KEY = 'omd_muted';
 const SFX_VOLUME = 0.5;

@@ -96,6 +96,50 @@ const reconstructionOfMock = () => {
       : null,
   };
 };
+
+// The protective energy dome. MOCK_RAID_AFTERMATH=1 shows a worn dome (one panel
+// shattered, another low) so the HUD, pips, and repair reserve all read; otherwise
+// a healthy, well-charged shield.
+const mockDomeSegments = () =>
+  process.env.MOCK_RAID_AFTERMATH ? [80, 15, 60, 0, 95, 45] : [88, 92, 80, 100, 96, 84];
+const domeOfMock = () => {
+  const segments = mockDomeSegments();
+  const energyPct = Math.round(segments.reduce((a, b) => a + b, 0) / segments.length);
+  let nextRepairSegment = null;
+  let lo = 100;
+  segments.forEach((s, i) => {
+    if (s < lo && s < 100) {
+      lo = s;
+      nextRepairSegment = i;
+    }
+  });
+  return {
+    segments,
+    energyPct,
+    shield: process.env.MOCK_RAID_AFTERMATH ? 8 : 3,
+    repairThreshold: 12,
+    nextRepairSegment,
+  };
+};
+// The volley for the cinematic when a raid is mocked: 3 blocked, 3 pierced.
+const RAID_AFTERMATH = {
+  held: false,
+  wallBreached: true,
+  housesDestroyed: [],
+  housesDamaged: 1,
+  reconstructionRequired: RECON_NEEDED,
+  fireballs: [
+    { power: 45, segment: 0, blocked: true },
+    { power: 88, segment: 1, blocked: false },
+    { power: 40, segment: 2, blocked: true },
+    { power: 90, segment: 3, blocked: false },
+    { power: 30, segment: 4, blocked: true },
+    { power: 55, segment: 5, blocked: false },
+  ],
+  penetrations: 3,
+  segmentsBefore: [100, 35, 80, 20, 95, 55],
+  segmentsAfter: [80, 15, 60, 0, 95, 45],
+};
 // Land districts mirror (authority: src/shared/shop.ts LAND_EXPANSIONS).
 // outer_fields sits 5 short of its target so the smoke can fund the unlock.
 const LAND_DEFS = [
@@ -229,7 +273,9 @@ const currentInit = () => ({
   economy: economyOfMock(mockPlayer),
   land: landOfMock(),
   reconstruction: reconstructionOfMock(),
+  dome: domeOfMock(),
   houses: { ...currentHouses(), damaged: mockDamaged() },
+  ...(process.env.MOCK_RAID_AFTERMATH ? { dawnReport: { ...INIT.dawnReport, raidAftermath: RAID_AFTERMATH } } : {}),
   ...(process.env.MOCK_CAMP ? { build: CAMP_BUILD, houses: { ...CAMP_HOUSES, damaged: [] }, yourActionsToday: {} } : {}),
 });
 // One accepted mock contribution: +1 Coin up to the cap, mirrored statefully.
@@ -270,7 +316,7 @@ const mockApi = () => ({
           mockRebuildDone += 1;
           if (mockRebuildDone >= RECON_NEEDED) rebuilt = { username: 'ashen_fox', index: 6 };
         }
-        return send(res, { type: 'action', player: mockPlayer, effectiveEnergy: 3, yourActionsToday: acts, unlockedTitle: null, coinsGained: gained, economy: economyOfMock(mockPlayer), reconstruction: reconstructionOfMock(), rebuilt });
+        return send(res, { type: 'action', player: mockPlayer, effectiveEnergy: 3, yourActionsToday: acts, unlockedTitle: null, coinsGained: gained, economy: economyOfMock(mockPlayer), reconstruction: reconstructionOfMock(), rebuilt, dome: domeOfMock(), domeRepaired: null });
       }
       if (path === '/api/vote') {
         mockHasHouse = true;

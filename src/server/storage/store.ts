@@ -2,6 +2,7 @@ import type {
   ActionType, CityState, FactionId, PledgeKind, PlayerProfile, TimelineEntry, VoteTally,
 } from '../../shared/types';
 import { isPledgeKind, type PledgerEntry } from '../game/pledges';
+import { freshSegments, normalizeSegments } from '../game/dome';
 import { isChallenge, type Challenge } from '../../shared/challenges';
 import {
   landExpansionState,
@@ -482,6 +483,64 @@ export class Store {
       if (Number.isFinite(n) && n >= 0) out[userId] = n;
     }
     return out;
+  }
+
+  // ----- energy dome -----
+  private parseDomeSegments(raw: Record<string, string>): number[] {
+    const arr: (number | undefined)[] = [];
+    let hasSeg = false;
+    for (const [k, v] of Object.entries(raw)) {
+      const m = /^seg(\d+)$/.exec(k);
+      if (!m) continue;
+      hasSeg = true;
+      arr[Number(m[1])] = Number(v);
+    }
+    return hasSeg ? normalizeSegments(arr) : freshSegments();
+  }
+
+  /** The dome's segment shields, normalized to [0, max]. Fresh if never written. */
+  async getDomeSegments(): Promise<number[]> {
+    return this.parseDomeSegments(await this.redis.hGetAll(KEYS.dome));
+  }
+
+  /** The full dome state: normalized segments + the shared repair pool. */
+  async getDomeState(): Promise<{ segments: number[]; shield: number }> {
+    const raw = await this.redis.hGetAll(KEYS.dome);
+    const shieldN = Number(raw['shield']);
+    const shield = Number.isFinite(shieldN) && shieldN > 0 ? Math.floor(shieldN) : 0;
+    return { segments: this.parseDomeSegments(raw), shield };
+  }
+
+  /** Overwrite the segment shields (raid drain, mod reset). */
+  async setDomeSegments(segments: number[]): Promise<void> {
+    const norm = normalizeSegments(segments);
+    const fields: Record<string, string> = {};
+    for (let i = 0; i < norm.length; i++) fields[`seg${i}`] = String(norm[i]);
+    await this.redis.hSet(KEYS.dome, fields);
+  }
+
+  /** Write segments AND the pool together (used by the auto-repair settle). */
+  async setDomeState(segments: number[], shield: number): Promise<void> {
+    const norm = normalizeSegments(segments);
+    const fields: Record<string, string> = { shield: String(Math.max(0, Math.floor(shield))) };
+    for (let i = 0; i < norm.length; i++) fields[`seg${i}`] = String(norm[i]);
+    await this.redis.hSet(KEYS.dome, fields);
+  }
+
+  /** Reset the dome to fresh shields and an empty repair pool (rebirth / reset). */
+  async resetDome(): Promise<void> {
+    await this.setDomeState(freshSegments(), 0);
+  }
+
+  /** Add to the shared repair pool (per accepted contribution). Returns the new pool. */
+  async addDomeShield(n: number): Promise<number> {
+    return this.redis.hIncrBy(KEYS.dome, 'shield', Math.max(0, Math.floor(n)));
+  }
+
+  /** Reinforce one segment (a completed daily challenge). Over-charge is clamped on read. */
+  async chargeDomeSegment(index: number, n: number): Promise<void> {
+    if (!Number.isInteger(index) || index < 0 || index >= freshSegments().length) return;
+    await this.redis.hIncrBy(KEYS.dome, `seg${index}`, Math.max(0, Math.floor(n)));
   }
 
   // ----- timeline + history -----

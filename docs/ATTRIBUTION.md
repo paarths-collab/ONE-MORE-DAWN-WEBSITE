@@ -27,6 +27,10 @@ cues, and also remain CC0.
 | `wall_crack.wav` | wall breach / crack | ffmpeg derivative of `raid_warning.wav` (pitch up, highpass, short crackle echo) | Interface Sounds | CC0 |
 | `house_collapse.wav` | house destroyed / rubble | ffmpeg derivative of `city_fallen.wav` (deep pitch down, multi-delay rubble echo) | Interface Sounds | CC0 |
 | `rebuild_done.wav` | house restored | ffmpeg derivative of `dawn_report.wav` (pitch up bright chime, trimmed, light echo) | Music Jingles | CC0 |
+| `dome_block.wav` | fireball blocked by the dome | ffmpeg derivative of `error_soft.wav` (pitch down, highpass, absorb echo) | Interface Sounds | CC0 |
+| `dome_pierce.wav` | fireball pierces the dome | ffmpeg derivative of `raid_warning.wav` (reversed, pitch up, airy tearing echo) | Interface Sounds | CC0 |
+| `dome_shatter.wav` | dome overwhelmed / city falls | ffmpeg derivative of `pledge.wav` (pitch up, highpass, multi-tap glassy shatter) | Interface Sounds | CC0 |
+| `dome_repair.wav` | dome panel mended | ffmpeg derivative of `dawn_report.wav` (pitch up, trimmed, tremolo rising restore chime) | Music Jingles | CC0 |
 
 The earlier procedural placeholders can still be regenerated with
 `node tools/gen-sfx.mjs` if these files are ever removed.
@@ -55,7 +59,7 @@ different extension (e.g. `.ogg`), change the single `EXT` constant in
 only** (avoid CC-BY-NC / Sampling+ / unclear); [OpenGameArt](https://opengameart.org)
 — check every file's license individually.
 
-_Last updated: 2026-07-14 · current sfx = Kenney CC0 (Interface Sounds + Music Jingles), plus six ffmpeg-composed raid-siege / reconstruction derivatives (still CC0)._
+_Last updated: 2026-07-14 · current sfx = Kenney CC0 (Interface Sounds + Music Jingles), plus ten ffmpeg-composed raid-siege / reconstruction / energy-dome derivatives (still CC0)._
 
 ## Background music (V1)
 
