@@ -24,9 +24,9 @@ personal houses in first-contribution order. Everyone wants the city to survive
 ## Inspiration
 
 We wanted a game that treats a subreddit as a real place rather than a login
-provider. One More Dawn opens the current post's Reddit comments for council
-debate, then turns each member's binding in-game actions, votes, pledges, and
-personal house into shared city state. Frostpunk-style resource pressure, filtered through a
+provider. One More Dawn creates a weekly City Chatter Hub where the community
+debates strategy in real Reddit comments, then turns each member's binding
+in-game actions, votes, pledges, and personal house into shared city state. Frostpunk-style resource pressure, filtered through a
 subreddit's daily rhythm, resolved async so nobody has to be online at the
 same time.
 
@@ -60,8 +60,9 @@ simulation.
   change, and raid pressure that reddens as danger nears.
 - A **live drama feed**, a permanent **timeline**, and a **World of Cities** map
   ranking participating subreddits against each other.
-- A real **Open Reddit Comments** council path for discussion before players
-  cast the binding crisis and strategy votes in the game.
+- A real weekly **City Chatter Hub**: daily Strategy, Raid, Rebuilding, and
+  General prompts whose Reddit replies appear in the LIVE panel. Posting is an
+  optional, disclosed Reddit action; binding votes remain in the game.
 - **Phoenix Dawn**: a fallen city starts a new cycle as a Camp while preserving
   long-term identity, titles, and contribution history.
 - Server-side faction pressure from what players do, with richer law display

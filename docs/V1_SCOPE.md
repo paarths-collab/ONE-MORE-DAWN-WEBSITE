@@ -32,7 +32,7 @@
 | Build from zero (shared unlocks) | Every city starts as a **Camp** and grows through community labor: a daily **Add Labor** action fills a shared progress bar; at dawn, buildings unlock in order (Shelter → Farm → Clinic → Watchtower → Storehouse → Wall → Council Hall), each applying a modest effect and appearing in the 3D town. **Community-built, not individually owned** — no free placement. |
 | Crisis voting | One vote per day, visible tradeoffs |
 | Council strategy voting | Back a plan |
-| Reddit council thread | Opens the current game post's real Reddit comments for discussion; binding votes remain in-game |
+| Reddit City Chatter Hub | One app-created post per UTC week, with fresh Strategy / Raid / Rebuilding / General root comments for each city day. The LIVE panel reads Reddit replies and offers an explicitly disclosed, user-initiated composer; binding votes remain in-game. |
 | The Marked pledge | One-tap, one-per-day, low/no energy |
 | Raid countdown / status | Server threat + `raidInDays` forecast; RAID WATCH |
 | Fallen city state | Terminal memorial screen; actions disabled |

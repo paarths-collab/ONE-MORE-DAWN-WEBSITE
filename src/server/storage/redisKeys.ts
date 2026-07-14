@@ -55,4 +55,9 @@ export const KEYS = {
   // so a reset can never leak last cycle's claims into the new one.
   challengeDone: (cycle: number, day: number, userId: string) =>
     `challenge:${cycle}:${day}:${userId}`,
+  chatterMeta: 'chatter:meta',
+  chatterRoots: 'chatter:roots',
+  chatterProvisionLock: (weekKey: string) => `chatter:provision:${weekKey}`,
+  chatterCooldown: (userId: string) => `chatter:cooldown:${userId}`,
+  chatterDuplicate: (userId: string, fingerprint: number) => `chatter:duplicate:${userId}:${fingerprint}`,
 } as const;
