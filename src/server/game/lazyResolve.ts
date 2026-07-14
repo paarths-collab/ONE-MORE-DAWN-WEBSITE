@@ -4,6 +4,7 @@ import { KEYS } from '../storage/redisKeys';
 import type { RedisLike } from '../storage/store';
 import { Store } from '../storage/store';
 import { newCityState, resolveDay, type DayInputs } from './resolver';
+import { laborForStatus, selectRaidDamage } from './reconstruction';
 
 export const utcDateString = (now: Date): string => now.toISOString().slice(0, 10);
 
@@ -82,7 +83,12 @@ export const runLazyResolution = async (
       // day numbers would collide with the new cycle's), marked outcomes.
       // KEPT: player profiles, lifetime contribution + scout leaderboards,
       // and the timeline — the city remembers every cycle, including its falls.
-      const keysToDelete: string[] = [KEYS.housesIndex, KEYS.housesMeta, KEYS.markedOutcomes];
+      const keysToDelete: string[] = [
+        KEYS.housesIndex, KEYS.housesMeta, KEYS.markedOutcomes,
+        // Raid damage, the shared rebuild queue, and the dome reset with the fallen
+        // city — the reborn dome reads fresh (getDomeSegments falls back to full).
+        KEYS.housesDamage, KEYS.housesRebuild, KEYS.dome,
+      ];
       for (let d = 1; d <= fallenDay + 1; d++) {
         keysToDelete.push(
           KEYS.dayActions(d), KEYS.dayUserActions(d), KEYS.dayVotes(d), KEYS.dayVoters(d),
@@ -149,6 +155,9 @@ export const runLazyResolution = async (
       // Yesterday's action-takers scale the Marked goal (see BALANCE.marked).
       store.getAllUserActions(city.day - 1),
     ]);
+    // The dome's shields going into the raid (charged by daily challenges since the
+    // last dawn). Captured before resolve so the aftermath can show before/after.
+    const domeBefore = await store.getDomeSegments();
     const inputs: DayInputs = {
       actions,
       missions,
@@ -160,11 +169,59 @@ export const runLazyResolution = async (
       markedPledged,
       pledges,
       markedActivePlayers: Object.keys(yesterdayUserActions).length,
+      dome: domeBefore,
     };
-    const { city: nextCity, entry, marked } = resolveDay(city, inputs);
+    const { city: nextCity, entry, marked, raid } = resolveDay(city, inputs);
+
+    // Raid aftermath: a Red Signal deterministically strikes homes. Ownership is
+    // never lost — struck homes enter the shared rebuild queue (houses:damage);
+    // the whole city restores them via build_city labor. A fallen city's damage
+    // is cleared by the next Phoenix pass, so only apply it while still alive.
+    let finalEntry = entry;
+    if (raid && nextCity.status === 'alive') {
+      // Persist the dome the raid left behind (blocked fireballs drained segments).
+      await store.setDomeSegments(raid.segmentsAfter);
+      const rows = await store.getHouseRows();
+      let destroyedNames: string[] = [];
+      let housesDamaged = 0;
+      let required = 0;
+      if (rows.length > 0) {
+        const players = await store.getAllPlayers();
+        const nameByUser: Record<string, string> = {};
+        for (const p of players) nameByUser[p.userId] = p.username;
+        const userByIndex: Record<number, string> = {};
+        for (const r of rows) userByIndex[r.index] = r.userId;
+        const seed = (city.worldSeed ^ Math.imul(city.cycle, 40503) ^ Math.imul(city.day, 97)) >>> 0;
+        const picked = selectRaidDamage(rows.map((r) => r.index), raid.outcome, seed);
+        const damageEntries: Record<string, 'destroyed' | 'damaged'> = {};
+        for (const idx of picked.destroy) { const u = userByIndex[idx]; if (u) damageEntries[u] = 'destroyed'; }
+        for (const idx of picked.damage) { const u = userByIndex[idx]; if (u) damageEntries[u] = 'damaged'; }
+        await store.setHouseDamage(damageEntries);
+        destroyedNames = picked.destroy.map((idx) => nameByUser[userByIndex[idx] ?? ''] ?? 'a survivor');
+        housesDamaged = picked.damage.length;
+        required =
+          picked.destroy.length * laborForStatus('destroyed') + picked.damage.length * laborForStatus('damaged');
+      }
+      const aftermath = {
+        held: raid.outcome === 'held',
+        wallBreached: raid.outcome !== 'held',
+        housesDestroyed: destroyedNames,
+        housesDamaged,
+        reconstructionRequired: required,
+        fireballs: raid.fireballs,
+        penetrations: raid.penetrations,
+        segmentsBefore: domeBefore,
+        segmentsAfter: raid.segmentsAfter,
+      };
+      const extra =
+        destroyedNames.length > 0
+          ? [`The raid took ${destroyedNames.length} home(s). No citizen rebuilds alone; the city has begun.`]
+          : [];
+      finalEntry = { ...entry, raidAftermath: aftermath, events: [...entry.events, ...extra] };
+    }
 
     await store.snapshotCity(nextCity);
-    await store.appendTimeline(entry);
+    await store.appendTimeline(finalEntry);
     await store.setMarkedOutcome(city.day, marked);
     await store.setCityState(nextCity);
     await store.setCityMeta({ lastResolvedDate: today });

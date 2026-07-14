@@ -6,6 +6,7 @@ import type {
 } from '../../shared/types';
 import { pickMarked } from './marked';
 import { applyBuildProgress, buildingEffects, stageForCount } from './building';
+import { resolveVolley, type Fireball } from './dome';
 
 /** Aggregates for the day being resolved. All plain data from Redis hashes. */
 export type DayInputs = {
@@ -25,6 +26,8 @@ export type DayInputs = {
   pledges: Partial<Record<PledgeKind, number>>;
   /** YESTERDAY's action-taker count — scales the Marked goal (stable all day) */
   markedActivePlayers: number;
+  /** The dome's 6 segment shields going into this resolution (normalized 0..100). */
+  dome: number[];
 };
 
 type LawId = FactionId;
@@ -105,6 +108,15 @@ export type ResolveResult = {
   entry: TimelineEntry;
   /** Dawn verdict for the day's Marked — callers persist it for savedYesterday. */
   marked: { name: string; saved: boolean };
+  /** Set when a Red Signal struck: the volley the dome faced. `outcome` drives home
+   *  damage in lazyResolve. held = every fireball blocked (no souls lost), breach = a
+   *  fireball pierced the dome, fallen = the city fell. */
+  raid: {
+    outcome: 'held' | 'breach' | 'fallen';
+    fireballs: Fireball[];
+    segmentsAfter: number[];
+    penetrations: number;
+  } | null;
 };
 
 const TRAIT_IDS: CityTraitId[] = ['standard', 'frozen', 'crowded', 'militarized', 'sick'];
@@ -375,15 +387,22 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     unlockedBuildings: built.unlocked,
   };
 
-  // --- 4b. Red Signal raid ---
+  // --- 4b. Red Signal raid: fireballs from the sky vs the energy dome ---
+  let raidResult: ResolveResult['raid'] = null;
   if (next.threat >= BALANCE.raid.triggerThreshold) {
-    // Each guard action today softens every raid loss (floored at 0 per-loss).
-    // A built Wall adds a flat raidDampen on top (bounded; 0 without the wall).
+    // The volley falls from above and is resolved fireball-by-fireball against the
+    // dome segment each one strikes (see game/dome.ts). Only PENETRATIONS reach the
+    // city; each is then softened by the physical wall/guard layer (floored at 0 per
+    // stat). A dome charged by daily challenges turns fireballs away for free.
+    const raidSeed = (city.worldSeed ^ Math.imul(city.cycle, 40503) ^ Math.imul(city.day, 97)) >>> 0;
+    const volley = resolveVolley(raidSeed, inputs.dome);
+    const pen = volley.penetrations;
     const dampen = (inputs.actions['guard_wall'] ?? 0) * BALANCE.raid.guardDampenPerAction + fx.raidDampen;
-    const foodLoss = Math.max(0, BALANCE.raid.foodLoss - dampen);
-    const powerLoss = Math.max(0, BALANCE.raid.powerLoss - dampen);
-    const moraleLoss = Math.max(0, BALANCE.raid.moraleLoss - dampen);
-    const populationLoss = Math.max(0, BALANCE.raid.populationLoss - dampen);
+    const pp = BALANCE.dome.perPenetration;
+    const foodLoss = Math.max(0, pen * pp.food - dampen);
+    const powerLoss = Math.max(0, pen * pp.power - dampen);
+    const moraleLoss = Math.max(0, pen * pp.morale - dampen);
+    const populationLoss = Math.max(0, pen * pp.population - dampen);
 
     next.food = clampStock(next.food - foodLoss);
     next.power = clampPct(next.power - powerLoss);
@@ -392,10 +411,16 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     next.threat = BALANCE.raid.postRaidThreat;
 
     const raidFelled = next.population <= BALANCE.fall.populationThreshold;
+    // Outcome: fell -> fallen; any fireball pierced the dome -> breach (homes lost,
+    // even if the wall caught the casualties); every fireball blocked -> held.
+    const outcome: 'held' | 'breach' | 'fallen' = raidFelled ? 'fallen' : pen > 0 ? 'breach' : 'held';
+    raidResult = { outcome, fireballs: volley.fireballs, segmentsAfter: volley.segmentsAfter, penetrations: pen };
     events.push(
       raidFelled
-        ? 'The Red Signal came in the night. The city could not hold, it fell.'
-        : 'The Red Signal came in the night. The city held, but paid in blood.',
+        ? 'The Red Signal fell from the sky. The dome shattered; the city could not hold, it fell.'
+        : outcome === 'held'
+          ? 'The Red Signal fell from the sky. The dome held; every fireball broke against the shield.'
+          : 'The Red Signal fell from the sky. Fireballs pierced the dome; the city held, but paid for it.',
     );
   }
 
@@ -457,5 +482,10 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
     winningOptionId: winner,
   };
 
-  return { city: next, entry, marked: { name: marked.name, saved: markedSaved } };
+  return {
+    city: next,
+    entry,
+    marked: { name: marked.name, saved: markedSaved },
+    raid: raidResult,
+  };
 };

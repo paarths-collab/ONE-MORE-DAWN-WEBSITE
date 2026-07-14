@@ -6,7 +6,10 @@ The V1 sound cues shipped in `public/assets/sfx/` are built from **Kenney's
 CC0 audio packs** (downloaded 2026-07-11 from kenney.nl — CC0 / public domain,
 no attribution required, credited as a courtesy). The three "big moment" cues
 (raid, dawn, fallen) are ffmpeg-composed derivatives of the same CC0 material
-(pitch shifts + echo), which remain CC0.
+(pitch shifts + echo), which remain CC0. The six raid-siege and reconstruction
+cues (`siege_bell`, `fireball`, `impact_hit`, `wall_crack`, `house_collapse`,
+`rebuild_done`) are likewise ffmpeg-composed derivatives of the shipped CC0
+cues, and also remain CC0.
 
 | File | Event | Built from | Pack | License |
 |---|---|---|---|---|
@@ -18,6 +21,16 @@ no attribution required, credited as a courtesy). The three "big moment" cues
 | `dawn_report.wav` | Dawn Report appears | `jingles_PIZZI07` + reverb | [Music Jingles](https://kenney.nl/assets/music-jingles) | CC0 |
 | `city_fallen.wav` | fallen-city screen | `bong_001` −2 octaves, death-knell decay | Interface Sounds | CC0 |
 | `error_soft.wav` | failed / blocked action | `error_006` | Interface Sounds | CC0 |
+| `siege_bell.wav` | raid siege incoming | ffmpeg derivative of `raid_warning.wav` (pitch down + slow second toll) | Interface Sounds | CC0 |
+| `fireball.wav` | incoming projectile arc | ffmpeg derivative of `action_confirm.wav` (reversed, pitch down, airy highpass) | Interface Sounds | CC0 |
+| `impact_hit.wav` | fireball lands / strike | ffmpeg derivative of `city_fallen.wav` (attack trimmed, pitch down, fast decay) | Interface Sounds | CC0 |
+| `wall_crack.wav` | wall breach / crack | ffmpeg derivative of `raid_warning.wav` (pitch up, highpass, short crackle echo) | Interface Sounds | CC0 |
+| `house_collapse.wav` | house destroyed / rubble | ffmpeg derivative of `city_fallen.wav` (deep pitch down, multi-delay rubble echo) | Interface Sounds | CC0 |
+| `rebuild_done.wav` | house restored | ffmpeg derivative of `dawn_report.wav` (pitch up bright chime, trimmed, light echo) | Music Jingles | CC0 |
+| `dome_block.wav` | fireball blocked by the dome | ffmpeg derivative of `error_soft.wav` (pitch down, highpass, absorb echo) | Interface Sounds | CC0 |
+| `dome_pierce.wav` | fireball pierces the dome | ffmpeg derivative of `raid_warning.wav` (reversed, pitch up, airy tearing echo) | Interface Sounds | CC0 |
+| `dome_shatter.wav` | dome overwhelmed / city falls | ffmpeg derivative of `pledge.wav` (pitch up, highpass, multi-tap glassy shatter) | Interface Sounds | CC0 |
+| `dome_repair.wav` | dome panel mended | ffmpeg derivative of `dawn_report.wav` (pitch up, trimmed, tremolo rising restore chime) | Music Jingles | CC0 |
 
 The earlier procedural placeholders can still be regenerated with
 `node tools/gen-sfx.mjs` if these files are ever removed.
@@ -46,7 +59,7 @@ different extension (e.g. `.ogg`), change the single `EXT` constant in
 only** (avoid CC-BY-NC / Sampling+ / unclear); [OpenGameArt](https://opengameart.org)
 — check every file's license individually.
 
-_Last updated: 2026-07-11 · current sfx = Kenney CC0 (Interface Sounds + Music Jingles)._
+_Last updated: 2026-07-14 · current sfx = Kenney CC0 (Interface Sounds + Music Jingles), plus ten ffmpeg-composed raid-siege / reconstruction / energy-dome derivatives (still CC0)._
 
 ## Background music (V1)
 

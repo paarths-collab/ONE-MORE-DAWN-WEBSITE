@@ -168,6 +168,8 @@ export type TimelineEntry = {
   deltas: ResourceDelta;
   crisisId: string;
   winningOptionId: string | null;
+  /** Present on a dawn a Red Signal struck; drives the Dawn Report aftermath. */
+  raidAftermath?: RaidAftermath;
 };
 
 // ---------- Mission ----------
@@ -208,6 +210,53 @@ export type DawnReport = {
   citySummary: string[];       // yesterday's timeline events (max 5)
   yourImpact: string[];        // personalized lines (may be empty)
   title: string | null;        // player's current title
+  // Raid aftermath (null when no raid struck), for the cinematic + rebuild UI.
+  raidAftermath: RaidAftermath | null;
+};
+
+// ---------- Raid aftermath + community reconstruction ----------
+
+export type HouseStatus = 'standing' | 'damaged' | 'destroyed' | 'rebuilding';
+
+/** A house the raid struck, for the scene to render as ruins and the UI to name. */
+export type DamagedHouse = { index: number; username: string; status: 'destroyed' | 'damaged' };
+
+/** One fireball in a raid volley: its rolled power, the dome segment it struck,
+ *  and whether the shield blocked it (power <= shield) or it punched through. */
+export type RaidFireball = { power: number; segment: number; blocked: boolean };
+
+/** The protective energy dome: 6 segment shields, the shared repair pool, and the
+ *  derived HUD readouts. Charged by daily challenges, drained by raids, mended by
+ *  the pool auto-repairing the weakest panel. */
+export type DomeState = {
+  segments: number[];          // per-segment shield 0..100 (length = BALANCE.dome.segments)
+  energyPct: number;           // average shield as a 0..100 percent (HUD "Dome Energy")
+  shield: number;              // shared repair pool accumulated toward the next mend
+  repairThreshold: number;     // pool needed to auto-repair one segment fully
+  nextRepairSegment: number | null; // the weakest panel the pool will mend next
+};
+
+/** What last night's raid did to the dome, the city's homes and its people. */
+export type RaidAftermath = {
+  held: boolean;               // the dome held (no souls lost)
+  wallBreached: boolean;       // a breach cost souls/homes (a fireball pierced the dome)
+  housesDestroyed: string[];   // usernames whose homes were destroyed
+  housesDamaged: number;       // count of homes damaged
+  reconstructionRequired: number; // total labor to restore them all
+  fireballs: RaidFireball[];   // the volley that fell (for the cinematic)
+  penetrations: number;        // fireballs that pierced the dome
+  segmentsBefore: number[];    // dome shields going into the raid
+  segmentsAfter: number[];     // dome shields after the raid (blocked hits drained them)
+};
+
+/** The shared rebuild queue: the whole city restores destroyed/damaged homes. */
+export type ReconstructionState = {
+  active: boolean;             // any incomplete damaged/destroyed home remains
+  required: number;            // total labor to clear the whole queue
+  contributed: number;         // labor applied so far toward the queue
+  destroyed: number;           // destroyed homes still outstanding
+  damaged: number;             // damaged homes still outstanding
+  next: { username: string; index: number; status: 'destroyed' | 'damaged'; done: number; needed: number } | null;
 };
 
 // ---------- API payloads ----------
@@ -227,6 +276,7 @@ export interface HouseSummary {
   founder: { username: string } | null;                 // index-0 contributor
   yours: { index: number; tier: HouseTier; isFounder: boolean } | null; // null until you contribute
   named: { username: string; index: number; tier: HouseTier }[];        // top contributors, for labels
+  damaged: DamagedHouse[];       // raid-struck homes, for the scene to render as ruins
 }
 
 export type InitResponse = {
@@ -275,6 +325,10 @@ export type InitResponse = {
   trait: { id: CityTraitId; label: string; blurb: string };
   build: BuildStatus;
   houses: HouseSummary;
+  /** Shared rebuild queue: destroyed/damaged homes the whole city restores. */
+  reconstruction: ReconstructionState;
+  /** The protective energy dome the raid tests its fireballs against. */
+  dome: DomeState;
   // ---- Reddit-native hook layer (Plan 1) ----
   marked: Marked;
   pledge: PledgeInfo;
@@ -382,6 +436,14 @@ export type ActionResponse = {
   coinsGained: number;
   treasuryPaid: number;
   economy: EconomyState;
+  /** build_city labor pays down the rebuild queue first; the current state. */
+  reconstruction: ReconstructionState;
+  /** Set when this labor just RESTORED a home the whole city rebuilt. */
+  rebuilt: { username: string; index: number } | null;
+  /** The dome after this contribution's shield gain + any auto-repair. */
+  dome: DomeState;
+  /** Segment indices auto-repaired by this contribution (null when none). */
+  domeRepaired: number[] | null;
 };
 
 /** crisisId pins the vote to the crisis the client was showing — a client held

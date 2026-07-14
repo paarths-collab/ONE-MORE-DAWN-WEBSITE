@@ -257,6 +257,43 @@ export const BALANCE = {
     moraleLoss: 15,
     guardDampenPerAction: 3,
   },
+
+  // A house belongs to one Redditor, but when a raid destroys it the WHOLE city
+  // rebuilds it. Destroyed/damaged homes enter a shared reconstruction queue;
+  // build_city labor pays it down (destroyed homes first) before any new
+  // building rises. Ownership is never lost — damage is a transient overlay.
+  reconstruction: {
+    laborPerDestroyed: 12,
+    laborPerDamaged: 5,
+    // Homes struck per raid outcome: [min, max] destroyed, [min, max] damaged.
+    // A fully-dampened raid (strong defense) holds with at most cosmetic damage;
+    // a breach costs homes; a fall scars the city before Phoenix rebirth.
+    select: {
+      held: { destroy: [0, 0], damage: [0, 1] },
+      breach: { destroy: [1, 3], damage: [1, 2] },
+      fallen: { destroy: [3, 5], damage: [0, 2] },
+    },
+  },
+
+  // The city shelters under a protective energy DOME of 6 arc segments. A raid is
+  // 5-6 fireballs FALLING FROM ABOVE; each fireball's rolled power is tested
+  // against the shield of the segment it strikes. power <= shield -> BLOCKED (the
+  // segment loses integrity, no city damage); power > shield -> PENETRATES (a home
+  // is destroyed, souls/resources lost, softened by the physical wall/guard layer).
+  // Segments are CHARGED by daily-challenge completions and REPAIRED by a shared
+  // shield pool that fills as the city contributes and auto-mends the weakest panel.
+  dome: {
+    segments: 6,
+    segmentMax: 100,
+    segmentStart: 60,
+    chargePerChallenge: 5, // per completed daily challenge, added to one seeded segment
+    shieldPerContribution: 1, // repair-pool gain per accepted contribution
+    repairThreshold: 12, // pool needed to auto-repair one segment fully
+    fireballs: { min: 5, max: 6 },
+    power: { min: 26, max: 82 },
+    blockDrain: 20, // shield a segment loses when it blocks a fireball
+    perPenetration: { population: 2, food: 4, power: 3, morale: 3 },
+  },
 } as const;
 
 export const DAY_ZERO_CRISIS_ID = 'first_light';

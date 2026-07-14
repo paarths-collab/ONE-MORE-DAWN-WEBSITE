@@ -21,6 +21,9 @@ const noInputs: DayInputs = {
   markedPledged: 0,
   pledges: {},
   markedActivePlayers: 0,
+  // A shattered dome: every raid fireball penetrates, so the raid-damage tests
+  // below see the full, deterministic loss (dampening is isolated separately).
+  dome: [0, 0, 0, 0, 0, 0],
 };
 
 describe('resolveDay', () => {
@@ -114,6 +117,7 @@ describe('resolveDay', () => {
       markedPledged: 10,
       pledges: { stand_vigil: 2 },
       markedActivePlayers: 3,
+      dome: [0, 0, 0, 0, 0, 0],
     };
     expect(resolveDay(city(), inputs)).toEqual(resolveDay(city(), inputs));
   });

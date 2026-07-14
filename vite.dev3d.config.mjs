@@ -77,6 +77,70 @@ const economyOfMock = (p) => ({
   owned: p.ownedCosmetics ?? [],
   equipped: p.equippedCosmetics ?? {},
 });
+// Community reconstruction mirror. Off by default so the standard build-panel
+// smoke is unaffected; MOCK_RAID_AFTERMATH=1 arms a raid-damaged neighbor home
+// (5 labor) sitting one short so a single build_city restores it on camera.
+const RECON_NEEDED = 5;
+let mockRebuildDone = process.env.MOCK_RAID_AFTERMATH ? 4 : RECON_NEEDED;
+const mockDamaged = () =>
+  mockRebuildDone < RECON_NEEDED ? [{ index: 6, username: 'ashen_fox', status: 'damaged' }] : [];
+const reconstructionOfMock = () => {
+  const active = mockRebuildDone < RECON_NEEDED;
+  return {
+    active,
+    required: active ? RECON_NEEDED : 0,
+    contributed: active ? mockRebuildDone : 0,
+    destroyed: 0,
+    damaged: active ? 1 : 0,
+    next: active
+      ? { username: 'ashen_fox', index: 6, status: 'damaged', done: mockRebuildDone, needed: RECON_NEEDED }
+      : null,
+  };
+};
+
+// The protective energy dome. MOCK_RAID_AFTERMATH=1 shows a worn dome (one panel
+// shattered, another low) so the HUD, pips, and repair reserve all read; otherwise
+// a healthy, well-charged shield.
+const mockDomeSegments = () =>
+  process.env.MOCK_RAID_AFTERMATH ? [80, 15, 60, 0, 95, 45] : [88, 92, 80, 100, 96, 84];
+const domeOfMock = () => {
+  const segments = mockDomeSegments();
+  const energyPct = Math.round(segments.reduce((a, b) => a + b, 0) / segments.length);
+  let nextRepairSegment = null;
+  let lo = 100;
+  segments.forEach((s, i) => {
+    if (s < lo && s < 100) {
+      lo = s;
+      nextRepairSegment = i;
+    }
+  });
+  return {
+    segments,
+    energyPct,
+    shield: process.env.MOCK_RAID_AFTERMATH ? 8 : 3,
+    repairThreshold: 12,
+    nextRepairSegment,
+  };
+};
+// The volley for the cinematic when a raid is mocked: 3 blocked, 3 pierced.
+const RAID_AFTERMATH = {
+  held: false,
+  wallBreached: true,
+  housesDestroyed: [],
+  housesDamaged: 1,
+  reconstructionRequired: RECON_NEEDED,
+  fireballs: [
+    { power: 45, segment: 0, blocked: true },
+    { power: 88, segment: 1, blocked: false },
+    { power: 40, segment: 2, blocked: true },
+    { power: 90, segment: 3, blocked: false },
+    { power: 30, segment: 4, blocked: true },
+    { power: 55, segment: 5, blocked: false },
+  ],
+  penetrations: 3,
+  segmentsBefore: [100, 35, 80, 20, 95, 55],
+  segmentsAfter: [80, 15, 60, 0, 95, 45],
+};
 let mockTreasury = { balance: 4, collected: 11, invested: 7 };
 const treasuryOfMock = (p) => ({
   balance: mockTreasury.balance,
@@ -221,9 +285,12 @@ const currentInit = () => ({
   pledge: mockPledge,
   economy: economyOfMock(mockPlayer),
   land: landOfMock(),
+  reconstruction: reconstructionOfMock(),
+  dome: domeOfMock(),
   treasury: treasuryOfMock(mockPlayer),
-  houses: currentHouses(),
-  ...(process.env.MOCK_CAMP ? { build: CAMP_BUILD, houses: CAMP_HOUSES, yourActionsToday: {} } : {}),
+  houses: { ...currentHouses(), damaged: mockDamaged() },
+  ...(process.env.MOCK_RAID_AFTERMATH ? { dawnReport: { ...INIT.dawnReport, raidAftermath: RAID_AFTERMATH } } : {}),
+  ...(process.env.MOCK_CAMP ? { build: CAMP_BUILD, houses: { ...CAMP_HOUSES, damaged: [] }, yourActionsToday: {} } : {}),
 });
 // One accepted mock contribution: +1 Coin up to the cap, mirrored statefully.
 const mockEarnCoin = () => {
@@ -277,7 +344,14 @@ const mockApi = () => ({
         mockActions = acts;
         mockPlayer = { ...mockPlayer, energyUsedToday: 2 };
         const award = mockEarnCoin();
-        return send(res, { type: 'action', player: mockPlayer, effectiveEnergy: 3, yourActionsToday: acts, unlockedTitle: null, coinsGained: award.gained, treasuryPaid: award.treasuryPaid, economy: economyOfMock(mockPlayer) });
+        // build_city labor pays down the shared rebuild queue first (homes
+        // before buildings). One point restores the pre-funded damaged home.
+        let rebuilt = null;
+        if (b.action === 'build_city' && mockRebuildDone < RECON_NEEDED) {
+          mockRebuildDone += 1;
+          if (mockRebuildDone >= RECON_NEEDED) rebuilt = { username: 'ashen_fox', index: 6 };
+        }
+        return send(res, { type: 'action', player: mockPlayer, effectiveEnergy: 3, yourActionsToday: acts, unlockedTitle: null, coinsGained: award.gained, treasuryPaid: award.treasuryPaid, economy: economyOfMock(mockPlayer), reconstruction: reconstructionOfMock(), rebuilt, dome: domeOfMock(), domeRepaired: null });
       }
       if (path === '/api/vote') {
         mockHasHouse = true;

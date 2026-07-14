@@ -10,6 +10,15 @@ export const KEYS = {
   lbScouts: 'lb:scouts',
   housesIndex: 'houses:index',
   housesMeta: 'houses:meta',
+  // Raid aftermath: a house's transient damage overlay + its shared-rebuild
+  // labor. The userId->index registry above is never touched; these clear on
+  // reconstruction, Phoenix rebirth, and mod reset.
+  housesDamage: 'houses:damage', // { [userId]: 'destroyed' | 'damaged' }
+  housesRebuild: 'houses:rebuild', // { [userId]: '<labor done>' }
+  // The protective energy dome: one hash with seg0..seg5 (segment shields, ints)
+  // and `shield` (the shared repair pool). Charged by daily challenges, drained by
+  // raids, mended by the pool. Resets with Phoenix rebirth and mod reset.
+  dome: 'dome:state',
   landFunding: 'land:funding',
   landProjectLock: (projectId: string) => `land:lock:${projectId}`,
   cityTreasury: 'city:treasury',

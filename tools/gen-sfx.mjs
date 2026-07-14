@@ -2,8 +2,16 @@
 // These are procedurally synthesized here (no external assets), so they are
 // unambiguously license-free. Swap them for Kenney CC0 .ogg files anytime by
 // dropping same-named files in and updating the extension in src/client/sound.ts.
+//
+// The four `dome_*` raid cues are NOT synthesized from scratch: like the existing
+// siege/reconstruction cues, they are ffmpeg-composed derivatives (pitch / echo /
+// trim) of the bundled CC0 base cues written above. This keeps them same-origin,
+// small, and unambiguously CC0. That step runs only when ffmpeg is on PATH; if it
+// is missing the base cues are still (re)generated and a note is printed so you can
+// regenerate the dome cues later with `node tools/gen-sfx.mjs`.
 // Run: node tools/gen-sfx.mjs
 import { mkdir, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -64,4 +72,52 @@ await mkdir(OUT, { recursive: true });
 for (const [name, [layers, dur]] of Object.entries(SFX)) {
   await writeFile(join(OUT, `${name}.wav`), render(layers, dur));
 }
-console.log(`wrote ${Object.keys(SFX).length} sfx to ${OUT}`);
+console.log(`wrote ${Object.keys(SFX).length} base sfx to ${OUT}`);
+
+// --- Dome raid cues: ffmpeg-composed CC0 derivatives of the base cues above ---
+// name -> { from: <base cue>, filter: <ffmpeg -af chain> }. All outputs are
+// 16-bit mono WAV at 44.1 kHz, matching every other cue in this folder.
+const DOME = {
+  // energy-absorb zap/thud when a fireball is blocked by the shield
+  dome_block: {
+    from: 'error_soft',
+    filter: 'asetrate=44100*0.80,aresample=44100,highpass=f=250,aecho=0.9:0.8:28:0.30',
+  },
+  // tearing whoosh when a fireball punches THROUGH the shield
+  dome_pierce: {
+    from: 'raid_warning',
+    filter: 'areverse,asetrate=44100*1.35,aresample=44100,highpass=f=450,aecho=0.8:0.6:18:0.25',
+  },
+  // glassy / energy shatter when the dome is overwhelmed (city falls)
+  dome_shatter: {
+    from: 'pledge',
+    filter: 'asetrate=44100*1.50,aresample=44100,highpass=f=600,aecho=0.8:0.9:15|29|41:0.5|0.35|0.25',
+  },
+  // short rising restore chime when a segment is auto-repaired
+  dome_repair: {
+    from: 'dawn_report',
+    filter: 'asetrate=44100*1.25,aresample=44100,highpass=f=300,atrim=0:0.5,tremolo=f=9:d=0.4,aecho=0.85:0.7:22:0.25',
+  },
+};
+
+const hasFfmpeg = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
+if (!hasFfmpeg) {
+  console.warn(
+    `ffmpeg not found on PATH — skipped ${Object.keys(DOME).length} dome cues. ` +
+      `Install ffmpeg and re-run \`node tools/gen-sfx.mjs\` to (re)generate them.`,
+  );
+} else {
+  let n = 0;
+  for (const [name, { from, filter }] of Object.entries(DOME)) {
+    const src = join(OUT, `${from}.wav`);
+    const dst = join(OUT, `${name}.wav`);
+    const r = spawnSync(
+      'ffmpeg',
+      ['-y', '-i', src, '-af', filter, '-c:a', 'pcm_s16le', '-ar', '44100', '-ac', '1', dst],
+      { stdio: 'ignore' },
+    );
+    if (r.status !== 0) throw new Error(`ffmpeg failed for ${name} (from ${from})`);
+    n++;
+  }
+  console.log(`wrote ${n} dome cues (ffmpeg derivatives) to ${OUT}`);
+}

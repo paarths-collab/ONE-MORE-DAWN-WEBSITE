@@ -48,9 +48,12 @@ import type {
   BuildingDef,
   BuildStatus,
   Crisis,
+  DomeState,
   HouseSummary,
   DawnReport,
   InitResponse,
+  RaidFireball,
+  ReconstructionState,
   LeaderboardEntry,
   Marked,
   PledgeInfo,
@@ -113,7 +116,7 @@ const WORLD_STATUS: Record<WorldStatus, { icon: string; label: string; color: st
   thriving: { icon: '🌿', label: 'Thriving', color: '#7fd6a2', flavor: 'Holding the line, and then some.' },
   holding: { icon: '🕯️', label: 'Holding', color: '#ffcf70', flavor: 'Holding the line.' },
   strained: { icon: '🩸', label: 'Strained', color: '#ff8a3d', flavor: 'Rationing candles. Still standing.' },
-  under_raid: { icon: '🚨', label: 'Under raid', color: '#ff5b4d', flavor: 'The wall decides tonight.' },
+  under_raid: { icon: '🚨', label: 'Under raid', color: '#ff5b4d', flavor: 'The dome decides tonight.' },
   fallen: { icon: '💀', label: 'Fallen', color: '#6b7089', flavor: 'The lights went out.' },
 };
 
@@ -220,6 +223,38 @@ const DEMO_ECONOMY: EconomyState = {
   equipped: { light: 'hearth_lantern' },
 };
 const DEMO_LAND = landExpansionState({ outer_fields: 120, river_ward: 96 });
+const EMPTY_RECONSTRUCTION: ReconstructionState = {
+  active: false, required: 0, contributed: 0, destroyed: 0, damaged: 0, next: null,
+};
+const EMPTY_DOME: DomeState = {
+  segments: [60, 60, 60, 60, 60, 60], energyPct: 60, shield: 0, repairThreshold: 12, nextRepairSegment: null,
+};
+
+// Sequence the siege SFX to track the dome cinematic: the warning bell, then per
+// fireball an incoming whistle and either a shield-absorb (blocked) or a
+// tearing pierce + impact (penetrated), and a final shatter/collapse/chime.
+// Short fire-and-forget cues; a stray timer after unmount just calls playSound
+// (a safe no-op). The volley is capped so a heavy raid never floods the mix.
+function playRaidSfx(
+  outcome: 'held' | 'breach' | 'fallen',
+  fireballs: readonly RaidFireball[],
+  homesLost: boolean,
+): void {
+  playSound('siege_bell');
+  const base = 520;
+  const step = 520;
+  const shown = fireballs.slice(0, 6);
+  shown.forEach((f, i) => {
+    const t0 = base + i * step;
+    window.setTimeout(() => playSound('fireball'), t0);
+    window.setTimeout(() => playSound(f.blocked ? 'dome_block' : 'dome_pierce'), t0 + 330);
+    if (!f.blocked) window.setTimeout(() => playSound('impact_hit'), t0 + 560);
+  });
+  const end = base + Math.max(1, shown.length) * step + 260;
+  if (outcome === 'fallen') window.setTimeout(() => playSound('dome_shatter'), end);
+  else if (homesLost) window.setTimeout(() => playSound('house_collapse'), end);
+  else if (outcome === 'held') window.setTimeout(() => playSound('dawn_report'), end);
+}
 const DEMO_TREASURY: TreasuryState = {
   balance: 18,
   totalCollected: 42,
@@ -1569,6 +1604,99 @@ type MapViewMode = 'town' | 'world';
 // BUILD panel (CITY tab) — the shared "build from zero" progress. Framed as
 // community effort: everyone's labor pushes one meter and unlocks buildings for
 // the whole city. Never "you built X" — always "we build this city together".
+// REBUILD THE NEIGHBORHOOD (CITY tab, shown while homes are in ruins). A house
+// belongs to one Redditor, but the whole city rebuilds it — this is the shared
+// meter every player's labor pays down (destroyed homes first). Ownership is
+// never lost; a rebuilt home returns to its owner.
+function ReconstructionPanel({
+  reconstruction,
+  onAddLabor,
+  disabled,
+}: {
+  reconstruction: ReconstructionState;
+  onAddLabor: () => void;
+  disabled: boolean;
+}) {
+  const { required, contributed, destroyed, damaged, next } = reconstruction;
+  const pct = required > 0 ? Math.min(100, Math.round((contributed / required) * 100)) : 100;
+  const lost: string[] = [];
+  if (destroyed > 0) lost.push(`${destroyed} home${destroyed === 1 ? '' : 's'} destroyed`);
+  if (damaged > 0) lost.push(`${damaged} damaged`);
+  return (
+    <div className="build-panel rebuild-panel">
+      <div className="bp-head">
+        <span className="bp-stage">🏚️ REBUILD THE NEIGHBORHOOD</span>
+        <span className="bp-sub">no citizen rebuilds alone</span>
+      </div>
+      <div className="mini-cap">{lost.join(' · ') || 'homes were lost in the raid'} — the whole city restores them.</div>
+      {next && (
+        <div className="bp-next">
+          <span className="bp-nm">Rebuilding: u/{next.username}'s house</span>
+          <span className="bp-desc">{next.status === 'destroyed' ? 'burned to the foundation' : 'damaged in the raid'}</span>
+        </div>
+      )}
+      <div className="bp-bar">
+        <i style={{ width: `${pct}%` }} />
+      </div>
+      <div className="bp-meta">
+        {contributed}/{required} labor · {next ? `${next.done}/${next.needed} on this home` : 'almost there'}
+      </div>
+      <button type="button" className="bp-cta rebuild-cta" disabled={disabled} onClick={onAddLabor}>
+        🔨 CONTRIBUTE LABOR
+      </button>
+    </div>
+  );
+}
+
+// ENERGY DOME (CITY tab) — the shield a raid's falling fireballs are tested
+// against. Charged by daily-challenge completions; every blocked fireball wears
+// a panel; the shared repair pool auto-mends the weakest. Six panels, six pips.
+function DomeHud({ dome }: { dome: DomeState }) {
+  const { segments, energyPct, shield, repairThreshold, nextRepairSegment } = dome;
+  const poolPct = repairThreshold > 0 ? Math.min(100, Math.round((shield / repairThreshold) * 100)) : 0;
+  const tone = energyPct >= 66 ? 'strong' : energyPct >= 33 ? 'worn' : 'weak';
+  const pipTone = (s: number) => (s >= 66 ? 'strong' : s >= 33 ? 'worn' : s > 0 ? 'weak' : 'gone');
+  return (
+    <div className="dome-panel">
+      <div className="dome-head">
+        <span className="dome-title">🛡️ ENERGY DOME</span>
+        <span className={`dome-energy dome-${tone}`}>{energyPct}%</span>
+      </div>
+      <div
+        className="dome-pips"
+        role="img"
+        aria-label={`Dome panels at ${segments.map((s) => `${Math.round(s)}%`).join(', ')}`}
+      >
+        {segments.map((s, i) => (
+          <i
+            key={i}
+            className={`dome-pip dome-${pipTone(s)}${i === nextRepairSegment ? ' dome-next' : ''}`}
+            style={{ height: `${Math.max(10, Math.round(s))}%` }}
+          />
+        ))}
+      </div>
+      <div className="mini-cap dome-cap">
+        {energyPct >= 66
+          ? 'the shield is strong — fireballs break against it'
+          : energyPct >= 33
+            ? 'the shield is wearing thin — finish your daily challenge to charge it'
+            : 'the dome is failing — the city must recharge it'}
+      </div>
+      <div className="dome-repair">
+        <span className="dome-repair-label">🔧 shield reserve</span>
+        <div className="dome-bar">
+          <i style={{ width: `${poolPct}%` }} />
+        </div>
+        <span className="dome-repair-meta">
+          {nextRepairSegment === null
+            ? 'no panels breached'
+            : `${shield}/${repairThreshold} to mend panel ${nextRepairSegment + 1}`}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function BuildPanel({
   build,
   onAddLabor,
@@ -1647,6 +1775,8 @@ function CityDashboard({
   buildCtaDisabled,
   buildCtaLabel,
   coachActive,
+  reconstruction,
+  dome,
   economy,
   landState,
   treasury,
@@ -1686,6 +1816,8 @@ function CityDashboard({
   buildCtaDisabled: boolean;
   buildCtaLabel: string;
   coachActive: boolean;
+  reconstruction: ReconstructionState;
+  dome: DomeState;
   economy: EconomyState;
   landState: LandExpansionState;
   treasury: TreasuryState;
@@ -1767,6 +1899,10 @@ function CityDashboard({
 
         {tab === 'city' && (
           <>
+            <DomeHud dome={dome} />
+            {reconstruction.active && (
+              <ReconstructionPanel reconstruction={reconstruction} onAddLabor={onAddLabor} disabled={buildCtaDisabled} />
+            )}
             {build && (
               <BuildPanel build={build} onAddLabor={onAddLabor} ctaDisabled={buildCtaDisabled} ctaLabel={buildCtaLabel} />
             )}
@@ -2036,13 +2172,13 @@ function RaidBanner({ phase }: { phase: RaidPhase }) {
       : phase === 'breach'
         ? 'hud raid-banner card-bit on bad'
         : 'hud raid-banner card-bit on';
-  const title = phase === 'held' ? '🛡 THE WALL HELD' : phase === 'breach' ? '🔥 THE WALL WAS BREACHED' : '⚔ RAID AT THE GATE';
+  const title = phase === 'held' ? '🛡 THE DOME HELD' : phase === 'breach' ? '🔥 THE DOME WAS BREACHED' : '⚔ RAID AT THE GATE';
   const sub =
     phase === 'held'
-      ? 'threat −38 · defense −8 · food −6'
+      ? 'every fireball broke against the shield'
       : phase === 'breach'
-        ? '−8 souls · food −18 · defense −15'
-        : 'the wall decides tonight…';
+        ? 'a fireball pierced the dome · −8 souls'
+        : 'the dome decides tonight…';
   return (
     <div className={cls}>
       <div className="rb-t">{title}</div>
@@ -2774,6 +2910,8 @@ export function App() {
   // Coin economy: balance + cosmetics from the server, land districts shared city-wide.
   const [liveEconomy, setLiveEconomy] = useState<EconomyState | null>(null);
   const [liveLand, setLiveLand] = useState<LandExpansionState | null>(null);
+  const [liveReconstruction, setLiveReconstruction] = useState<ReconstructionState | null>(null);
+  const [liveDome, setLiveDome] = useState<DomeState>(EMPTY_DOME);
   const [liveTreasury, setLiveTreasury] = useState<TreasuryState | null>(null);
   const [demoEconomy, setDemoEconomy] = useState<EconomyState>(() => ({
     ...DEMO_ECONOMY,
@@ -2850,6 +2988,7 @@ export function App() {
   const poisRef = useRef<PoiInfo[]>([]); // district directory, readable in handlers
   const contribsRef = useRef<Record<string, Contrib>>(START_CONTRIBS); // fresh reads in timers
   const liveBuildRef = useRef<BuildStatus | null>(null); // last server build state, readable in the add-labor handler
+  const liveReconstructionRef = useRef<ReconstructionState | null>(null); // readable in the add-labor handler
   const liveHousesRef = useRef<HouseSummary | null>(null); // last server house summary, for first-house feedback
   const demoUnlockedRef = useRef<string[]>([]); // demo build unlocks, readable in the handler
   const demoBuildProgressRef = useRef(0); // demo labor toward the next building
@@ -2877,7 +3016,8 @@ export function App() {
   }, [mapView]);
   useEffect(() => {
     liveBuildRef.current = liveBuild;
-  }, [liveBuild]);
+    liveReconstructionRef.current = liveReconstruction;
+  }, [liveBuild, liveReconstruction]);
 
   // ---- feed helpers ----
   const pushEvent = useCallback((icon: string, text: string) => {
@@ -3018,6 +3158,8 @@ export function App() {
       // Economy + land: state for the SHOP tab, cosmetics + districts for the scene.
       setLiveEconomy(init.economy ?? EMPTY_ECONOMY);
       setLiveLand(init.land ?? EMPTY_LAND);
+      setLiveReconstruction(init.reconstruction ?? EMPTY_RECONSTRUCTION);
+      setLiveDome(init.dome ?? EMPTY_DOME);
       setLiveTreasury(init.treasury ?? EMPTY_TREASURY);
       // Daily mission: track completion transitions so finishing mid-session
       // cheers exactly once (never on boot, never again on later polls).
@@ -3101,15 +3243,42 @@ export function App() {
       if (dayIncreased) {
         pushNotif('🌅', `dawn breaks, day ${city.day}`);
         pushEvent('🌅', `Dawn broke over the city, day ${city.day}, still standing.`);
-        // last night's raid, if the timeline recorded one
-        const t = init.timelinePreview;
-        const raidOutcome = raidOutcomeFromTimeline(t?.events, t?.deltas.population);
-        if (raidOutcome) {
-          const breached = raidOutcome.title === 'THE WALL WAS BREACHED';
-          showEpic(raidOutcome.title, raidOutcome.line);
-          pushNotif('⚔', raidOutcome.line, breached ? 'bad' : 'good');
-          pushEvent('⚔', raidOutcome.line);
-          playSound(breached ? 'raid_warning' : 'dawn_report');
+        // Last night's raid: the server aftermath (authoritative) drives the full
+        // siege cinematic + the sequenced SFX; older entries without it fall back
+        // to the timeline-derived banner.
+        const after = init.dawnReport?.raidAftermath ?? null;
+        if (after) {
+          const outcome: 'held' | 'breach' | 'fallen' =
+            after.held ? 'held' : city.status === 'fallen' ? 'fallen' : 'breach';
+          const hitHouseIndices = (init.houses?.damaged ?? []).map((d) => d.index);
+          const volley: RaidFireball[] = after.fireballs ?? [];
+          // The dome panels settle to their post-raid state via the liveDome effect;
+          // the cinematic plays the falling volley (ripples on blocks, pierces + house
+          // hits on penetrations) over them.
+          handleRef.current?.playRaidCinematic?.({ outcome, fireballs: volley, hitHouseIndices });
+          playRaidSfx(outcome, volley, after.housesDestroyed.length > 0);
+          const blocked = volley.filter((f) => f.blocked).length;
+          const title =
+            after.held ? '🛡 THE DOME HELD' : outcome === 'fallen' ? '💥 THE DOME SHATTERED' : '🔥 THE DOME WAS BREACHED';
+          const lost = after.housesDestroyed.length;
+          const sub = after.held
+            ? `the dome held — ${blocked} fireball${blocked === 1 ? '' : 's'} broke against the shield`
+            : lost > 0
+              ? `${lost} home${lost === 1 ? '' : 's'} lost — no citizen rebuilds alone`
+              : 'a fireball pierced the dome; the city held the line';
+          showEpic(title, sub);
+          pushNotif('⚔', sub, after.held ? 'good' : 'bad');
+          pushEvent('⚔', sub);
+        } else {
+          const t = init.timelinePreview;
+          const raidOutcome = raidOutcomeFromTimeline(t?.events, t?.deltas.population);
+          if (raidOutcome) {
+            const breached = raidOutcome.title === 'THE WALL WAS BREACHED';
+            showEpic(raidOutcome.title, raidOutcome.line);
+            pushNotif('⚔', raidOutcome.line, breached ? 'bad' : 'good');
+            pushEvent('⚔', raidOutcome.line);
+            playSound(breached ? 'raid_warning' : 'dawn_report');
+          }
         }
       }
     },
@@ -3661,6 +3830,22 @@ export function App() {
     setNeedsOnboard(false);
   }, []);
 
+  // A dome mend just landed (the shared shield pool crossed the repair threshold):
+  // grow the panel(s) back in the scene, chime, and tell the city. Occasional, so
+  // a light touch — no full epic (those are reserved for raids + home rebuilds).
+  const announceDomeRepairs = useCallback(
+    (repaired: number[] | null | undefined) => {
+      if (!repaired || repaired.length === 0) return;
+      for (const seg of repaired) handleRef.current?.repairDomeSegment?.(seg);
+      playSound('dome_repair');
+      const n = repaired.length;
+      popFloat('🛡 dome mended');
+      pushNotif('🛡', `the city mended the dome (${n} panel${n === 1 ? '' : 's'})`, 'good');
+      pushEvent('🛡', `The city repaired ${n} dome panel${n === 1 ? '' : 's'} from the shield reserve.`);
+    },
+    [popFloat, pushNotif, pushEvent],
+  );
+
   // ADD LABOR, the shared "build from zero" contribution. Live: post the
   // energy-gated once/day build_city action, then re-fetch to pull the fresh
   // community progress. Demo: advance the local meter and unlock buildings on
@@ -3670,15 +3855,28 @@ export function App() {
       if (cityFallenRef.current || mutatingRef.current) return;
       const nextName = liveBuildRef.current?.next?.name ?? 'settlement';
       mutatingRef.current = true;
+      const rebuildingNow = liveReconstructionRef.current?.active ?? false;
       postAction('build_city')
         .then(async (res) => {
           setLiveEnergy({ effective: res.effectiveEnergy, used: res.player.energyUsedToday });
           setLiveActions(res.yourActionsToday);
           setLiveEconomy(res.economy);
+          setLiveReconstruction(res.reconstruction);
+          setLiveDome(res.dome);
           if (res.treasuryPaid > 0) popFloat(`+${res.treasuryPaid} 🏛 TREASURY`);
           else if (res.coinsGained > 0) popFloat('+1 🪙');
           playSound('action_confirm');
-          pushNotif('🔨', `you added a day's labor to the ${nextName}`, 'good');
+          if (res.rebuilt) {
+            // The whole city just restored someone's home — ownership preserved.
+            handleRef.current?.rebuildHouse?.(res.rebuilt.index);
+            playSound('rebuild_done');
+            showEpic('THE CITY REBUILT A HOME', `u/${res.rebuilt.username}'s house stands again`);
+            pushNotif('🏠', `the city rebuilt u/${res.rebuilt.username}'s home`, 'good');
+            pushEvent('🏠', `The community restored u/${res.rebuilt.username}'s house.`);
+          } else {
+            pushNotif('🔨', rebuildingNow ? 'you added labor to the rebuild' : `you added a day's labor to the ${nextName}`, 'good');
+          }
+          announceDomeRepairs(res.domeRepaired);
           // Mutation committed — release the single-flight guard BEFORE the
           // read-only refresh so a quick next tap is never silently swallowed
           // while /init is still in flight (slow devices hit this for real).
@@ -3817,11 +4015,24 @@ export function App() {
         { username: 'ashen_fox', index: 6, tier: 3 },
         { username: 'saltcedar', index: 14, tier: 2 },
       ],
+      damaged: [],
     };
   }, [mode, liveHouses, demoHouseTotal, demoYourContribution]);
   useEffect(() => {
     handleRef.current?.setHouses?.(houses ? { ...houses, currentUsername: liveUsername || 'you' } : null);
   }, [houses, liveUsername, loaded]);
+  // Raid ruins overlay: struck homes render as ruins with lingering smoke and
+  // keep their owner label. setHouses re-applies internally on refresh; this
+  // effect keeps the scene's damage set in sync with the server truth.
+  useEffect(() => {
+    handleRef.current?.setHouseDamage?.((houses?.damaged ?? []).map((d) => ({ index: d.index, status: d.status })));
+  }, [houses, loaded]);
+  // Energy dome: keep the scene's 6 shield panels in sync with the authoritative
+  // dome state (charged by challenges, drained by raids, mended by the pool).
+  const domeState = mode === 'live' ? liveDome : EMPTY_DOME;
+  useEffect(() => {
+    handleRef.current?.setDome?.(domeState.segments);
+  }, [domeState, loaded]);
 
   const economy = mode === 'live' ? (liveEconomy ?? EMPTY_ECONOMY) : mode === 'demo' ? demoEconomy : EMPTY_ECONOMY;
   const landState = mode === 'live' ? (liveLand ?? EMPTY_LAND) : mode === 'demo' ? demoLand : EMPTY_LAND;
@@ -4052,10 +4263,13 @@ export function App() {
           .then(async (res) => {
             setLiveEnergy({ effective: res.effectiveEnergy, used: res.player.energyUsedToday });
             setLiveActions(res.yourActionsToday);
+            setLiveReconstruction(res.reconstruction);
+            setLiveDome(res.dome);
             playSound('action_confirm');
             popFloat(`+1 ${ACTION_JUICE[act] ?? '⚡'}`);
             pushNotif('✅', 'your work lands at the next dawn', 'good');
             if (res.unlockedTitle) pushNotif('🏅', `title unlocked, ${res.unlockedTitle}`, 'good');
+            announceDomeRepairs(res.domeRepaired);
             const liveFrags = ACTION_FLASH[id] ?? [];
             const liveHit = poisRef.current.find((p) => liveFrags.some((f) => p.name.toUpperCase().includes(f)));
             if (liveHit) handleRef.current?.flashDistrict?.(liveHit.name);
@@ -4156,6 +4370,24 @@ export function App() {
     pushNotif('⚔', 'RAID, raiders are at the gate!', 'bad');
     handleRef.current?.setRaidWatch?.(true);
     handleRef.current?.setRaiders?.(true); // raider party appears at the gate
+    // The wall decides on CURRENT defense; scale the siege cinematic to match.
+    const willHold = vitalsRef.current.DEFENSE >= 40;
+    // Demo volley: a strong dome turns every fireball; a weak one lets a few pierce.
+    const demoVolley: RaidFireball[] = willHold
+      ? [0, 1, 2, 3, 4].map((s) => ({ power: 40, segment: s, blocked: true }))
+      : [
+          { power: 45, segment: 0, blocked: true },
+          { power: 72, segment: 1, blocked: false },
+          { power: 38, segment: 2, blocked: true },
+          { power: 80, segment: 3, blocked: false },
+          { power: 55, segment: 4, blocked: true },
+        ];
+    handleRef.current?.playRaidCinematic?.({
+      outcome: willHold ? 'held' : 'breach',
+      fireballs: demoVolley,
+      hitHouseIndices: [],
+    });
+    playRaidSfx(willHold ? 'held' : 'breach', demoVolley, !willHold);
     raidTimersRef.current.push(
       window.setTimeout(() => {
         const held = vitalsRef.current.DEFENSE >= 40;
@@ -4587,6 +4819,8 @@ export function App() {
         buildCtaDisabled={buildCtaDisabled}
         buildCtaLabel={buildCtaLabel}
         coachActive={coachStep !== null}
+        reconstruction={mode === 'live' ? (liveReconstruction ?? EMPTY_RECONSTRUCTION) : EMPTY_RECONSTRUCTION}
+        dome={domeState}
         economy={economy}
         landState={landState}
         treasury={treasury}

@@ -753,6 +753,42 @@ async function fallenSmoke(url) {
   }
 }
 
+async function reconstructionSmoke(url) {
+  const { cdp, close } = await openPage(url);
+  try {
+    await cdp.waitFor('!!document.querySelector("canvas") && document.body.innerText.includes("VAELMAR")', 'reconstruction city boot');
+    await cdp.waitFor('!document.querySelector(".loader:not(.done)")', 'reconstruction loader exit');
+    let primerGuard = 0;
+    while (primerGuard++ < 12 && (await cdp.eval(`!!document.querySelector('.coach')`))) {
+      await cdp.eval(`document.querySelector('.coach .co-next')?.click()`);
+      await sleep(100);
+    }
+    await cdp.clickButton('CITY');
+    await completeContextLesson(cdp, 'WE BUILD TOGETHER');
+    // The energy dome HUD renders on the CITY tab: 6 shield panels + an energy %.
+    await cdp.waitFor(`!!document.querySelector('.dome-panel')`, 'the ENERGY DOME panel shows on the CITY tab');
+    const domeTxt = await cdp.eval(`(() => { const p = document.querySelector('.dome-panel'); return p ? p.textContent.replace(/\\s+/g,' ') : ''; })()`);
+    assert(/ENERGY DOME/.test(domeTxt), 'dome panel is titled ENERGY DOME.');
+    assert(/\d+%/.test(domeTxt), `dome panel shows the shield energy percent, saw "${domeTxt}".`);
+    const pipCount = await cdp.eval(`document.querySelectorAll('.dome-panel .dome-pip').length`);
+    assert(pipCount === 6, `dome shows one pip per segment (6), saw ${pipCount}.`);
+    const shatteredPips = await cdp.eval(`document.querySelectorAll('.dome-panel .dome-pip.dome-gone').length`);
+    assert(shatteredPips >= 1, `a shattered panel (shield 0) reads as a spent pip, saw ${shatteredPips}.`);
+    // A raid damaged a neighbor's home: the whole city rebuilds it (not the owner).
+    await cdp.waitFor(`!!document.querySelector('.rebuild-panel')`, 'the REBUILD THE NEIGHBORHOOD panel shows while homes are in ruins');
+    const before = await cdp.eval(`(() => { const p = document.querySelector('.rebuild-panel'); return p ? p.textContent.replace(/\\s+/g,' ') : ''; })()`);
+    assert(/REBUILD THE NEIGHBORHOOD/.test(before), 'rebuild panel is titled for the shared effort.');
+    assert(/ashen_fox/.test(before), `rebuild panel names the owner whose home is being restored, saw "${before}".`);
+    assert(/4\/5/.test(before), `rebuild panel shows the shared progress toward the home, saw "${before}".`);
+    // One citizen's labor completes the restore -> the whole city rebuilt the home.
+    await cdp.clickSelectorContaining('.rebuild-cta', 'CONTRIBUTE LABOR');
+    await cdp.waitFor(`document.body.innerText.includes('stands again') || document.body.innerText.includes('rebuilt')`, 'the community restores the home');
+    await cdp.waitFor(`!document.querySelector('.rebuild-panel')`, 'the rebuild panel clears once the neighborhood is restored');
+  } finally {
+    await close();
+  }
+}
+
 async function campSmoke(url) {
   const { cdp, close } = await openPage(url);
   try {
@@ -943,5 +979,6 @@ await withServer('feed splash', 4647, {}, splashSmoke);
 await withServer('mock-live refresh failure', 4648, { MOCK_INIT_FAIL_AFTER_MUTATION: '1' }, refreshFailureSmoke);
 await withServer('mock-live leaderboard failure', 4649, { MOCK_LEADERBOARD_FAIL: '1' }, leaderboardFailureSmoke);
 await withServer('mock-live optional name failure', 4650, { MOCK_ROLE_NULL: '1', MOCK_AVATAR_FAIL: '1' }, optionalNameFailureSmoke);
+await withServer('mock-live raid reconstruction', 4651, { MOCK_RAID_AFTERMATH: '1' }, reconstructionSmoke);
 
 console.log('client smoke passed');
