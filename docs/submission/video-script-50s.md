@@ -8,6 +8,11 @@
 > budget. This recut keeps the whole story arc but drops the depth passes (see
 > "What was cut" below). Every beat here is one continuous 6–8s shot; do NOT try to
 > show sub-features inside a beat.
+>
+> **On "demo everything":** at ≤50s you can't show every system — that's the 90s
+> script's job. This cut prioritizes the unique hooks and now explicitly covers the
+> **daily task**, the **daily puzzle**, and the **raid → dome shield-point loss →
+> casualties → shared rebuild** chain. If you truly need every screen, use the 90s version.
 
 ---
 
@@ -18,10 +23,10 @@
 Caption: **EVERY CITY STARTS WITH NOTHING.**
 VO: "One More Dawn is a community survival game on Reddit — a city that begins with nothing."
 
-**0:06–0:13 — Your house** *(7s)*
-[Onboarding: flash the four role cards, pick one. Cut to CITY → ADD LABOR → labor meter fills → the house pops in with `Your house now stands in the city`.]
+**0:06–0:13 — Your task, your house** *(7s)*
+[Onboarding: flash the four role cards, pick one. HUD shows the daily task chip `🌾 Feed the stores: Grow Food ×2 · 1/2`. Take the matching action → the task ticks to `2/2 ✓ +2` → CITY → the house pops in with `Your house now stands in the city`.]
 Caption: **ONE REDDITOR. ONE HOUSE.**
-VO: "Pick a role, make one action a day, and your house becomes part of the city — forever."
+VO: "Pick a role, finish your daily task, and your house becomes part of the city — forever."
 
 **0:13–0:21 — Built together** *(8s)*
 [Time-lapse: Camp → Shelter → houses → Farm → Clinic → Wall → Council Hall, camera pulling back. Overlay the souls counter ticking `4 → 18 → 42 souls have built here`.]
@@ -34,9 +39,9 @@ Caption: **SOLVE. VOTE. DECIDE.**
 VO: "Restore districts in the daily puzzle. Then vote, together, on every crisis the city faces."
 
 **0:29–0:37 — Raid at dawn** *(8s)*
-[Raid countdown hits zero → sky reddens → warning bell → siege fire strikes the wall → wall cracks → a house catches fire. Keep it to a short consequence, not a battle.]
-Caption: **THE RAID ARRIVES AT DAWN.**
-VO: "But every dawn has consequences. If the city wasn't ready, the walls break and homes burn."
+[Countdown hits zero → sky reddens → warning bell → fireballs rain down onto the DOME. Each hit flares the shield and its points drop (`SHIELD 40 → 12`). One fireball punches through → wall cracks, a house burns → the casualty toll ticks (`−6 souls`). Short consequence, not a battle.]
+Caption: **THE DOME HOLDS — OR IT DOESN'T.**
+VO: "Every dawn has consequences. Fireballs drain the dome — and if it breaks, homes burn and citizens are lost."
 
 **0:37–0:44 — Rebuild together** *(7s)*
 [Aftermath: ruined houses with owner names still above them, `Reconstruction 12/24 Labor`, several different players adding labor → ruin → frame → roof → restored house.]
@@ -76,8 +81,10 @@ World-of-Cities scene. The unique hooks — *one Redditor = one house*, *the com
 
 ## Recording gates
 - Final encode **≤ 49s** (hard). If over, cut the puzzle line/shot first, then shorten the time-lapse.
-- Record only **real live UI**. ⚠️ Confirm the raid fire/siege sequence is live, not the demo-only
-  animation — if it's demo-only, use the resolved raid **banner + burnt-house aftermath** instead
-  (both are real) so the submission shows shipping behavior.
+- Record only **real live UI**. ⚠️ For the raid, the **dome shield-point drop** (DomeHud), the
+  resolved raid **banner** (`THE DOME HELD` / `THE DOME WAS BREACHED · −N souls`), and the
+  **burnt-house aftermath** are all real and recordable — use those for the shield-loss + casualty
+  beats. If the cinematic fireball-on-dome sequence turns out to be demo-only, cut straight to the
+  real banner + aftermath instead.
 - Replace the **play-link placeholder** on the end card before export.
 - 1080p landscape; large cursor movement; no setup narration.
