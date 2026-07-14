@@ -71,6 +71,7 @@ describe('freshPlayer', () => {
       injuredUntilDay: 0, totalContribution: 0, streak: 1,
       coins: 0, coinsEarnedToday: 0, coinsEarnedCycle: 0, coinsEarnedDay: 0,
       ownedCosmetics: [], equippedCosmetics: {},
+      treasuryProgress: 0, treasuryBacklog: 0, treasuryPaid: 0,
     });
   });
 });

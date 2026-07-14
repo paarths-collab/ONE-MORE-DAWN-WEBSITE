@@ -6,6 +6,7 @@ import type {
   LandExpansionState,
   ShopItemId,
 } from './shop';
+import type { TreasuryState } from './treasury';
 
 // ---------- Core enums ----------
 
@@ -128,6 +129,10 @@ export type PlayerProfile = {
   coinsEarnedDay?: number;
   ownedCosmetics?: ShopItemId[];
   equippedCosmetics?: Partial<Record<CosmeticSlot, ShopItemId>>;
+  // ---- Automatic civic share (optional: older profiles lack these) ----
+  treasuryProgress?: number;
+  treasuryBacklog?: number;
+  treasuryPaid?: number;
 };
 
 // ---------- Crises ----------
@@ -295,6 +300,8 @@ export type InitResponse = {
   economy: EconomyState;
   /** Community-funded, sequential districts on the connected mainland. */
   land: LandExpansionState;
+  /** Automatic civic dues pooled for community projects. */
+  treasury: TreasuryState;
   city: CityState;
   player: PlayerProfile;
   effectiveEnergy: number; // dailyEnergy minus injury penalty; derived, never stored
@@ -378,6 +385,7 @@ export type PledgeResponse = {
   pledge: PledgeInfo;
   player: PlayerProfile;
   coinsGained: number;
+  treasuryPaid: number;
   economy: EconomyState;
 };
 
@@ -426,6 +434,7 @@ export type ActionResponse = {
   yourActionsToday: Partial<Record<ActionType, number>>;
   unlockedTitle: string | null;
   coinsGained: number;
+  treasuryPaid: number;
   economy: EconomyState;
   /** build_city labor pays down the rebuild queue first; the current state. */
   reconstruction: ReconstructionState;
@@ -445,6 +454,7 @@ export type VoteResponse = {
   crisisVotes: VoteTally;
   yourCrisisVote: string;
   coinsGained: number;
+  treasuryPaid: number;
   economy: EconomyState;
 };
 
@@ -454,6 +464,7 @@ export type StrategyResponse = {
   strategyVotes: VoteTally;
   yourStrategyVote: StrategyPlanId;
   coinsGained: number;
+  treasuryPaid: number;
   economy: EconomyState;
 };
 
@@ -480,6 +491,17 @@ export type LandDonationResponse = {
   donated: number;
   unlocked: boolean;
   economy: EconomyState;
+  land: LandExpansionState;
+  message: string;
+};
+
+export type TreasuryInvestmentRequest = { projectId: LandExpansionId; amount: number };
+export type TreasuryInvestmentResponse = {
+  type: 'treasury-investment';
+  projectId: LandExpansionId;
+  invested: number;
+  unlocked: boolean;
+  treasury: TreasuryState;
   land: LandExpansionState;
   message: string;
 };

@@ -207,6 +207,16 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .land-head { display: flex; flex-direction: column; gap: 3px; margin: 2px 0 7px; }
 .land-head span { font-family: var(--pixel); font-size: 9px; color: var(--gold); }
 .land-head small { font-family: var(--mono); font-size: 7.5px; color: var(--mut); }
+.treasury-card { margin: 8px 0 10px; padding: 10px 2px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(232, 195, 74, 0.035); }
+.tc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tc-head span { font-family: var(--pixel); font-size: 8px; color: var(--ink); }
+.tc-head strong { font-family: var(--pixel); font-size: 11px; color: var(--gold); }
+.tc-meta { margin-top: 4px; font-family: var(--mono); font-size: 8px; color: var(--mut); }
+.tc-share { display: flex; justify-content: space-between; gap: 8px; margin-top: 9px; font-family: var(--mono); font-size: 7.5px; color: var(--mut); }
+.tc-share span:first-child { color: var(--ink); }
+.tc-backlog { margin-top: 7px; padding: 6px 7px; border-left: 2px solid #d96d45; background: rgba(217, 109, 69, 0.08); font-family: var(--mono); font-size: 7.5px; line-height: 1.4; color: #efad8a; }
+.treasury-invest { width: 100%; min-height: 34px; margin-top: 9px; border: 1px solid #6f7835; border-radius: 7px; background: #26301b; color: #d8df91; font-family: var(--pixel); font-size: 7px; line-height: 1.4; cursor: pointer; }
+.treasury-invest:disabled { opacity: 0.42; cursor: default; }
 .land-row.active { background: rgba(232, 195, 74, 0.045); }
 .land-row.done { opacity: 0.8; }
 .land-progress { width: 100%; height: 7px; overflow: hidden; border-radius: 4px; background: #110e0a; }
@@ -588,12 +598,12 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
 /* ---- advisor coachmarks — the guide that walks a new survivor in ---- */
 .coach-ring { position: fixed; z-index: 29; pointer-events: none; border: 2px solid var(--gold); border-radius: 14px; box-shadow: 0 0 0 4px rgba(232, 195, 74, 0.22), 0 0 20px rgba(232, 195, 74, 0.35); transition: left 0.3s, top 0.3s, width 0.3s, height 0.3s; }
 @keyframes co-in { from { opacity: 0; transform: translateX(-50%) translateY(16px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-.coach { position: fixed; left: 50%; bottom: 170px; transform: translateX(-50%); z-index: 30; width: min(360px, calc(100vw - 24px)); padding: 12px 14px; border-radius: 14px; pointer-events: auto; display: grid; grid-template-columns: 44px 1fr; column-gap: 12px; animation: co-in 0.35s ease-out; }
+.coach { position: fixed; left: 50%; bottom: 170px; transform: translateX(-50%); z-index: 30; width: min(380px, calc(100vw - 24px)); padding: 12px 14px; border-radius: 14px; pointer-events: auto; display: grid; grid-template-columns: 68px 1fr; column-gap: 12px; animation: co-in 0.35s ease-out; }
 /* Maren is alive: she bobs, blinks, talks, flickers her lantern, turns toward
-   what she's showing, and points. All pure CSS on SVG groups — no assets. */
-.coach .co-avatar-wrap { grid-row: 1 / 4; align-self: start; margin-top: 2px; position: relative; display: inline-block; transition: transform 0.35s; }
+   what she's showing, and points. Smooth SVG keeps her crisp on dense screens. */
+.coach .co-avatar-wrap { grid-row: 1 / 4; align-self: start; width: 68px; min-height: 86px; margin-top: 0; position: relative; display: inline-block; transition: transform 0.35s; }
 .coach .co-avatar-wrap.face-left { transform: scaleX(-1); }
-.coach .co-avatar { image-rendering: pixelated; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)); animation: co-bob 2.8s ease-in-out infinite; }
+.coach .co-avatar { display: block; width: 66px; height: 84px; overflow: visible; image-rendering: auto; shape-rendering: geometricPrecision; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55)); animation: co-bob 2.8s ease-in-out infinite; }
 @keyframes co-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 .co-eyes { animation: co-wink 4.4s step-end infinite; }
 @keyframes co-wink { 0%, 91%, 100% { opacity: 1; } 93%, 96% { opacity: 0; } }
@@ -621,7 +631,7 @@ table.st { width: 100%; border-collapse: collapse; font-family: var(--mono); fon
 .coach .co-step { font-family: var(--pixel); font-size: 8px; color: var(--muted); }
 .coach .co-next { margin-left: auto; font-family: var(--pixel); font-size: 9px; letter-spacing: 1px; color: #171109; background: var(--gold); border: 1px solid #80651f; border-radius: 8px; padding: 8px 14px; cursor: pointer; min-height: 34px; }
 @media (max-width: 640px) { .coach { bottom: 196px; } }
-@media (orientation: landscape) and (max-height: 500px) { .coach { bottom: 96px; width: min(300px, calc(100vw - 260px)); left: 42%; } }
+@media (orientation: landscape) and (max-height: 500px) { .coach { bottom: 96px; width: min(330px, calc(100vw - 260px)); left: 42%; } }
 
 /* ---- villager name tags (CSS2DRenderer layer — never animate transform) ---- */
 .v-name { pointer-events: none; font-family: var(--pixel); font-size: 7.5px; letter-spacing: 1px; color: #9fc0ff; background: rgba(12, 14, 26, 0.85); border: 1px solid #33406e; border-radius: 6px; padding: 2px 7px; white-space: nowrap; opacity: 0; scale: 0.8; transition: opacity 0.2s, scale 0.2s; }

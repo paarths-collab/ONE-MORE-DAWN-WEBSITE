@@ -171,6 +171,7 @@ describe('/internal/menu/* authorization', () => {
     await fake.hSet(KEYS.dayVoters(4), { t2_a: 'a' });
     await fake.hSet(KEYS.dayVotes(4), { a: '1' });
     await fake.hSet(KEYS.landFunding, { outer_fields: '75' });
+    await fake.hSet(KEYS.cityTreasury, { balance: '9', collected: '18', invested: '9' });
     // Sanity: populated before the reset.
     expect(await store.getHouseCount()).toBe(2);
     expect(await store.getAllPlayers()).toHaveLength(2);
@@ -185,6 +186,7 @@ describe('/internal/menu/* authorization', () => {
     expect(await store.getHouseCount()).toBe(0);
     expect(await store.getVoteTally(4)).toEqual({});
     expect((await store.getLandExpansionState()).projects[0]?.funded).toBe(0);
+    expect((await store.getTreasuryState(freshPlayer('t2_check', 'check', 1))).balance).toBe(0);
     const fresh = await store.getCityState();
     expect(fresh?.cycle).toBe(3);
     expect(fresh?.day).toBe(1);

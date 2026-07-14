@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { context, redis, reddit } from '@devvit/web/server';
-import type { LandDonationResponse, ShopPurchaseResponse } from '../../shared/types';
+import type {
+  LandDonationResponse,
+  ShopPurchaseResponse,
+  TreasuryInvestmentResponse,
+} from '../../shared/types';
 import { shopItem } from '../../shared/shop';
 import { api } from './api';
 import { shop } from './shop';
@@ -206,5 +210,54 @@ describe('POST /shop/donate', () => {
       funded: 120,
       unlocked: true,
     });
+  });
+});
+
+describe('POST /shop/invest', () => {
+  it('moves only the amount needed from the shared treasury into active land', async () => {
+    await openRichUser('t2_steward', 0);
+    await fake.hSet(KEYS.cityTreasury, { balance: '12', collected: '20', invested: '8' });
+    await fake.hSet(KEYS.landFunding, { outer_fields: '115' });
+
+    const response = await shop.request(
+      '/invest',
+      postJson({ projectId: 'outer_fields', amount: 12 }),
+    );
+    expect(response.status).toBe(200);
+    const body: TreasuryInvestmentResponse = await response.json();
+    expect(body).toMatchObject({
+      projectId: 'outer_fields',
+      invested: 5,
+      unlocked: true,
+      treasury: { balance: 7, totalCollected: 20, totalInvested: 13 },
+    });
+    expect(body.land.activeProjectId).toBe('river_ward');
+    expect((await store.getPlayer('t2_steward'))?.coins).toBe(0);
+  });
+
+  it('rejects overdrafts, malformed requests, and out-of-order projects', async () => {
+    await openRichUser('t2_steward', 0);
+    await fake.hSet(KEYS.cityTreasury, { balance: '3' });
+    expect((await shop.request('/invest', postJson({ projectId: 'outer_fields', amount: 4 }))).status).toBe(400);
+    expect((await shop.request('/invest', postJson({ projectId: 'river_ward', amount: 1 }))).status).toBe(409);
+    expect((await shop.request('/invest', postJson({ projectId: 'outer_fields', amount: 0 }))).status).toBe(400);
+    const player = await store.getPlayer('t2_steward');
+    if (!player) throw new Error('Expected steward profile');
+    expect((await store.getTreasuryState(player)).balance).toBe(3);
+  });
+
+  it('serializes two same-user taps so the treasury cannot be spent twice', async () => {
+    await openRichUser('t2_steward', 0);
+    await fake.hSet(KEYS.cityTreasury, { balance: '10' });
+    await fake.hSet(KEYS.landFunding, { outer_fields: '110' });
+    const [first, second] = await Promise.all([
+      shop.request('/invest', postJson({ projectId: 'outer_fields', amount: 10 })),
+      shop.request('/invest', postJson({ projectId: 'outer_fields', amount: 10 })),
+    ]);
+    expect([first.status, second.status].sort()).toEqual([200, 409]);
+    const player = await store.getPlayer('t2_steward');
+    if (!player) throw new Error('Expected steward profile');
+    expect((await store.getTreasuryState(player)).balance).toBe(0);
+    expect((await store.getLandExpansionState()).projects[0]).toMatchObject({ funded: 120, unlocked: true });
   });
 });

@@ -189,6 +189,9 @@ describe('Store', () => {
     coinsEarnedDay: 0,
     ownedCosmetics: [],
     equippedCosmetics: {},
+    treasuryProgress: 0,
+    treasuryBacklog: 0,
+    treasuryPaid: 0,
     ...p,
   });
 

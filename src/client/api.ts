@@ -27,6 +27,8 @@ import type {
   StrategyPlanId,
   StrategyRequest,
   StrategyResponse,
+  TreasuryInvestmentRequest,
+  TreasuryInvestmentResponse,
   VoteRequest,
   VoteResponse,
   WorldResponse,
@@ -124,6 +126,14 @@ export const postLandDonate = (
 ): Promise<LandDonationResponse> => {
   const body: LandDonationRequest = { projectId, amount };
   return request<LandDonationResponse>('/api/shop/donate', body);
+};
+
+export const postTreasuryInvest = (
+  projectId: TreasuryInvestmentRequest['projectId'],
+  amount: number,
+): Promise<TreasuryInvestmentResponse> => {
+  const body: TreasuryInvestmentRequest = { projectId, amount };
+  return request<TreasuryInvestmentResponse>('/api/shop/invest', body);
 };
 
 export const postRole = (role: Role): Promise<RoleResponse> => {
