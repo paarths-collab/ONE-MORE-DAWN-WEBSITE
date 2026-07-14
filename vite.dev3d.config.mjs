@@ -365,6 +365,7 @@ const mockApi = () => ({
     };
     let mockPuzzleBest = null;
     let mockPuzzleSolvedCount = 41;
+    let mockPuzzleSolveMode = 'accept';
     // Root middleware matching only exact /api/<name> paths (a `.use('/api')`
     // mount would also swallow the client's own /api.ts module → app never loads).
     server.middlewares.use(async (req, res, next) => {
@@ -382,10 +383,22 @@ const mockApi = () => ({
           levels: [{ id: 1, name: MOCK_PUZZLE_LEVEL.name, chapter: 1, best: mockPuzzleBest }],
         });
       }
+      if (path === '/api/mock/puzzle-solve-mode' && req.method === 'POST') {
+        const body = await readBody(req);
+        mockPuzzleSolveMode = ['accept', 'reject', 'fail'].includes(body.mode) ? body.mode : 'accept';
+        return send(res, { mode: mockPuzzleSolveMode });
+      }
       if (path === '/api/puzzle/solve') {
+        if (mockPuzzleSolveMode === 'fail') return send(res, { status: 'error', message: 'mock puzzle save failure' }, 503);
         const b = await readBody(req);
         const moves = Number(b.moves) || 0;
         const stars = moves <= MOCK_PUZZLE_LEVEL.moveTarget ? 3 : 1;
+        if (mockPuzzleSolveMode === 'reject') {
+          return send(res, {
+            type: 'puzzle_solve', accepted: false, stars: 0, best: mockPuzzleBest, improved: false,
+            reward: null, solvedCount: mockPuzzleSolvedCount, bestMoves: 4, yourRank: mockPuzzleBest ? 12 : null,
+          });
+        }
         const first = !mockPuzzleBest;
         const score = { stars, moves, timeMs: Number(b.timeMs) || 0 };
         if (first || stars > mockPuzzleBest.stars || (stars === mockPuzzleBest.stars && moves < mockPuzzleBest.moves)) mockPuzzleBest = score;

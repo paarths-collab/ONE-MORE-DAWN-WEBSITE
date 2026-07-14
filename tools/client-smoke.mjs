@@ -912,15 +912,42 @@ async function puzzleSmoke(url) {
     assert(landscape.outside.length === 0, `Puzzle HUD, board, and controls must remain inside the root and viewport: ${JSON.stringify(landscape.outside)}.`);
     assert(!landscape.rootOverflow && !landscape.shellOverflow, `Puzzle content must fit 844x390 without root/shell overflow: ${JSON.stringify(landscape)}.`);
     assert(landscape.rootOverflowMode === 'hidden', `Phone-landscape puzzle must not create a nested scroller, got overflow:${landscape.rootOverflowMode}.`);
-    // Solve it with the Hint button (each hint nudges a tile toward its solution).
-    for (let i = 0; i < 30; i++) {
-      if (await cdp.eval(`!!document.querySelector('.pz-banner')`)) break;
-      await cdp.eval(`[...document.querySelectorAll('.pz-btn.pz-hint')].find((b) => !b.disabled)?.click()`);
-      await sleep(110);
-    }
-    await cdp.waitFor(`!!document.querySelector('.pz-banner') && document.body.innerText.includes('THE DISTRICT')`, 'the district lights up once every required building is reconnected');
+    const solveWithHints = async () => {
+      for (let i = 0; i < 30; i++) {
+        if (await cdp.eval(`!!document.querySelector('.pz-banner')`)) break;
+        await cdp.eval(`[...document.querySelectorAll('.pz-btn.pz-hint')].find((b) => !b.disabled)?.click()`);
+        await sleep(110);
+      }
+      await cdp.waitFor(`!!document.querySelector('.pz-banner') && document.body.innerText.includes('THE DISTRICT')`, 'the district lights up once every required building is reconnected');
+    };
+    const reopenPuzzle = async () => {
+      await cdp.eval(`document.querySelector('.puzzle-x')?.click()`);
+      await cdp.waitFor(`!document.querySelector('.pz-root')`, 'the puzzle closes before another validation attempt');
+      await cdp.eval(`document.querySelector('.puzzle-card')?.click()`);
+      await cdp.waitFor(`!!document.querySelector('.pz-root')`, 'the puzzle reopens for another validation attempt');
+    };
+    const setSolveMode = async (mode) => {
+      await cdp.eval(`fetch('/api/mock/puzzle-solve-mode', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: ${JSON.stringify(mode)} }) }).then((response) => response.json())`);
+    };
+
+    // A confirmed solve earns the positive result and reward.
+    await solveWithHints();
     // The solve posts to the server; the reward / share line surfaces.
     await cdp.waitFor(`document.body.innerText.includes('reconnected in') || document.body.innerText.includes('district is back online')`, 'the solve is scored and the city reward lands');
+
+    // A server-rejected board must not masquerade as a confirmed reconnect.
+    await setSolveMode('reject');
+    await reopenPuzzle();
+    await solveWithHints();
+    await cdp.waitFor(`(document.querySelector('.puzzle-result .pr-line')?.textContent || '').includes('RESULT NOT VERIFIED')`, 'a rejected solve gives honest retry guidance');
+    assert(!((await cdp.eval(`document.querySelector('.puzzle-result .pr-line')?.textContent || ''`)).toLowerCase().includes('reconnected')), 'A rejected solve must not claim the district was reconnected.');
+
+    // A network failure keeps the local payoff but clearly says it was not saved.
+    await setSolveMode('fail');
+    await reopenPuzzle();
+    await solveWithHints();
+    await cdp.waitFor(`(document.querySelector('.puzzle-result .pr-line')?.textContent || '').includes('SOLVED LOCALLY')`, 'an offline solve says the result was not saved');
+    assert((await cdp.eval(`document.querySelector('.puzzle-result .pr-line')?.textContent || ''`)).includes('result not saved'), 'Network failure guidance must explicitly say the result was not saved.');
   } finally {
     await close();
   }
