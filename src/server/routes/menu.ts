@@ -30,11 +30,18 @@ menu.use('*', async (c, next) => {
 });
 
 menu.post('/post-create', async (c) => {
-  const post = await createPost();
-  return c.json<UiResponse>(
-    { navigateTo: `https://reddit.com${post.permalink}` },
-    200,
-  );
+  // Wrap the Reddit RPC like the sibling handlers do: a submitCustomPost failure
+  // should surface as a friendly toast, not a 500 that looks like a broken menu.
+  try {
+    const post = await createPost();
+    return c.json<UiResponse>(
+      { navigateTo: `https://reddit.com${post.permalink}` },
+      200,
+    );
+  } catch (error) {
+    console.error(`Error creating game post: ${error}`);
+    return c.json<UiResponse>({ showToast: 'Could not create the game post. Try again shortly.' }, 200);
+  }
 });
 
 menu.post('/chatter-hub', async (c) => {

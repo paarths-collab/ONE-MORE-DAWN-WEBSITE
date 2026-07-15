@@ -1137,7 +1137,13 @@ api.get('/world', async (c) => {
 
   const [{ eligible, subscribers }, records] = await Promise.all([
     getWorldEligibility(store, new Date()),
-    readWorldCities(redis.global),
+    // Global-scope reads can fail independently of the sub's own redis; degrade to
+    // an empty registry (the caller still sees their own city below) rather than
+    // 500ing the whole World map. Mirrors the defensive write path in /init.
+    readWorldCities(redis.global).catch((error): Record<string, WorldCityRecord> => {
+      console.error(`World registry read failed: ${error}`);
+      return {};
+    }),
   ]);
 
   const isYou = (subredditId: string, record: WorldCityRecord): boolean =>
