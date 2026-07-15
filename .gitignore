@@ -19,3 +19,5 @@ village-shot.png
 # and out of a committed build until compressed (Draco/KTX2) — the size guard
 # (npm run size-check) fails a build that would ship them.
 public/assets/characters/
+.vercel
+.env*
