@@ -1,6 +1,8 @@
 // Server-authoritative Coin economy and cosmetic catalog. Coins are earned
 // through accepted contributions and never purchase gameplay power.
 
+import type { Role } from './types';
+
 export type ShopItemId =
   // Entry-tier cosmetics (3–12 Coins).
   | 'hearth_lantern'
@@ -14,6 +16,13 @@ export type ShopItemId =
   | 'ivory_banner'
   | 'obsidian_roof'
   | 'celestial_roof'
+  // Role cosmetics (14–28 Coins) — a signature set gated to each role's identity.
+  | 'farm_harvest_wreath' | 'farm_orchard_yard' | 'farm_grainridge_roof'
+  | 'eng_dynamo_coil' | 'eng_circuit_banner' | 'eng_gearworks_roof'
+  | 'med_mercy_lantern' | 'med_herb_yard' | 'med_ward_banner'
+  | 'grd_watchfire_lantern' | 'grd_sentinel_banner' | 'grd_bulwark_roof'
+  | 'sct_signal_lantern' | 'sct_trail_yard' | 'sct_wayfinder_banner'
+  | 'spk_chime_lantern' | 'spk_rostrum_yard' | 'spk_herald_banner'
   // Dawn-beacon patron tiers — the capped, diminishing Coin sink.
   | 'beacon_ember'
   | 'beacon_flame'
@@ -28,6 +37,10 @@ export type ShopItem = {
   slot: CosmeticSlot;
   price: number;
   description: string;
+  /** When set, only a player of this role may PURCHASE it. Once owned it is kept
+   *  and stays equippable even after a role change — the gate is on buying, not
+   *  wearing. Purely cosmetic; role items never grant gameplay power. */
+  role?: Role;
 };
 
 /**
@@ -188,6 +201,39 @@ export const SHOP_COSMETICS: readonly ShopItem[] = [
   },
 ];
 
+/**
+ * Role cosmetics: a signature 3-item set per role (14 / 20 / 28 Coins), gated to
+ * that role at purchase. They give the role choice a visible identity on the
+ * house — a farmer flies a Harvest Wreath, a guard raises a Bulwark Roof — and
+ * add a role-collector goal to the shop. Purely cosmetic; still never power.
+ */
+export const ROLE_COSMETICS: readonly ShopItem[] = [
+  // 🌾 Farmer
+  { id: 'farm_harvest_wreath', name: 'Harvest Wreath', slot: 'banner', price: 14, role: 'farmer', description: "A woven wreath of the season's first grain." },
+  { id: 'farm_orchard_yard', name: 'Orchard Yard', slot: 'yard', price: 20, role: 'farmer', description: 'Fruit trees and raised beds frame your home.' },
+  { id: 'farm_grainridge_roof', name: 'Grainridge Roof', slot: 'roof', price: 28, role: 'farmer', description: 'A wheat-sheaf ridge cap, gold at first light.' },
+  // 🔧 Engineer
+  { id: 'eng_dynamo_coil', name: 'Dynamo Coil', slot: 'light', price: 14, role: 'engineer', description: 'A humming copper coil-lamp by the door.' },
+  { id: 'eng_circuit_banner', name: 'Circuit Banner', slot: 'banner', price: 20, role: 'engineer', description: "A schematic pennant of the Builders' guild." },
+  { id: 'eng_gearworks_roof', name: 'Gearworks Roof', slot: 'roof', price: 28, role: 'engineer', description: 'Riveted copper plating that drinks the sun.' },
+  // ⛑️ Medic
+  { id: 'med_mercy_lantern', name: 'Mercy Lantern', slot: 'light', price: 14, role: 'medic', description: "A soft green healer's lamp." },
+  { id: 'med_herb_yard', name: 'Herb Yard', slot: 'yard', price: 20, role: 'medic', description: 'Medicinal beds and a drying rack.' },
+  { id: 'med_ward_banner', name: 'Ward Banner', slot: 'banner', price: 28, role: 'medic', description: 'The twin-serpent standard of the ward.' },
+  // 🛡️ Guard
+  { id: 'grd_watchfire_lantern', name: 'Watchfire Lantern', slot: 'light', price: 14, role: 'guard', description: 'A brazier that never sleeps.' },
+  { id: 'grd_sentinel_banner', name: 'Sentinel Banner', slot: 'banner', price: 20, role: 'guard', description: "The watch's battle-worn standard." },
+  { id: 'grd_bulwark_roof', name: 'Bulwark Roof', slot: 'roof', price: 28, role: 'guard', description: 'Reinforced battlements crown your home.' },
+  // 🧭 Scout
+  { id: 'sct_signal_lantern', name: 'Signal Lantern', slot: 'light', price: 14, role: 'scout', description: 'A shuttered lamp for the long dark.' },
+  { id: 'sct_trail_yard', name: 'Trail Yard', slot: 'yard', price: 20, role: 'scout', description: 'Cairns and a marked path to your door.' },
+  { id: 'sct_wayfinder_banner', name: 'Wayfinder Banner', slot: 'banner', price: 28, role: 'scout', description: 'The pathfinder star-and-compass pennant.' },
+  // 📣 Speaker
+  { id: 'spk_chime_lantern', name: 'Chime Lantern', slot: 'light', price: 14, role: 'speaker', description: 'A resonant bell-lamp that carries the hour.' },
+  { id: 'spk_rostrum_yard', name: 'Rostrum Yard', slot: 'yard', price: 20, role: 'speaker', description: 'A speaking platform and hearth-stones.' },
+  { id: 'spk_herald_banner', name: 'Herald Banner', slot: 'banner', price: 28, role: 'speaker', description: 'The proclamation pennant of the voice of the city.' },
+];
+
 /** Renown clamp for the beacon sink. Held below the raw tier sum (14) so the
  * final rung is a pure act of patronage — Coins spent, status already maxed. */
 export const BEACON_RENOWN_CAP = 13;
@@ -238,7 +284,7 @@ export const BEACON_TIERS: readonly BeaconTier[] = [
  * normalization all read this union, so beacon tiers ride the exact same
  * idempotent purchase path as cosmetics with no route changes.
  */
-export const SHOP_CATALOG: readonly ShopItem[] = [...SHOP_COSMETICS, ...BEACON_TIERS];
+export const SHOP_CATALOG: readonly ShopItem[] = [...SHOP_COSMETICS, ...ROLE_COSMETICS, ...BEACON_TIERS];
 
 export const LAND_EXPANSIONS: readonly LandExpansionProject[] = [
   {

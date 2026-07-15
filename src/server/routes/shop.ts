@@ -50,6 +50,13 @@ shop.post('/purchase', async (c) => {
     await lock.abort();
     return c.json<ApiError>({ status: 'error', message: 'Open the game first' }, 409);
   }
+  // Role-gated cosmetics: only a player of the item's role may BUY it. Equipping
+  // an already-owned item is never gated (see /equip), so a role change never
+  // strips a cosmetic you earned.
+  if (item.role && player.role !== item.role) {
+    await lock.abort();
+    return c.json<ApiError>({ status: 'error', message: `Only ${item.role}s can raise the ${item.name}.` }, 403);
+  }
   const economy = normalizeEconomyFields(player);
   if (economy.ownedCosmetics.includes(item.id)) {
     await lock.abort();

@@ -39,6 +39,7 @@ import { BALANCE } from '../shared/balance';
 import { cityEpithet } from '../shared/cityName';
 import {
   LAND_EXPANSIONS,
+  ROLE_COSMETICS,
   SHOP_CATALOG,
   SHOP_COSMETICS,
   beaconState,
@@ -1266,6 +1267,7 @@ function LiveTab({
 // fund connected land districts owned by the whole village.
 function ShopTab({
   economy,
+  role,
   land,
   treasury,
   busy,
@@ -1276,6 +1278,7 @@ function ShopTab({
   onTreasuryInvest,
 }: {
   economy: EconomyState;
+  role: Role | null;
   land: LandExpansionState;
   treasury: TreasuryState;
   busy: boolean;
@@ -1385,6 +1388,41 @@ function ShopTab({
               );
             })}
           </div>
+          {role && ROLE_COSMETICS.some((item) => item.role === role) && (
+            <>
+              <div className="p-sec">YOUR ROLE</div>
+              <div className="shop-rows">
+                {ROLE_COSMETICS.filter((item) => item.role === role).map((item) => {
+                  const owned = economy.owned.includes(item.id);
+                  const equipped = economy.equipped[item.slot] === item.id;
+                  return (
+                    <div key={item.id} className="shop-row">
+                      <div className="sr-main">
+                        <span className="sr-nm">{item.name}</span>
+                        <span className="sr-ds">{item.description}</span>
+                      </div>
+                      {equipped ? (
+                        <span className="sr-state on">EQUIPPED</span>
+                      ) : owned ? (
+                        <button type="button" className="sr-btn" disabled={busy || disabled} onClick={() => onEquip(item.id)}>
+                          EQUIP
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="sr-btn buy"
+                          disabled={busy || disabled || economy.coins < item.price}
+                          onClick={() => onPurchase(item.id)}
+                        >
+                          {item.price} 🪙
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </>
       )}
 
@@ -2207,6 +2245,7 @@ function CityDashboard({
   onOpenPuzzle,
   puzzleBusy,
   economy,
+  shopRole,
   landState,
   treasury,
   shopBusy,
@@ -2254,6 +2293,7 @@ function CityDashboard({
   onOpenPuzzle: () => void;
   puzzleBusy: boolean;
   economy: EconomyState;
+  shopRole: Role | null;
   landState: LandExpansionState;
   treasury: TreasuryState;
   shopBusy: boolean;
@@ -2328,6 +2368,7 @@ function CityDashboard({
         {tab === 'shop' && (
           <ShopTab
             economy={economy}
+            role={shopRole}
             land={landState}
             treasury={treasury}
             busy={shopBusy}
@@ -3442,6 +3483,7 @@ export function App() {
   const [puzzleBanner, setPuzzleBanner] = useState<string | null>(null);
   // Coin economy: balance + cosmetics from the server, land districts shared city-wide.
   const [liveEconomy, setLiveEconomy] = useState<EconomyState | null>(null);
+  const [liveRole, setLiveRole] = useState<Role | null>(null);
   const [liveLand, setLiveLand] = useState<LandExpansionState | null>(null);
   const [liveReconstruction, setLiveReconstruction] = useState<ReconstructionState | null>(null);
   const [liveDome, setLiveDome] = useState<DomeState>(EMPTY_DOME);
@@ -3691,6 +3733,7 @@ export function App() {
       setLiveCityName(init.cityName || null);
       // Economy + land: state for the SHOP tab, cosmetics + districts for the scene.
       setLiveEconomy(init.economy ?? EMPTY_ECONOMY);
+      setLiveRole(init.player.role);
       setLiveLand(init.land ?? EMPTY_LAND);
       setLiveReconstruction(init.reconstruction ?? EMPTY_RECONSTRUCTION);
       setLiveDome(init.dome ?? EMPTY_DOME);
@@ -4664,6 +4707,7 @@ export function App() {
   }, [domeState, loaded]);
 
   const economy = mode === 'live' ? (liveEconomy ?? EMPTY_ECONOMY) : mode === 'demo' ? demoEconomy : EMPTY_ECONOMY;
+  const shopRole: Role | null = mode === 'live' ? liveRole : null;
   const landState = mode === 'live' ? (liveLand ?? EMPTY_LAND) : mode === 'demo' ? demoLand : EMPTY_LAND;
   const treasury = mode === 'live'
     ? (liveTreasury ?? EMPTY_TREASURY)
@@ -5529,6 +5573,7 @@ export function App() {
         reconstruction={mode === 'live' ? (liveReconstruction ?? EMPTY_RECONSTRUCTION) : EMPTY_RECONSTRUCTION}
         dome={domeState}
         economy={economy}
+        shopRole={shopRole}
         landState={landState}
         treasury={treasury}
         shopBusy={shopBusy}

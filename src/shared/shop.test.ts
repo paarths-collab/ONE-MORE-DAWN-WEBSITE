@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   BEACON_RENOWN_CAP,
   BEACON_TIERS,
+  ROLE_COSMETICS,
+  SHOP_CATALOG,
   SHOP_COSMETICS,
   beaconState,
   economyOf,
@@ -11,6 +13,7 @@ import {
   shopItem,
 } from './shop';
 import type { ShopItemId } from './shop';
+import type { Role } from './types';
 
 describe('shop catalog and economy wire state', () => {
   it('keeps catalog prices server-owned and non-power-bearing', () => {
@@ -184,5 +187,33 @@ describe('dawn beacon Coin sink', () => {
     expect(state.coinsInvested).toBe(15);
     expect(state.standing).toBe(5);
     expect(state.nextTier).toBe('beacon_flame');
+  });
+});
+
+describe('role cosmetics', () => {
+  const ROLES: Role[] = ['farmer', 'engineer', 'medic', 'guard', 'scout', 'speaker'];
+
+  it('gives every role a signature set, each purchasable and role-tagged', () => {
+    for (const role of ROLES) {
+      const items = ROLE_COSMETICS.filter((item) => item.role === role);
+      expect(items.length).toBeGreaterThanOrEqual(1);
+      for (const item of items) {
+        expect(item.role).toBe(role);
+        expect(item.price).toBeGreaterThan(0);
+        expect(isShopItemId(item.id)).toBe(true); // valid id -> in SHOP_CATALOG
+        expect(SHOP_CATALOG).toContain(item); // rides the purchase/normalize path
+      }
+    }
+  });
+
+  it('keeps role items out of the ungated house grid (they render in the role section)', () => {
+    for (const item of ROLE_COSMETICS) {
+      expect(SHOP_COSMETICS).not.toContain(item);
+    }
+  });
+
+  it('normalizes/keeps an owned role cosmetic regardless of the wearer', () => {
+    const normalized = normalizeEconomyFields({ ownedCosmetics: ['farm_harvest_wreath'] });
+    expect(normalized.ownedCosmetics).toEqual(['farm_harvest_wreath']);
   });
 });

@@ -261,3 +261,44 @@ describe('POST /shop/invest', () => {
     expect((await store.getLandExpansionState()).projects[0]).toMatchObject({ funded: 120, unlocked: true });
   });
 });
+
+describe('POST /shop/purchase — role-gated cosmetics', () => {
+  const roleItem = shopItem('farm_harvest_wreath'); // farmer-only
+  if (!roleItem) throw new Error('farm_harvest_wreath missing from the catalog');
+
+  const openRoledUser = async (userId: string, role: 'farmer' | 'guard', coins: number) => {
+    setUser(userId);
+    redditUsernameMock.mockResolvedValueOnce('roleplayer');
+    expect((await api.request('/init')).status).toBe(200);
+    const player = await store.getPlayer(userId);
+    if (!player) throw new Error('Expected /init to persist the player');
+    await store.savePlayer({ ...player, role, coins });
+  };
+
+  it('lets the matching role buy its signature cosmetic', async () => {
+    await openRoledUser('t2_farmer', 'farmer', 30);
+    const res = await shop.request('/purchase', postJson({ itemId: roleItem.id }));
+    expect(res.status).toBe(200);
+    const body: ShopPurchaseResponse = await res.json();
+    expect(body.economy.owned).toContain(roleItem.id);
+    expect(body.economy.coins).toBe(30 - roleItem.price);
+  });
+
+  it('rejects a different role with 403 and charges nothing', async () => {
+    await openRoledUser('t2_guard', 'guard', 30);
+    const res = await shop.request('/purchase', postJson({ itemId: roleItem.id }));
+    expect(res.status).toBe(403);
+    expect(await store.getPlayer('t2_guard')).toMatchObject({ coins: 30, ownedCosmetics: [] });
+  });
+
+  it('keeps an owned role cosmetic equippable after the player changes role', async () => {
+    await openRoledUser('t2_switch', 'farmer', 30);
+    expect((await shop.request('/purchase', postJson({ itemId: roleItem.id }))).status).toBe(200);
+    // Switch away from farmer — ownership and equipping must survive it.
+    const p = await store.getPlayer('t2_switch');
+    await store.savePlayer({ ...p!, role: 'guard' });
+    const equip = await shop.request('/equip', postJson({ itemId: roleItem.id }));
+    expect(equip.status).toBe(200);
+    expect((await store.getPlayer('t2_switch'))?.equippedCosmetics?.[roleItem.slot]).toBe(roleItem.id);
+  });
+});
