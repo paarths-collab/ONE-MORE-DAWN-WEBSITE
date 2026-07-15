@@ -39,6 +39,29 @@ describe('resolveDay', () => {
     expect(farmed).toBe(base + 4 * BALANCE.actionEffects.grow_food.food!);
   });
 
+  it('a role specialist out-produces on its matching action (roleBonus)', () => {
+    const base = resolveDay(city(), { ...noInputs, actions: { grow_food: 4 } }).city.food;
+    const farmed = resolveDay(city(), {
+      ...noInputs,
+      actions: { grow_food: 4 },
+      roleActions: { farmer: { grow_food: 4 } },
+    }).city.food;
+    // 4 grow_food by farmers -> +(multiplier - 1) of the base effect each.
+    const bonus = 4 * BALANCE.actionEffects.grow_food.food! * (BALANCE.roleBonus.farmer!.multiplier - 1);
+    expect(farmed).toBe(base + bonus);
+  });
+
+  it('the specialist bonus only applies to the role that owns the action', () => {
+    const base = resolveDay(city(), { ...noInputs, actions: { grow_food: 4 } }).city.food;
+    // Guards doing grow_food are not farmers -> no food bonus.
+    const guardsFarming = resolveDay(city(), {
+      ...noInputs,
+      actions: { grow_food: 4 },
+      roleActions: { guard: { grow_food: 4 } },
+    }).city.food;
+    expect(guardsFarming).toBe(base);
+  });
+
   it('applies the winning crisis option effects', () => {
     const { city: next, entry } = resolveDay(
       city({ population: 100 }),

@@ -156,13 +156,17 @@ describe('runLazyResolution', () => {
     expect(city.status).toBe('alive'); // survives the raid, does not fall
 
     // The dawn timeline carries the aftermath the Dawn Report cinematic reads.
-    const aftermath = (await store.getTimeline(3))[0]?.raidAftermath;
+    const dawnEntry = (await store.getTimeline(3))[0]!;
+    const aftermath = dawnEntry.raidAftermath;
     expect(aftermath).toBeTruthy();
     expect(aftermath!.held).toBe(false);
     expect(aftermath!.penetrations).toBeGreaterThan(0);
     expect(aftermath!.soulsLost).toBeGreaterThan(0);
     expect(aftermath!.housesDestroyed.length).toBeGreaterThan(0);
     expect(aftermath!.reconstructionRequired).toBeGreaterThan(0);
+    // The casualty toll is PERSISTED in the entry's events (feeds the Dawn Report
+    // citySummary + timeline), so it survives past the transient raid banner.
+    expect(dawnEntry.events.some((e) => /raid cost the city/i.test(e) && /soul/i.test(e))).toBe(true);
 
     // Persisted: the dome wore down to the reported after-state, and the struck
     // homes entered the shared rebuild queue.

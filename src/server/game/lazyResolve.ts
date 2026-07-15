@@ -56,9 +56,16 @@ export const applyRaidAftermath = async (
     segmentsBefore: domeBefore,
     segmentsAfter: raid.segmentsAfter,
   };
+  // Persistent casualty record: the soul + home toll rides the timeline entry's
+  // events, which feed BOTH the Dawn Report (citySummary) and the timeline view.
+  // So the raid's human cost survives past the transient banner and stays legible
+  // for anyone who opens the report — souls are shown even when no home was lost.
+  const tollBits: string[] = [];
+  if (raid.soulsLost > 0) tollBits.push(`${raid.soulsLost} soul${raid.soulsLost === 1 ? '' : 's'}`);
+  if (destroyedNames.length > 0) tollBits.push(`${destroyedNames.length} home${destroyedNames.length === 1 ? '' : 's'}`);
   const extra =
-    destroyedNames.length > 0
-      ? [`The raid took ${destroyedNames.length} home(s). No citizen rebuilds alone; the city has begun.`]
+    tollBits.length > 0
+      ? [`The raid cost the city ${tollBits.join(' and ')}. No citizen rebuilds alone; the recovery has begun.`]
       : [];
   return { ...entry, raidAftermath: aftermath, events: [...entry.events, ...extra] };
 };
@@ -198,7 +205,7 @@ export const runLazyResolution = async (
     // day inputs in parallel.
     const userActions = await store.getAllUserActions(city.day);
     const [
-      actions, missions, crisisVotes, strategyVotes, factionInfluence, roleCounts,
+      actions, missions, crisisVotes, strategyVotes, factionInfluence, roleData,
       markedPledged, pledges, yesterdayUserActions,
     ] = await Promise.all([
       store.getDayActions(city.day),
@@ -220,7 +227,8 @@ export const runLazyResolution = async (
       missions,
       crisisVotes,
       strategyVotes,
-      roleCounts,
+      roleCounts: roleData.roleCounts,
+      roleActions: roleData.roleActions,
       activeUserCount: Object.keys(userActions).length,
       factionInfluence,
       markedPledged,
@@ -251,21 +259,32 @@ export const runLazyResolution = async (
 };
 
 /**
- * Slice version: only speakers matter (morale tick). Takes the already-fetched
- * userActions map (no duplicate hGetAll) and reads profiles in parallel.
+ * Roll the day's actions up by role. Returns both the flat per-role totals
+ * (roleCounts — speaker morale tick) and the per-role, per-action breakdown
+ * (roleActions — the specialist production bonus). One profile read, both maps.
  */
 const countActionsByRole = async (
   store: Store,
   userActions: Record<string, Partial<Record<ActionType, number>>>,
-): Promise<Partial<Record<Role, number>>> => {
-  const counts: Partial<Record<Role, number>> = {};
+): Promise<{
+  roleCounts: Partial<Record<Role, number>>;
+  roleActions: Partial<Record<Role, Record<string, number>>>;
+}> => {
+  const roleCounts: Partial<Record<Role, number>> = {};
+  const roleActions: Partial<Record<Role, Record<string, number>>> = {};
   const userIds = Object.keys(userActions);
   const players = await Promise.all(userIds.map((userId) => store.getPlayer(userId)));
   userIds.forEach((userId, i) => {
-    const player = players[i];
-    if (!player?.role) return;
-    const acted = Object.values(userActions[userId] ?? {}).reduce((s, n) => s + (n ?? 0), 0);
-    counts[player.role] = (counts[player.role] ?? 0) + acted;
+    const role = players[i]?.role;
+    if (!role) return;
+    const bucket = (roleActions[role] ??= {});
+    let total = 0;
+    for (const [action, n] of Object.entries(userActions[userId] ?? {})) {
+      const c = n ?? 0;
+      total += c;
+      bucket[action] = (bucket[action] ?? 0) + c;
+    }
+    roleCounts[role] = (roleCounts[role] ?? 0) + total;
   });
-  return counts;
+  return { roleCounts, roleActions };
 };

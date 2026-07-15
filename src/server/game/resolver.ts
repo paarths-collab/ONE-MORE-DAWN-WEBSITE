@@ -16,6 +16,10 @@ export type DayInputs = {
   strategyVotes: Record<string, number>; // planId -> count (council plan — S2)
   /** actions taken by players of each role today (slice: only 'speaker' matters) */
   roleCounts: Partial<Record<Role, number>>;
+  /** per-role, per-action counts — powers the specialist bonus (a farmer's
+   *  grow_food yields roleBonus.multiplier). OPTIONAL: when absent no bonus is
+   *  applied, so pre-existing balance fixtures resolve bit-identically. */
+  roleActions?: Partial<Record<Role, Record<string, number>>>;
   /** number of users who took any action today (for scarcity scaling — Plan 2 P4) */
   activeUserCount: number;
   /** today's faction influence tally (actionType/mission-driven) */
@@ -197,23 +201,43 @@ export const resolveDay = (city: CityState, inputs: DayInputs): ResolveResult =>
   // Trait modifiers are permanent for the city's whole cycle (W1).
   const trait = traitMultipliers(city);
 
+  // Specialist bonus (W1 roles finally bite): a role's matching action yields
+  // roleBonus.multiplier, i.e. +(multiplier - 1) of the base effect for each such
+  // action. Uses the optional per-role-per-action tally, so a farmer's grow_food
+  // out-produces a non-farmer's. Absent input -> 0 bonus (fixtures unchanged).
+  const roleAct = inputs.roleActions ?? {};
+  const specialistBonus = (role: Role, action: string, effect: number): number => {
+    const def = BALANCE.roleBonus[role];
+    return def && def.action === action
+      ? (roleAct[role]?.[action] ?? 0) * effect * (def.multiplier - 1)
+      : 0;
+  };
+
   // --- 1. action + mission production ---
+  const growFood = BALANCE.actionEffects.grow_food.food ?? 0;
+  const repairPower = BALANCE.actionEffects.repair_power.power ?? 0;
+  const treatMed = BALANCE.actionEffects.treat_sick.medicine ?? 0;
+  const guardDef = BALANCE.actionEffects.guard_wall.defense ?? 0;
   let food =
     city.food +
-    a('grow_food') * (BALANCE.actionEffects.grow_food.food ?? 0) +
+    a('grow_food') * growFood +
+    specialistBonus('farmer', 'grow_food', growFood) +
     m('totalFood') +
     m('totalRuns') * law.missionFoodBonus; // seekers: +1 food per run
   let power =
     city.power +
-    a('repair_power') * (BALANCE.actionEffects.repair_power.power ?? 0) * law.repairMult +
+    a('repair_power') * repairPower * law.repairMult +
+    specialistBonus('engineer', 'repair_power', repairPower * law.repairMult) +
     m('totalScrap') - // scrap feeds the generators
     BALANCE.passivePowerDecay * trait.powerDecayMult - // frozen: faster decay
     inputs.activeUserCount * BALANCE.scaling.activePlayerPowerDrain;
   let medicine =
     city.medicine +
-    a('treat_sick') * (BALANCE.actionEffects.treat_sick.medicine ?? 0) * law.treatMult +
+    a('treat_sick') * treatMed * law.treatMult +
+    specialistBonus('medic', 'treat_sick', treatMed * law.treatMult) +
     m('totalMedicine');
-  let defense = city.defense + a('guard_wall') * (BALANCE.actionEffects.guard_wall.defense ?? 0);
+  let defense =
+    city.defense + a('guard_wall') * guardDef + specialistBonus('guard', 'guard_wall', guardDef);
   let threat =
     city.threat +
     BALANCE.passiveThreatRise * law.threatRiseMult + // wardens: threat rises slower
