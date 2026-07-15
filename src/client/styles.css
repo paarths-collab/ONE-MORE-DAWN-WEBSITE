@@ -263,6 +263,20 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .lb-row.me { border-color: var(--gold); background: rgba(232, 195, 74, 0.07); }
 .lb-row.me .lb-user { color: var(--gold); }
 .lb-total { font-family: var(--mono); font-size: 9px; color: var(--mut); padding: 6px 2px; line-height: 1.5; }
+/* ---- TOP tab: viewer standing, top-3 tiers, YOU tag, empty states ---- */
+.lb-standing { display: flex; align-items: center; gap: 8px; margin: 2px 0 9px; padding: 8px 10px; border-radius: 10px; background: linear-gradient(90deg, rgba(232, 195, 74, 0.15), rgba(232, 195, 74, 0.02)); border: 1px solid #4b3c14; }
+.lb-standing-medal { font-size: 15px; line-height: 1; }
+.lb-standing-txt { font-family: var(--mono); font-size: 10px; color: var(--ink); line-height: 1.4; }
+.lb-standing-txt b { color: var(--gold); font-size: 12px; }
+.lb-standing-off { background: rgba(255, 255, 255, 0.03); border-color: #2c2620; }
+.lb-standing-off .lb-standing-txt { color: var(--mut); }
+.lb-row.tier-1 { box-shadow: inset 3px 0 0 var(--gold), 0 0 12px rgba(232, 195, 74, 0.1); }
+.lb-row.tier-2 { box-shadow: inset 3px 0 0 #cfd6e0; }
+.lb-row.tier-3 { box-shadow: inset 3px 0 0 #d08a4e; }
+.lb-row.tier-2 .lb-rank { color: #dfe6f0; }
+.lb-row.tier-3 .lb-rank { color: #e0a066; }
+.lb-you { display: inline-block; margin-left: 6px; font-family: var(--pixel); font-size: 6.5px; letter-spacing: 0.5px; color: #171109; background: var(--gold); border-radius: 4px; padding: 1px 4px; vertical-align: middle; }
+.lb-empty { font-family: var(--mono); font-size: 9.5px; color: var(--mut); background: rgba(255, 255, 255, 0.03); border: 1px dashed #3a332a; border-radius: 10px; padding: 12px 10px; text-align: center; line-height: 1.5; }
 
 /* ---- LIVE tab: The Marked hero block ---- */
 .marked { background: linear-gradient(180deg, #1d1608, transparent); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
@@ -462,6 +476,17 @@ html, body, #root { height: 100%; overflow: hidden; background: #0c0a0a; font-fa
 .wm-empty-k { font-family: var(--pixel); font-size: 8px; letter-spacing: 1.5px; color: var(--gold); margin-bottom: 8px; }
 .wm-empty-t { font: 700 12px/1.35 var(--mono); margin-bottom: 5px; }
 .wm-empty-b { font: 600 9px/1.45 var(--mono); color: var(--mut); }
+/* ---- WORLD map: your standing banner, top-3 rank seals, no-rivals note ---- */
+.wm-standing { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; padding: 8px 11px; border-radius: 10px; background: linear-gradient(90deg, rgba(232, 195, 74, 0.16), rgba(232, 195, 74, 0.02)); border: 1px solid #4b3c14; }
+.wm-standing-medal { font-size: 16px; line-height: 1; }
+.wm-standing-txt { font-family: var(--pixel); font-size: 8.5px; letter-spacing: 0.5px; color: var(--ink); }
+.wm-standing-txt b { color: var(--gold); font-size: 11px; }
+.wm-medal circle { stroke: #1a140c; stroke-width: 0.18; }
+.wm-medal text { font-family: var(--pixel); fill: #171109; }
+.wm-medal-1 circle { fill: var(--gold); }
+.wm-medal-2 circle { fill: #cfd6e0; }
+.wm-medal-3 circle { fill: #d08a4e; }
+.wm-empty-note { font-family: var(--mono); font-size: 9px; color: var(--mut); text-align: center; margin-top: 8px; line-height: 1.5; }
 
 /* ---- map-view TOWN|WORLD toggle ---- */
 .map-seg { display: flex; gap: 0; border: 1px solid #2f2828; border-radius: 10px; overflow: hidden; margin-bottom: 10px; background: rgba(255, 255, 255, 0.02); }
