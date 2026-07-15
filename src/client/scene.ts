@@ -10,6 +10,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { playSound } from './sound';
+import { startStatFeedback } from './statFeedback';
 
 export type BuildingMeta = { name: string; level: number; blurb: string };
 export type TimeOfDay = 'night' | 'dawn' | 'day' | 'dusk';
@@ -3558,6 +3560,9 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
 
       // wall segment breaks on breach/fallen; a 'fallen' town also hazes over
       setWallBreach(siegeHeavy);
+      // the palisade giving way is the one raid cue App's timed sequence never
+      // plays — layer an audible crack under it (fail-silent like all sfx)
+      if (siegeHeavy) playSound('wall_crack');
       hazeTarget = outcome === 'fallen' ? 0.16 : 0;
 
       // fireballs now FALL straight down onto their dome panel; pierced ones then
@@ -3754,6 +3759,10 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     if (siegeActive && siegeElapsed >= siegeDuration && !anyFlying) siegeActive = false;
   }
 
+  // JUICE: flash dashboard stat bars when their values change (self-contained,
+  // reduced-motion honored in CSS, disposed below).
+  const disposeStatFeedback = startStatFeedback();
+
   const handle: VillageHandle = {
     setTimeOfDay: (tod) => {
       target = PRESETS[tod];
@@ -3805,6 +3814,7 @@ export function createVillageScene(container: HTMLElement, hooks: VillageHooks):
     frame: () => tick(),
     dispose: () => {
       disposed = true;
+      disposeStatFeedback();
       renderer.setAnimationLoop(null);
       window.clearInterval(chatTimer);
       clearRaiders(); // drops cloned raider materials before the scene sweep
