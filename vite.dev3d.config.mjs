@@ -67,9 +67,21 @@ const PLAYER = {
   ownedCosmetics: [], equippedCosmetics: {},
   treasuryProgress: 6, treasuryBacklog: 0, treasuryPaid: 2,
 };
-// Shop catalog mirror (kept tiny; the real authority is src/shared/shop.ts).
-const SHOP_PRICES = { hearth_lantern: 3, crimson_banner: 5, garden_plot: 6, slate_roof: 8, dawn_gold_trim: 12 };
-const SHOP_SLOTS = { hearth_lantern: 'light', crimson_banner: 'banner', garden_plot: 'yard', slate_roof: 'roof', dawn_gold_trim: 'roof' };
+// Shop catalog mirror (the real authority is src/shared/shop.ts). Includes the
+// higher-tier cosmetics and the Dawn Beacon patron tiers so MOCK_API live mode
+// can exercise the full buy/equip/sink walk. Beacon tiers carry a 'light' slot
+// like every catalog item but are never equipped (the shop offers no EQUIP for
+// them), so the slot is inert here just as it is in the shared catalog.
+const SHOP_PRICES = {
+  hearth_lantern: 3, crimson_banner: 5, garden_plot: 6, slate_roof: 8, dawn_gold_trim: 12,
+  aurora_lantern: 16, verdant_grove: 20, ivory_banner: 24, obsidian_roof: 30, celestial_roof: 40,
+  beacon_ember: 15, beacon_flame: 30, beacon_pyre: 55, beacon_dawnfire: 90,
+};
+const SHOP_SLOTS = {
+  hearth_lantern: 'light', crimson_banner: 'banner', garden_plot: 'yard', slate_roof: 'roof', dawn_gold_trim: 'roof',
+  aurora_lantern: 'light', verdant_grove: 'yard', ivory_banner: 'banner', obsidian_roof: 'roof', celestial_roof: 'roof',
+  beacon_ember: 'light', beacon_flame: 'light', beacon_pyre: 'light', beacon_dawnfire: 'light',
+};
 const economyOfMock = (p) => ({
   coins: p.coins ?? 0,
   earnedToday: p.coinsEarnedCycle === 1 && p.coinsEarnedDay === 6 ? (p.coinsEarnedToday ?? 0) : 0,

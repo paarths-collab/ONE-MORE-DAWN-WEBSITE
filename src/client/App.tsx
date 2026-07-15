@@ -40,6 +40,8 @@ import { cityEpithet } from '../shared/cityName';
 import {
   LAND_EXPANSIONS,
   SHOP_CATALOG,
+  SHOP_COSMETICS,
+  beaconState,
   landExpansionState,
   type EconomyState,
   type LandExpansionId,
@@ -1282,7 +1284,8 @@ function ShopTab({
   onDonate: (id: LandExpansionId, amount: number) => void;
   onTreasuryInvest: (id: LandExpansionId, amount: number) => void;
 }) {
-  const [view, setView] = useState<'house' | 'expand'>('house');
+  const [view, setView] = useState<'house' | 'expand' | 'beacon'>('house');
+  const beacon = beaconState(economy.owned);
   const activeProject = land.projects.find((project) => project.available) ?? null;
   const maxDonation = activeProject ? Math.min(economy.coins, activeProject.remaining) : 0;
   const treasuryInvestable = activeProject
@@ -1334,13 +1337,25 @@ function ShopTab({
         >
           EXPAND
         </button>
+        <button
+          type="button"
+          className={view === 'beacon' ? 'on' : ''}
+          onClick={() => {
+            setTreasuryConfirmKey(null);
+            setView('beacon');
+          }}
+          aria-selected={view === 'beacon'}
+          role="tab"
+        >
+          BEACON
+        </button>
       </div>
 
-      {view === 'house' ? (
+      {view === 'house' && (
         <>
           <div className="p-sec">YOUR HOUSE</div>
           <div className="shop-rows">
-            {SHOP_CATALOG.map((item) => {
+            {SHOP_COSMETICS.map((item) => {
               const owned = economy.owned.includes(item.id);
               const equipped = economy.equipped[item.slot] === item.id;
               return (
@@ -1370,7 +1385,9 @@ function ShopTab({
             })}
           </div>
         </>
-      ) : (
+      )}
+
+      {view === 'expand' && (
         <>
           <div className="land-head">
             <span>VILLAGE LAND FUND</span>
@@ -1475,6 +1492,65 @@ function ShopTab({
               >
                 {maxDonation < 1 ? 'EARN COINS TO PLEDGE' : `PLEDGE ${donationAmount} 🪙`}
               </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {view === 'beacon' && (
+        <>
+          <div className="land-head">
+            <span>DAWN BEACON</span>
+            <small>PATRON THE CITY · CAPPED, NEVER POWER</small>
+          </div>
+          <div className="treasury-card">
+            <div className="tc-head">
+              <span>YOUR STANDING</span>
+              <strong>
+                {beacon.standing}/{beacon.cap} ✦
+              </strong>
+            </div>
+            <div
+              className="land-progress"
+              aria-label={`Beacon standing ${beacon.standing} of ${beacon.cap}`}
+            >
+              <i style={{ width: `${Math.round((beacon.standing / beacon.cap) * 100)}%` }} />
+            </div>
+            <div className="tc-meta">
+              {beacon.coinsInvested} Coins given ·{' '}
+              {beacon.atCap ? 'maximum civic standing' : 'renown diminishes as you climb'}
+            </div>
+          </div>
+          <div className="p-sec">PATRON TIERS</div>
+          <div className="shop-rows">
+            {beacon.tiers.map((tier) => (
+              <div key={tier.id} className="shop-row">
+                <div className="sr-main">
+                  <span className="sr-nm">
+                    {tier.name} · +{tier.renown} ✦
+                  </span>
+                  <span className="sr-ds">{tier.description}</span>
+                </div>
+                {tier.owned ? (
+                  <span className="sr-state on">PATRON</span>
+                ) : tier.available ? (
+                  <button
+                    type="button"
+                    className="sr-btn buy"
+                    disabled={busy || disabled || economy.coins < tier.price}
+                    onClick={() => onPurchase(tier.id)}
+                  >
+                    {tier.price} 🪙
+                  </button>
+                ) : (
+                  <span className="sr-state">LOCKED</span>
+                )}
+              </div>
+            ))}
+          </div>
+          {beacon.atCap && (
+            <div className="tc-backlog">
+              The city can honor you no further — the beacon burns at its brightest.
             </div>
           )}
         </>
