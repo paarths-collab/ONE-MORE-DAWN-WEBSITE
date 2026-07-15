@@ -55,6 +55,10 @@ export const KEYS = {
   // so a reset can never leak last cycle's claims into the new one.
   challengeDone: (cycle: number, day: number, userId: string) =>
     `challenge:${cycle}:${day}:${userId}`,
+  // Per-role daily-duty completion claim (NX + TTL), mirrored on challengeDone:
+  // cycle-scoped so a mod reset can't leak last cycle's claim into the new one.
+  roleTaskDone: (cycle: number, day: number, userId: string) =>
+    `roletask:${cycle}:${day}:${userId}`,
 
   // "Reconnect the City" daily puzzle. `puzzleProgress` is a per-user hash
   // (levelId -> JSON PuzzleScore) holding the LIFETIME best on each level — a

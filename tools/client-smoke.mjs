@@ -462,6 +462,8 @@ async function liveSmoke(url) {
     const mission = await cdp.eval(`document.querySelector('.mission-chip')?.textContent.replace(/\\s+/g, ' ') || ''`);
     assert(/LV 7/.test(mission) && /1\/2/.test(mission), `mission chip should show level and progress, saw "${mission}".`);
     assert(mission.includes('🔥 12d'), `mission chip should surface the rekindled 12-day streak, saw "${mission}".`);
+    const roleDuty = await cdp.eval(`document.querySelector('.role-duty')?.textContent.replace(/\\s+/g, ' ') || ''`);
+    assert(/DUTY/.test(roleDuty) && /Hold the wall/i.test(roleDuty), `role duty card should render the guard's signature task, saw "${roleDuty}".`);
     await cdp.eval(`document.querySelector('.mission-chip .p-x')?.click()`);
     await cdp.eval(`document.querySelector('.stats-fab')?.click()`);
     await cdp.waitFor('document.querySelector(".stats-modal.on h2")?.textContent.includes("CITY LEDGER")', 'stats ledger opens');

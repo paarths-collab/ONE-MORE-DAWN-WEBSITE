@@ -3208,6 +3208,7 @@ export function App() {
   const [chatterLoading, setChatterLoading] = useState(false);
   const [chatterBusy, setChatterBusy] = useState(false);
   const [liveChallenge, setLiveChallenge] = useState<InitResponse['challenge'] | null>(null); // today's personal mission
+  const [liveRoleTask, setLiveRoleTask] = useState<InitResponse['roleTask']>(null); // today's role-signature duty (null if roleless)
   // Reconnect the City — the daily tile-rotation puzzle (fetched on open).
   const [puzzleOpen, setPuzzleOpen] = useState(false);
   const [puzzleData, setPuzzleData] = useState<PuzzleDailyResponse | null>(null);
@@ -3472,6 +3473,7 @@ export function App() {
       // cheers exactly once (never on boot, never again on later polls).
       const ch = init.challenge ?? null;
       setLiveChallenge(ch);
+      setLiveRoleTask(init.roleTask ?? null); // role duty rides alongside the daily mission
       if (!first && ch?.done && !challengeDoneRef.current) {
         pushNotif('📜', `mission complete, +${ch.reward} standing`, 'good');
         playSound('action_confirm');
@@ -5175,6 +5177,25 @@ export function App() {
               <button type="button" className="p-x" onClick={() => setHudDismissed((d) => ({ ...d, mission: true }))} aria-label="Dismiss mission chip">
                 ✕
               </button>
+              {/* ROLE DUTY — your role's signature task, so picking a role is felt in
+                  the daily loop. Rendered as an absolutely-positioned child of the
+                  mission chip so it tracks the chip's responsive position at every
+                  breakpoint without touching the stylesheet; the .role-duty class
+                  keeps it separately selectable. */}
+              {liveRoleTask && (
+                <div
+                  className="mission-chip card-bit role-duty"
+                  style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0 }}
+                  title="Your role's signature duty for today"
+                >
+                  <span className="mi-ic">{liveRoleTask.icon}</span>
+                  <span className="mi-lv">DUTY</span>
+                  <span className="mi-tx">{liveRoleTask.text}</span>
+                  <span className={liveRoleTask.done ? 'mi-pr done' : 'mi-pr'}>
+                    {liveRoleTask.done ? `✓ +${liveRoleTask.reward}` : `${liveRoleTask.progress}/${liveRoleTask.target}`}
+                  </span>
+                </div>
+              )}
             </div>
           );
         }

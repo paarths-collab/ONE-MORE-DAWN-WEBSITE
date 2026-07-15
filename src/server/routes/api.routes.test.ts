@@ -229,6 +229,95 @@ describe('GET /api/init houses', () => {
   });
 });
 
+describe('GET /api/init — per-role daily duty', () => {
+  const seed = hashString('t5_test');
+  // A user whose FROZEN daily mission is the crisis vote, so a farm/guard action
+  // completes ONLY their role duty — never the daily challenge — letting each test
+  // isolate the duty's reward and dome behavior from the challenge's. The mission
+  // kind depends only on (userId, day 1, worldSeed), so this predicts the freeze.
+  const voteMissionUser = (prefix: string): string => {
+    for (let i = 0; i < 300; i++) {
+      const uid = `${prefix}${i}`;
+      if (dailyChallenge(uid, 1, seed, 0).kind === 'vote') return uid;
+    }
+    throw new Error('no vote-mission user found');
+  };
+
+  it('returns a role-keyed duty for a roled player, and null before a role is chosen', async () => {
+    ctx.userId = 't2_duty';
+    redditMock.getCurrentUsername.mockResolvedValue('dutybound');
+    // Before choosing a role, there is no role duty.
+    const before = (await (await api.request('/init')).json()) as InitResponse;
+    expect(before.roleTask).toBeNull();
+    // After choosing farmer, the signature grow_food duty appears.
+    expect((await api.request('/role', postJson({ role: 'farmer' }))).status).toBe(200);
+    const after = (await (await api.request('/init')).json()) as InitResponse;
+    expect(after.roleTask).not.toBeNull();
+    expect(after.roleTask).toMatchObject({ kind: 'action', action: 'grow_food', icon: '🌾' });
+    expect(after.roleTask?.id.startsWith('role:farmer:')).toBe(true);
+  });
+
+  it('banks the duty reward once and never re-grants it on later polls', async () => {
+    const uid = voteMissionUser('t2_farm');
+    ctx.userId = uid;
+    redditMock.getCurrentUsername.mockResolvedValue('farmhand');
+    await api.request('/init');
+    expect((await api.request('/role', postJson({ role: 'farmer' }))).status).toBe(200);
+    // One grow_food finishes the low-level farmer duty (target 1).
+    expect((await api.request('/action', postJson({ action: 'grow_food' }))).status).toBe(200);
+    const before = (await store.getContributionScore(uid)) ?? 0;
+
+    const first = (await (await api.request('/init')).json()) as InitResponse;
+    expect(first.roleTask?.done).toBe(true);
+    expect(first.challenge.done).toBe(false); // vote mission untouched → can't confound the score
+    const reward = first.roleTask?.reward ?? 0;
+    expect(reward).toBeGreaterThan(0);
+    // The reward was actually banked (guards a dropped addContribution)...
+    const afterFirst = (await store.getContributionScore(uid)) ?? 0;
+    expect(afterFirst).toBe(before + reward);
+    expect(await fake.get(KEYS.roleTaskDone(first.city.cycle, first.city.day, uid))).toBe('1');
+    // ...and never granted again on repeated inits (NX claim).
+    await api.request('/init');
+    await api.request('/init');
+    expect((await store.getContributionScore(uid)) ?? 0).toBe(afterFirst);
+  });
+
+  it('completing the role duty does NOT charge the dome (that hook stays the daily challenge’s)', async () => {
+    const uid = voteMissionUser('t2_guard');
+    ctx.userId = uid;
+    redditMock.getCurrentUsername.mockResolvedValue('wallwarden');
+    await api.request('/init');
+    expect((await api.request('/role', postJson({ role: 'guard' }))).status).toBe(200);
+    expect((await api.request('/action', postJson({ action: 'guard_wall' }))).status).toBe(200);
+
+    const init = (await (await api.request('/init')).json()) as InitResponse;
+    expect(init.roleTask?.done).toBe(true); // the guard duty completed
+    expect(init.challenge.done).toBe(false); // the vote mission did not (so IT can't charge either)
+    // A fresh dome sits at segmentStart everywhere and only a daily-challenge
+    // completion raises a segment (chargeDomeSegment); the duty must not touch it.
+    expect(init.dome.segments.every((s) => s === BALANCE.dome.segmentStart)).toBe(true);
+  });
+
+  it('keeps a completed duty done after a mid-day survivor level-up', async () => {
+    const uid = voteMissionUser('t2_stick');
+    ctx.userId = uid;
+    redditMock.getCurrentUsername.mockResolvedValue('steadfast');
+    await api.request('/init');
+    expect((await api.request('/role', postJson({ role: 'farmer' }))).status).toBe(200);
+    expect((await api.request('/action', postJson({ action: 'grow_food' }))).status).toBe(200);
+    const first = (await (await api.request('/init')).json()) as InitResponse;
+    expect(first.roleTask?.done).toBe(true); // completed at the low-level target (1)
+
+    // Cross a survivor-level boundary mid-day (score >= 361 → level 20 → the farmer
+    // target rises 1 → 2). A live recompute would flip the already-paid duty back
+    // to not-done; the claim marker keeps `done` sticky.
+    await store.addContribution(uid, 500);
+    const second = (await (await api.request('/init')).json()) as InitResponse;
+    expect(second.roleTask?.done).toBe(true);
+    expect(second.roleTask?.progress).toBe(second.roleTask?.target);
+  });
+});
+
 const deferred = () => {
   let settle = () => {};
   const promise = new Promise<void>((resolve) => {

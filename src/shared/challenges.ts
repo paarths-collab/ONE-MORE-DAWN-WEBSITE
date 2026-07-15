@@ -5,7 +5,7 @@
 // no two neighbors share a task. 25 templates × level-scaled targets × 100
 // levels = well over 1000 distinct missions.
 
-import type { ActionType } from './types';
+import type { ActionType, Role } from './types';
 import { hashString } from './rng';
 
 export const CHALLENGE_LEVELS = 100;
@@ -172,4 +172,48 @@ export const challengeProgress = (
   }
   const clamped = Math.min(progress, ch.target);
   return { progress: clamped, done: clamped >= ch.target };
+};
+
+// ---------- Per-role daily duty (signature task per role) ----------
+// A role task is a Challenge — same type, same progress/reward plumbing — but
+// keyed by ROLE instead of a random roll, so it's deterministic (nothing to
+// store) and every survivor with a role feels their choice in the daily loop.
+// This is on TOP of the resolver's roleBonus production multiplier: the bonus
+// rewards playing to your role, the duty gives the role a face in the HUD.
+const ROLE_TASK_TEMPLATES: Record<Role, Template> = {
+  farmer: { kind: 'action', action: 'grow_food', icon: '🌾', text: 'Work the fields: {act} ×{n} today — the city eats because of you.' },
+  engineer: { kind: 'action', action: 'repair_power', icon: '🔧', text: 'Keep the grid alive: {act} ×{n} today.' },
+  medic: { kind: 'action', action: 'treat_sick', icon: '⛑️', text: 'Tend the ward: {act} ×{n} today.' },
+  guard: { kind: 'action', action: 'guard_wall', icon: '🛡️', text: 'Hold the wall: {act} ×{n} today.' },
+  speaker: { kind: 'any_action', icon: '📣', text: 'Rally the city: take {n} action{s} today — every deed lifts morale.' },
+  scout: { kind: 'civic', icon: '🧭', text: 'Scout ahead: vote the crisis AND back a council plan.' },
+};
+
+/** The role duty's completion bonus (contribution points); grows gently with level. */
+export const roleTaskReward = (level: number): number => 2 + Math.floor(level / 15);
+
+/**
+ * The player's signature duty for their ROLE — deterministic from (role,
+ * lifetime contribution), so like the daily challenge there is nothing to
+ * store. Same Challenge shape, so it reuses challengeProgress and the reward
+ * plumbing untouched.
+ */
+export const roleTask = (role: Role, totalContribution: number, maxActions = 3): Challenge => {
+  const level = levelForContribution(totalContribution);
+  const t = ROLE_TASK_TEMPLATES[role];
+  const target = targetForLevel(level, t, maxActions);
+  const text = t.text
+    .replace(/\{n\}/g, String(target))
+    .replace(/\{s\}/g, target === 1 ? '' : 's')
+    .replace(/\{act\}/g, t.action ? ACTION_LABEL[t.action] : '');
+  return {
+    id: `role:${role}:${target}`,
+    icon: t.icon,
+    text,
+    kind: t.kind,
+    action: t.action ?? null,
+    target,
+    level,
+    reward: roleTaskReward(level),
+  };
 };

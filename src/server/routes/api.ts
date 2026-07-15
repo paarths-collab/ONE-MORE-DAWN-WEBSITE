@@ -38,7 +38,7 @@ import type {
 } from '../../shared/types';
 import { hashString } from '../../shared/rng';
 import { economyOf } from '../../shared/shop';
-import { challengeProgress, dailyChallenge } from '../../shared/challenges';
+import { challengeProgress, dailyChallenge, roleTask } from '../../shared/challenges';
 import { cityNameFromSeed } from '../../shared/cityName';
 import { clampAvatar, isValidAvatar } from '../../shared/avatar';
 import { ACTION_TYPES, validateAction, validateRoleChange } from '../game/actionRules';
@@ -555,6 +555,39 @@ api.get('/init', async (c) => {
   }
   const challenge = { ...challengeDef, progress: chState.progress, done: chState.done };
 
+  // Per-role daily duty — mirrors the challenge above but is keyed by ROLE, not a
+  // random roll, so it's derived (no def stored). Same progress plumbing; its own
+  // NX claim grants the reward exactly once. Deliberately does NOT charge the
+  // dome — that shared-shield hook stays the daily challenge's alone.
+  let roleTaskOut: InitResponse['roleTask'] = null;
+  if (player.role) {
+    const roleTaskDef = roleTask(player.role, lifetimeScore, effectiveEnergy(player, city.day));
+    const rtState = challengeProgress(roleTaskDef, {
+      actionsToday: cleanActions,
+      voted: !!yourCrisisVote,
+      backedPlan: !!yourStrategyVote,
+      pledged: pledge.usedToday,
+    });
+    const roleTaskKey = KEYS.roleTaskDone(city.cycle, city.day, user.userId);
+    // The claim key is a stable per-day completion marker. The duty def is derived
+    // live (not frozen like the stored daily challenge), so a mid-day survivor
+    // level-up can raise its target; keying `done` off the claim keeps a duty that
+    // was already finished and paid from flipping back to incomplete.
+    let done = rtState.done;
+    if (rtState.done && city.status === 'alive') {
+      const claimed = await redisLike.set(roleTaskKey, '1', {
+        nx: true,
+        expiration: 3 * 24 * 3600,
+      });
+      if (claimed) {
+        await store.addContribution(user.userId, roleTaskDef.reward);
+      }
+    } else if (!done) {
+      done = (await redisLike.get(roleTaskKey)) != null;
+    }
+    roleTaskOut = { ...roleTaskDef, progress: done ? roleTaskDef.target : rtState.progress, done };
+  }
+
   // World of Cities (Plan 2): keep this sub's global-registry record fresh.
   // Cheap on the common path (one cached-meta read for sub-gate subs; one
   // global hSet when eligible) and never throws.
@@ -614,6 +647,7 @@ api.get('/init', async (c) => {
     postId,
     cityName: cityNameFromSeed(city.worldSeed),
     challenge,
+    roleTask: roleTaskOut,
     economy: economyOf(player, city.cycle, city.day),
     land,
     treasury,

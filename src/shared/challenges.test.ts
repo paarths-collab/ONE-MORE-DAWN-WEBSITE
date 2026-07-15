@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { CHALLENGE_LEVELS, challengeProgress, dailyChallenge, levelForContribution, rewardForLevel } from './challenges';
+import {
+  CHALLENGE_LEVELS,
+  challengeProgress,
+  dailyChallenge,
+  levelForContribution,
+  rewardForLevel,
+  roleTask,
+  roleTaskReward,
+} from './challenges';
+import type { Role } from './types';
+
+const ALL_ROLES: Role[] = ['farmer', 'engineer', 'medic', 'guard', 'speaker', 'scout'];
 
 describe('levelForContribution', () => {
   it('starts at level 1 and caps at 100', () => {
@@ -109,5 +120,82 @@ describe('challengeProgress', () => {
     const over = challengeProgress(any, { ...base, actionsToday: { grow_food: 2, guard_wall: 2 } });
     expect(over.progress).toBe(any.target);
     expect(over.done).toBe(true);
+  });
+});
+
+describe('roleTaskReward', () => {
+  it('starts at 2 and grows one point every 15 levels', () => {
+    expect(roleTaskReward(1)).toBe(2);
+    expect(roleTaskReward(14)).toBe(2);
+    expect(roleTaskReward(15)).toBe(3);
+    expect(roleTaskReward(30)).toBe(4);
+    expect(roleTaskReward(100)).toBe(8);
+  });
+});
+
+describe('roleTask', () => {
+  it('gives each worker role its signature action', () => {
+    expect(roleTask('farmer', 100)).toMatchObject({ kind: 'action', action: 'grow_food', icon: '🌾' });
+    expect(roleTask('engineer', 100)).toMatchObject({ kind: 'action', action: 'repair_power', icon: '🔧' });
+    expect(roleTask('medic', 100)).toMatchObject({ kind: 'action', action: 'treat_sick', icon: '⛑️' });
+    expect(roleTask('guard', 100)).toMatchObject({ kind: 'action', action: 'guard_wall', icon: '🛡️' });
+  });
+
+  it('gives the speaker an any_action rally and the scout a civic duty', () => {
+    expect(roleTask('speaker', 100)).toMatchObject({ kind: 'any_action', action: null, icon: '📣' });
+    expect(roleTask('scout', 100)).toMatchObject({ kind: 'civic', action: null, icon: '🧭' });
+  });
+
+  it('is deterministic for the same (role, contribution) — no storage needed', () => {
+    for (const role of ALL_ROLES) {
+      expect(roleTask(role, 500)).toEqual(roleTask(role, 500));
+    }
+  });
+
+  it('gives every role a distinct id keyed by role', () => {
+    const ids = new Set(ALL_ROLES.map((r) => roleTask(r, 500).id));
+    expect(ids.size).toBe(ALL_ROLES.length);
+    for (const role of ALL_ROLES) {
+      expect(roleTask(role, 500).id.startsWith(`role:${role}:`)).toBe(true);
+    }
+  });
+
+  it('renders complete text with no unexpanded placeholders across levels', () => {
+    for (const role of ALL_ROLES) {
+      for (const score of [0, 100, 2500, 9801]) {
+        const task = roleTask(role, score);
+        expect(task.text).not.toMatch(/\{n\}|\{act\}|\{s\}/);
+        expect(task.text.length).toBeGreaterThan(10);
+        expect(task.level).toBe(levelForContribution(score));
+        expect(task.reward).toBe(roleTaskReward(task.level));
+        expect(task.target).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
+
+  it("pluralizes the speaker's rally: singular at 1, plural above", () => {
+    expect(roleTask('speaker', 0).target).toBe(1); // level 1 → 1 action
+    expect(roleTask('speaker', 0).text).toContain('1 action ');
+    const high = roleTask('speaker', 9801); // level 100 → 3 actions
+    expect(high.target).toBe(3);
+    expect(high.text).toContain('3 actions');
+  });
+
+  it('caps action targets to the energy an injured survivor has left', () => {
+    const injured = roleTask('farmer', 9801, 2); // level 100 would ask 3, but only 2 energy
+    expect(injured.target).toBe(2);
+  });
+
+  it('feeds challengeProgress like any other Challenge', () => {
+    const farmer = roleTask('farmer', 9801); // grow_food, target 3
+    const base = { actionsToday: {}, voted: false, backedPlan: false, pledged: false };
+    expect(challengeProgress(farmer, base).done).toBe(false);
+    expect(
+      challengeProgress(farmer, { ...base, actionsToday: { grow_food: farmer.target } }),
+    ).toEqual({ progress: farmer.target, done: true });
+
+    const scout = roleTask('scout', 100); // civic → needs vote AND plan
+    expect(challengeProgress(scout, { ...base, voted: true }).done).toBe(false);
+    expect(challengeProgress(scout, { ...base, voted: true, backedPlan: true }).done).toBe(true);
   });
 });

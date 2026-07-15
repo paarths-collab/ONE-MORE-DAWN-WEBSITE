@@ -298,6 +298,19 @@ export type InitResponse = {
     progress: number;
     done: boolean;
   };
+  /** Today's role duty — the player's role-signature task; null when roleless. */
+  roleTask: {
+    id: string;
+    icon: string;
+    text: string;
+    kind: string;
+    action: ActionType | null;
+    target: number;
+    level: number;
+    reward: number;
+    progress: number;
+    done: boolean;
+  } | null;
   /** Coin balance + owned/equipped cosmetics — server-authoritative. */
   economy: EconomyState;
   /** Community-funded, sequential districts on the connected mainland. */

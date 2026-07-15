@@ -209,9 +209,13 @@ const PLEDGE = {
   ],
   usedToday: false, ledger: { topHelpers: ['u/ashen_fox', 'u/saltcedar'], recent: ['u/palewick pledged'], mine: 0 },
 };
+// The mock player is a guard, so their role duty is Hold the Wall (mirrors what
+// roleTask('guard', …) produces). null'd in the MOCK_ROLE_NULL onboarding variant.
+const ROLE_TASK_FIX = { id: 'role:guard:2', icon: '🛡️', text: 'Hold the wall: Guard the Wall ×2 today.', kind: 'action', action: 'guard_wall', target: 2, level: 25, reward: 3, progress: 1, done: false };
 const INIT = {
   type: 'init', postId: 't3_mock', cityName: 'VAELMAR',
   challenge: { id: '0:2', icon: '🌾', text: 'Feed the stores: Grow Food ×2 today.', kind: 'action', action: 'grow_food', target: 2, level: 7, reward: 2, progress: 1, done: false },
+  roleTask: ROLE_TASK_FIX,
   city: CITY, player: PLAYER, effectiveEnergy: 3, crisis: CRISIS,
   crisisVotes: { a: 12, b: 7, c: 5 }, yourCrisisVote: null,
   strategyVotes: { prepare_raid: 9, stockpile_food: 6, repair_power: 4 }, yourStrategyVote: null,
@@ -288,6 +292,8 @@ const currentHouses = () => (mockHasHouse ? INIT.houses : NO_HOUSE);
 const currentInit = () => ({
   ...INIT,
   player: mockPlayer,
+  // Role duty tracks the player's role — null for the roleless onboarding variant.
+  roleTask: mockPlayer.role ? ROLE_TASK_FIX : null,
   city: CITY_V,
   crisisVotes: mockCrisisVotes,
   yourCrisisVote: mockCrisisVote,
