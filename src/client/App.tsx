@@ -83,6 +83,7 @@ import type {
   WorldCity,
 } from '../shared/types';
 import { tierForContribution } from '../shared/houses';
+import { earnedBadges, type Badge } from '../shared/achievements';
 
 // ONE MORE DAWN — 3D town, React edition v4: the self-running mini-game.
 // The scene runs itself (time cycles, companions on, players walk the streets).
@@ -2493,6 +2494,7 @@ function StatsModal({
   worldCities,
   worldLive,
   worldNote,
+  badges,
 }: {
   open: boolean;
   onClose: () => void;
@@ -2512,6 +2514,7 @@ function StatsModal({
   worldCities: WorldCity[] | null;
   worldLive: boolean;
   worldNote: string | null;
+  badges: Badge[];
 }) {
   // Move focus onto the close button when the ledger opens (it stays mounted and
   // is only toggled by CSS, so autoFocus can't fire on open).
@@ -2519,6 +2522,13 @@ function StatsModal({
   useEffect(() => {
     if (open) closeRef.current?.focus();
   }, [open]);
+  // Tier palette for the BADGES wall — tuned to the ledger's warm-gold pixel look.
+  const BADGE_TIER_STYLE: Record<Badge['tier'], { color: string; bg: string; glow: string }> = {
+    bronze: { color: '#cf8b48', bg: 'rgba(207, 139, 72, 0.10)', glow: 'none' },
+    silver: { color: '#c3ccd6', bg: 'rgba(195, 204, 214, 0.10)', glow: 'none' },
+    gold: { color: '#e8c34a', bg: 'rgba(232, 195, 74, 0.12)', glow: '0 0 10px rgba(232, 195, 74, 0.25)' },
+    legendary: { color: '#d38bff', bg: 'rgba(211, 139, 255, 0.14)', glow: '0 0 12px rgba(211, 139, 255, 0.35)' },
+  };
   const ranked = Object.entries(contribs)
     .sort((a, b) => b[1].score - a[1].score)
     .map(([name, c], i) => ({ name, c, rank: i }));
@@ -2538,6 +2548,53 @@ function StatsModal({
           ✕
         </button>
         <h2 id="stats-modal-title">CITY LEDGER · DAY {day}</h2>
+
+        <div className="st-sec">BADGES</div>
+        {badges.length === 0 ? (
+          <div className="mini-cap">No badges yet — keep the flame lit and your legend will grow here.</div>
+        ) : (
+          <ul
+            className="st-badges"
+            aria-label="Earned badges"
+            style={{ listStyle: 'none', display: 'flex', flexWrap: 'wrap', gap: '8px', padding: 0, margin: '2px 0 6px' }}
+          >
+            {badges.map((b) => {
+              const s = BADGE_TIER_STYLE[b.tier];
+              return (
+                <li
+                  key={b.id}
+                  className={'st-badge ' + b.tier}
+                  title={`${b.label} · ${b.tier}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    border: `1px solid ${s.color}`,
+                    background: s.bg,
+                    boxShadow: s.glow,
+                    borderRadius: '8px',
+                    padding: '5px 9px',
+                  }}
+                >
+                  <span aria-hidden="true" style={{ fontSize: '15px', lineHeight: 1 }}>
+                    {b.icon}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--pixel)',
+                      fontSize: '8px',
+                      letterSpacing: '0.5px',
+                      color: s.color,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {b.label}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
         <div className="st-sec">CITY VITALS</div>
         <table className="st">
@@ -3231,6 +3288,7 @@ export function App() {
   const [shopBusy, setShopBusy] = useState(false);
   const challengeDoneRef = useRef(false); // last seen done-state, for the completion cheer
   const [liveStreak, setLiveStreak] = useState(0); // consecutive-day streak (server-tracked)
+  const [liveBadges, setLiveBadges] = useState<Badge[]>([]); // display-only milestones derived from init
   const [liveLapsed, setLiveLapsed] = useState(0); // a dead streak's ghost, restorable via REKINDLE
   const [rekindleBusy, setRekindleBusy] = useState(false);
   const [dawnEta, setDawnEta] = useState<string | null>(null); // countdown to next UTC-midnight dawn
@@ -3481,6 +3539,7 @@ export function App() {
       challengeDoneRef.current = !!ch?.done;
       setLiveStreak(init.player.streak ?? 0);
       setLiveLapsed(init.player.lapsedStreak ?? 0);
+      setLiveBadges(earnedBadges(init)); // display-only badge wall for the STATS ledger
       // Level-up moment: the mission level climbed since the last refresh.
       if (ch) {
         if (!first && prevLevelRef.current !== null && ch.level > prevLevelRef.current) {
@@ -5436,6 +5495,7 @@ export function App() {
         worldCities={worldCities}
         worldLive={isLive}
         worldNote={worldNote}
+        badges={liveBadges}
       />
       <GameDashboard
         open={boardOpen}
