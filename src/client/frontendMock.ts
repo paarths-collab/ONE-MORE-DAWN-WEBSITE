@@ -255,7 +255,7 @@ const chatterState = (category: string) => ({
   rootCommentId: `t1_${category}_day_6`, threadUrl: CHATTER_THREAD_URL,
   messages: mockChatterMessages.filter((m) => m.category === category).map(({ category: _c, ...m }) => ({ ...m, permalink: `${CHATTER_THREAD_URL}${m.id}/` })),
   feedAvailable: true, maxLength: 250, cooldownSeconds: 15,
-  attributionNotice: 'This is a frontend-only demo — messages are local to your browser and are never posted to Reddit.',
+  attributionNotice: 'This frontend demo keeps messages local to your browser. Nothing is posted to Reddit.',
 });
 
 // ---------- The router: (path, method, body) -> { status, body } ----------

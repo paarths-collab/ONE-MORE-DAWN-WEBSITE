@@ -319,7 +319,7 @@ const ACTION_IDS: ActionType[] = ['grow_food', 'repair_power', 'treat_sick', 'gu
 const MARKED_ICONS: Record<Marked['kind'], string> = { person: '🧒', place: '🏚️', symbol: '🕯️' };
 
 // Advisor coachmarks: four essentials after onboarding, then one-time lessons
-// when the player first opens a deeper surface. The compass replays all ten.
+// when the player first opens a deeper surface. The compass replays the full tour.
 const COACH_KEY = 'omd_coach_v1';
 const COACH_CONTEXT_KEY = 'omd_coach_context_v1';
 const INTRO_COACH_STEPS = 4;
@@ -459,7 +459,7 @@ type CoachStep = {
   title: string;
   text: string;
   anchor?: string;
-  go?: { open?: boolean; tab?: DashTab };
+  go?: { open?: boolean; tab?: DashTab; mapView?: 'town' | 'world'; stats?: boolean };
 };
 type CoachFlow = 'intro' | 'context' | 'full';
 const COACH_STEPS: CoachStep[] = [
@@ -493,8 +493,8 @@ const COACH_STEPS: CoachStep[] = [
   },
   {
     icon: '📜',
-    title: 'MY TASK FOR YOU',
-    text: 'Each dawn I set you a mission of your own, no two neighbors share one. Finish it and your standing grows. A hundred levels await the faithful.',
+    title: 'YOUR DAILY DUTIES',
+    text: 'Your personal mission sits above your role duty. Finish both to grow your standing and prove what your chosen role contributes to the city.',
     anchor: '.mission-chip',
     go: { open: false },
   },
@@ -515,7 +515,7 @@ const COACH_STEPS: CoachStep[] = [
   {
     icon: '🗳️',
     title: 'WE DECIDE TOGETHER',
-    text: "Here the city speaks: vote on today's crisis, back a council plan, and pledge for The Marked, one soul the night wants to take. One of each, every day.",
+    text: "Here the city speaks: vote on today's crisis, back a council plan, pledge for The Marked, and join City Chatter. One community, deciding together.",
     anchor: '.dash',
     go: { open: true, tab: 'live' },
   },
@@ -527,11 +527,39 @@ const COACH_STEPS: CoachStep[] = [
     go: { open: true, tab: 'top' },
   },
   {
+    icon: '🗺️',
+    title: 'THE KNOWN WORLD',
+    text: 'Every marker is another subreddit city. See who still stands, compare survival rank, and travel out to meet the communities holding their own line.',
+    anchor: '.wm',
+    go: { open: true, tab: 'map', mapView: 'world' },
+  },
+  {
+    icon: '🪙',
+    title: 'MAKE THE CITY YOURS',
+    text: 'Coins earned by helping the city unlock house cosmetics. The same shop also pools community support to open new land and raise the city beacon.',
+    anchor: '.shop-seg',
+    go: { open: true, tab: 'shop' },
+  },
+  {
+    icon: '🔌',
+    title: 'RECONNECT THE CITY',
+    text: 'The daily puzzle is another way to help. Rotate the district grid, restore every connection, and compare your cleanest solve with the city.',
+    anchor: '.puzzle-card',
+    go: { open: true, tab: 'city', mapView: 'town' },
+  },
+  {
+    icon: '🏅',
+    title: 'YOUR BADGES',
+    text: 'The ledger remembers your streak, house tier, rank, and rare city milestones. Every earned badge stays visible here with the full city record.',
+    anchor: '.st-badges',
+    go: { open: false, stats: true },
+  },
+  {
     icon: '🏠',
     title: 'YOUR HOUSE',
     text: 'One last thing. Your first contribution raises YOUR house. The founder built first; every soul after adds their own. Come back at dawn. {CITY} remembers its builders.',
     anchor: '.title',
-    go: { open: false },
+    go: { open: false, stats: false },
   },
 ];
 
@@ -582,7 +610,7 @@ function CoachDialogue({
   }, [stepIndex, fullText.length]);
   const typing = typed < fullText.length;
   return (
-    <div className="coach card-bit">
+    <div className={`coach card-bit${step.go?.open ? ' coach-with-drawer' : ''}`}>
       <AdvisorPortrait talking={typing} face={aim.face} point={aim.point} />
       <div className="co-head">
         <span>
@@ -3518,6 +3546,19 @@ export function App() {
   const [coachRing, setCoachRing] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   // Where Maren looks/points, derived from the highlighted element's position.
   const [coachAim, setCoachAim] = useState<{ face: 'left' | 'right' | 'front'; point: 'up' | 'side' | null }>({ face: 'front', point: null });
+
+  // The standalone judge demo's front door can start the complete tour directly.
+  // The production Devvit client never dispatches this event, so its onboarding
+  // behavior stays unchanged.
+  useEffect(() => {
+    const startDemoTour = () => {
+      setSettingsOpen(false);
+      setCoachFlow('full');
+      setCoachStep(0);
+    };
+    window.addEventListener('omd:demo-full-tour', startDemoTour);
+    return () => window.removeEventListener('omd:demo-full-tour', startDemoTour);
+  }, []);
   // Fallen-city terminal state (live only): city.status === 'fallen'.
   const [cityFallen, setCityFallen] = useState(false);
   const [liveTimelineHeadline, setLiveTimelineHeadline] = useState<string | null>(null);
@@ -3916,9 +3957,12 @@ export function App() {
     if (step.go) {
       if (step.go.open !== undefined) setDashOpen(step.go.open);
       if (step.go.tab) setDashTab(step.go.tab);
+      if (step.go.mapView) setMapView(step.go.mapView);
+      if (step.go.stats !== undefined) setStatsOpen(step.go.stats);
     }
     const measure = () => {
       const el = step.anchor ? document.querySelector(step.anchor) : null;
+      el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       const r = el?.getBoundingClientRect();
       if (!r || r.width <= 0 || r.height <= 0) {
         setCoachRing(null);
@@ -4112,7 +4156,7 @@ export function App() {
       const yours = init.houses?.yours ?? null;
       if (!before && yours) {
         pushNotif('🏠', `Your house now stands in the city. Build order #${yours.index + 1}.`, 'good');
-        openContextCoach(9);
+        openContextCoach(13);
       } else {
         openContextCoach(4);
       }

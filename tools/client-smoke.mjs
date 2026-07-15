@@ -391,7 +391,7 @@ async function liveSmoke(url) {
     for (const title of ['WELCOME, SURVIVOR', 'THE VITALS', 'THE DAY', 'YOUR ENERGY']) {
       assert([...introTitles].some((head) => head.includes(title)), `Opening advisor primer should include ${title}.`);
     }
-    assert(![...introTitles].some((head) => head.includes('MY TASK FOR YOU')), 'Opening advisor primer must stop before contextual lessons.');
+    assert(![...introTitles].some((head) => head.includes('YOUR DAILY DUTIES')), 'Opening advisor primer must stop before contextual lessons.');
     await cdp.waitFor(`!document.querySelector('.coach') && !document.querySelector('.coach-ring')`, 'four-step primer + ring dismiss after GOT IT');
     assert((await cdp.eval(`window.localStorage.getItem('omd_coach_v1')`)) === '1', 'advisor primer marks itself seen');
     await cdp.waitFor(`!!document.querySelector('.dawn-teaser')`, 'Dawn Report teaser appears after advisor primer');
@@ -548,7 +548,7 @@ async function liveSmoke(url) {
     await cdp.clickButtonContaining('Prepare for Raid');
     await cdp.waitFor('[...document.querySelectorAll("button.co-plan")].some((b) => b.disabled && (b.textContent || "").includes("Prepare for Raid"))', 'council strategy lock after submit');
     await cdp.waitFor('document.body.innerText.includes("of the council backs it")', 'strategy confirmation reports community support');
-    await completeContextLesson(cdp, 'MY TASK FOR YOU');
+    await completeContextLesson(cdp, 'YOUR DAILY DUTIES');
     await cdp.clickButtonContaining('Fortify first');
     await cdp.waitFor('document.body.innerText.includes("Fortify first") && document.querySelectorAll(".cr-opt:disabled").length >= 3', 'vote lock after submit');
     await cdp.waitFor('document.body.innerText.includes("of the city backs this choice")', 'crisis confirmation reports community support');
@@ -1045,6 +1045,7 @@ async function portraitSmoke(url) {
     await cdp.eval(`document.querySelector('.dash-fab')?.click()`);
     await cdp.waitFor(`document.querySelector('.dash')?.classList.contains('on')`, 'portrait CITY drawer open');
     await cdp.waitFor(`!!document.querySelector('.coach')`, 'portrait contextual advisor appears');
+    await cdp.waitFor(`getComputedStyle(document.querySelector('.dash')).opacity === '1'`, 'portrait CITY drawer staged for advisor');
     const stagedDrawer = await cdp.eval(`(() => {
       const dash = document.querySelector('.dash');
       const coach = document.querySelector('.coach');
@@ -1060,10 +1061,11 @@ async function portraitSmoke(url) {
         active: dash?.classList.contains('coach-active') || false,
         opacity: style?.opacity || '',
         pointer: style?.pointerEvents || '',
+        coachHitsDrawer: overlaps(coach, dash),
         coachHitsCityControl: overlaps(coach, cityFab),
       };
     })()`);
-    assert(stagedDrawer.active && stagedDrawer.opacity === '0' && stagedDrawer.pointer === 'none' && !stagedDrawer.coachHitsCityControl, `Portrait advisor must not overlap the CITY drawer or its control, saw ${JSON.stringify(stagedDrawer)}.`);
+    assert(stagedDrawer.active && stagedDrawer.opacity === '1' && stagedDrawer.pointer === 'none' && !stagedDrawer.coachHitsDrawer && !stagedDrawer.coachHitsCityControl, `Portrait advisor must stage the CITY drawer without overlap, saw ${JSON.stringify(stagedDrawer)}.`);
     await completeContextLesson(cdp, 'THE CITY PANEL');
     await cdp.waitFor(`getComputedStyle(document.querySelector('.dash')).opacity === '1'`, 'portrait drawer reveals after advisor');
     const coveredActions = await cdp.eval(`getComputedStyle(document.querySelector('.hotbar')).pointerEvents`);

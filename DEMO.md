@@ -9,6 +9,8 @@ account, no Devvit runtime, no server.
 > This demo simulates all of that **in your browser** — every `/api/*` call is answered by an in-memory
 > mock, nothing is saved, and a refresh restarts the day. The app itself says so up front: an
 > **"ENTER THE CITY" notice** appears on load and a small **"◆ FRONTEND DEMO"** ribbon stays visible.
+> Choosing **ENTER THE CITY** starts Maren's complete 14-stop judge tour. She opens and spotlights the
+> core loop, role duty, world, shop and land expansion, puzzle, leaderboard, and badge wall in place.
 
 ## What judges can experience
 
