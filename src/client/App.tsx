@@ -1483,36 +1483,122 @@ function ShopTab({
   );
 }
 
-// TOP tab, subreddit contribution leaderboard + city totals.
-// Live mode renders the real server leaderboard (username + score only).
+// One ranked board (contributors or scouts): medals the top three, highlights
+// the viewer's own row, and states where the viewer stands — or, when nobody has
+// ranked yet, says so warmly instead of rendering a bare empty box.
+function LeaderBoard({
+  title,
+  rows,
+  you,
+  unit,
+  emptyCopy,
+  climbCopy,
+}: {
+  title: string;
+  rows: LeaderboardEntry[];
+  you: string;
+  unit: string;
+  emptyCopy: string;
+  climbCopy: string;
+}) {
+  const topScore = Math.max(1, rows[0]?.score ?? 1);
+  const norm = (u: string) => u.replace(/^u\//i, '').toLowerCase();
+  const meKey = norm(you);
+  const youIndex = meKey ? rows.findIndex((r) => norm(r.username) === meKey) : -1;
+  return (
+    <>
+      <div className="p-sec">{title}</div>
+      {rows.length === 0 ? (
+        <div className="lb-empty">{emptyCopy}</div>
+      ) : (
+        <>
+          {youIndex >= 0 ? (
+            <div className="lb-standing">
+              <span className="lb-standing-medal" aria-hidden="true">
+                {LB_RANKS[youIndex] ?? '📜'}
+              </span>
+              <span className="lb-standing-txt">
+                You stand <b>#{youIndex + 1}</b> of {rows.length} {unit}
+                {rows.length === 1 ? '' : 's'}.
+              </span>
+            </div>
+          ) : (
+            <div className="lb-standing lb-standing-off">
+              <span className="lb-standing-medal" aria-hidden="true">
+                📜
+              </span>
+              <span className="lb-standing-txt">Not on the {unit} board yet — {climbCopy}</span>
+            </div>
+          )}
+          <div className="lb">
+            {rows.map((row, i) => {
+              const isMe = i === youIndex;
+              return (
+                <div key={`${row.username}-${i}`} className={`lb-row${i < 3 ? ` tier-${i + 1}` : ''}${isMe ? ' me' : ''}`}>
+                  <span className="lb-rank">{LB_RANKS[i] ?? i + 1}</span>
+                  <span className="lb-user">
+                    u/{row.username}
+                    {isMe && <span className="lb-you">YOU</span>}
+                  </span>
+                  <span className="lb-score">{row.score}</span>
+                  <div className="lb-bar">
+                    <i style={{ width: `${Math.round((row.score / topScore) * 100)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
 
-function TopTab({ contribs, lb, unavailable }: { contribs: Record<string, Contrib>; lb: LeaderboardEntry[] | null; unavailable: boolean }) {
+// TOP tab, subreddit contribution + scout leaderboards and city totals.
+// Live mode renders the real server boards (username + score only); demo mode
+// synthesises rich per-citizen rows from local contributions.
+function TopTab({
+  contribs,
+  lb,
+  scouts,
+  you,
+  unavailable,
+}: {
+  contribs: Record<string, Contrib>;
+  lb: LeaderboardEntry[] | null;
+  scouts: LeaderboardEntry[] | null;
+  you: string;
+  unavailable: boolean;
+}) {
   if (unavailable) {
     return (
       <>
         <div className="p-sec">TOP CONTRIBUTORS</div>
-        <div className="mini-cap">The city ledger could not be reached. Try again shortly.</div>
+        <div className="lb-empty">The city ledger could not be reached. Try again shortly.</div>
       </>
     );
   }
   if (lb) {
-    const topScore = Math.max(1, lb[0]?.score ?? 1);
     return (
       <>
-        <div className="p-sec">TOP CONTRIBUTORS</div>
-        <div className="lb">
-          {lb.length === 0 && <div className="mini-cap">no contributions yet, be the first</div>}
-          {lb.map((row, i) => (
-            <div key={`${row.username}-${i}`} className="lb-row">
-              <span className="lb-rank">{LB_RANKS[i] ?? i + 1}</span>
-              <span className="lb-user">u/{row.username}</span>
-              <span className="lb-score">{row.score}</span>
-              <div className="lb-bar">
-                <i style={{ width: `${Math.round((row.score / topScore) * 100)}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
+        <LeaderBoard
+          title="TOP CONTRIBUTORS"
+          rows={lb}
+          you={you}
+          unit="contributor"
+          emptyCopy="No contributions yet — be the first to raise a hand for the city."
+          climbCopy="every action, pledge and council stand counts."
+        />
+        {scouts && (
+          <LeaderBoard
+            title="TOP SCOUTS"
+            rows={scouts}
+            you={you}
+            unit="scout"
+            emptyCopy="No scouts have ranged beyond the walls yet."
+            climbCopy="send scouts into the wastes to chart the world."
+          />
+        )}
         <div className="p-sec">CITY TOTALS</div>
         <div className="lb-total">every action, pledge and council stand counts toward the ledger</div>
       </>
@@ -1523,8 +1609,8 @@ function TopTab({ contribs, lb, unavailable }: { contribs: Record<string, Contri
     .map(([name, c], i) => ({ name, c, rank: i }));
   // top 8, but the player's row stays pinned on (with its true rank)
   const rows = ranked.slice(0, 8);
-  const you = ranked.find((r) => r.name === 'u/you');
-  if (you && you.rank >= 8) rows.push(you);
+  const mine = ranked.find((r) => r.name === 'u/you');
+  if (mine && mine.rank >= 8) rows.push(mine);
   const topScore = Math.max(1, ranked[0]?.c.score ?? 1);
   const totals = Object.values(contribs).reduce(
     (acc, c) => ({
@@ -1538,11 +1624,27 @@ function TopTab({ contribs, lb, unavailable }: { contribs: Record<string, Contri
   return (
     <>
       <div className="p-sec">TOP CONTRIBUTORS</div>
+      {mine && (
+        <div className="lb-standing">
+          <span className="lb-standing-medal" aria-hidden="true">
+            {LB_RANKS[mine.rank] ?? '📜'}
+          </span>
+          <span className="lb-standing-txt">
+            You stand <b>#{mine.rank + 1}</b> of {ranked.length} contributor{ranked.length === 1 ? '' : 's'}.
+          </span>
+        </div>
+      )}
       <div className="lb">
+        {rows.length === 0 && (
+          <div className="lb-empty">No contributions yet — be the first to raise a hand for the city.</div>
+        )}
         {rows.map(({ name, c, rank }) => (
-          <div key={name} className={name === 'u/you' ? 'lb-row me' : 'lb-row'}>
+          <div key={name} className={`lb-row${rank < 3 ? ` tier-${rank + 1}` : ''}${name === 'u/you' ? ' me' : ''}`}>
             <span className="lb-rank">{LB_RANKS[rank] ?? rank + 1}</span>
-            <span className="lb-user">{name}</span>
+            <span className="lb-user">
+              {name}
+              {name === 'u/you' && <span className="lb-you">YOU</span>}
+            </span>
             <span className="lb-stats">
               🏠{c.houses} · 🍞{c.food} · ⚡{c.power} · 🩹{c.medicine}
             </span>
@@ -1642,7 +1744,7 @@ function MiniMap({
 // A parchment-style terrain map: sea → continent → mountains/forests/river →
 // curved trade routes → hut-cluster settlements with status flags. Demo shows
 // the fictional set; live mode only renders cities returned by /api/world.
-type WmCity = { id: string; name: string; status: WorldStatus; x: number; y: number; info?: string; real?: boolean };
+type WmCity = { id: string; name: string; status: WorldStatus; x: number; y: number; info?: string; real?: boolean; rank?: number };
 
 /** Open another city's subreddit — every city on the world map IS a community.
  *  navigateTo needs the Devvit runtime; outside it (dev harness) fall back to
@@ -1665,11 +1767,15 @@ function WorldMap({
   liveCities,
   liveMode,
   note,
+  yourRank,
+  totalCities,
 }: {
   youStatus: WorldStatus;
   liveCities: WorldCity[] | null;
   liveMode: boolean;
   note: string | null;
+  yourRank: number | null;
+  totalCities: number | null;
 }) {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   let cities: WmCity[];
@@ -1682,16 +1788,32 @@ function WorldMap({
     const info = (c: WorldCity) => `${c.survivalDays} dawns · ${c.population} souls`;
     cities = [];
     const center = WORLD_CITIES[0]!;
-    if (you) cities.push({ id: 'you', name: you.subreddit, status: you.status, x: center.x, y: center.y, info: info(you), real: true });
+    // liveCities arrives already ranked (longest-surviving first), so a city's
+    // index is its world rank − 1. Prefer the server's yourRank for your own city.
+    if (you)
+      cities.push({
+        id: 'you',
+        name: you.subreddit,
+        status: you.status,
+        x: center.x,
+        y: center.y,
+        info: info(you),
+        real: true,
+        rank: yourRank ?? liveCities.indexOf(you) + 1,
+      });
     others.forEach((c, i) => {
       const slot = WORLD_CITIES[i + 1];
       if (!slot) return;
-      cities.push({ id: slot.id, name: c.subreddit, status: c.status, x: slot.x, y: slot.y, info: info(c), real: true });
+      cities.push({ id: slot.id, name: c.subreddit, status: c.status, x: slot.x, y: slot.y, info: info(c), real: true, rank: liveCities.indexOf(c) + 1 });
     });
   } else {
     cities = WORLD_CITIES.map((c) => (c.id === 'you' ? { ...c, status: youStatus } : c));
   }
   const sel = cities.find((c) => c.id === selectedCity) ?? null;
+  const youCity = liveCities?.find((c) => c.isYou) ?? null;
+  const standRank = yourRank ?? (youCity && liveCities ? liveCities.indexOf(youCity) + 1 : null);
+  const standTotal = totalCities ?? liveCities?.length ?? null;
+  const rivalCount = liveCities ? liveCities.filter((c) => !c.isYou).length : null;
   if (unavailable) {
     return (
       <div className="wm wm-unavailable">
@@ -1705,6 +1827,16 @@ function WorldMap({
   }
   return (
     <div className="wm">
+      {liveMode && youCity && standRank != null && standTotal != null && standTotal > 0 && (
+        <div className="wm-standing">
+          <span className="wm-standing-medal" aria-hidden="true">
+            {LB_RANKS[standRank - 1] ?? '🏳️'}
+          </span>
+          <span className="wm-standing-txt">
+            YOUR CITY HOLDS <b>#{standRank}</b> OF {standTotal} IN THE KNOWN WORLD
+          </span>
+        </div>
+      )}
       <svg className="wm-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
         {/* sea + landmass */}
         <rect className="wm-sea" x={0} y={0} width={100} height={100} />
@@ -1736,6 +1868,10 @@ function WorldMap({
           const h = 1.2 * s;
           const poleX = c.x + (isYou ? 3.6 : 2.7);
           const poleTop = c.y - (isYou ? 3.2 : 2.4);
+          // top-three cities wear a rank seal, mirrored opposite the status flag
+          const sealX = c.x - (isYou ? 3.6 : 2.7);
+          const sealY = poleTop - 0.9;
+          const medaled = c.rank != null && c.rank <= 3;
           return (
             <g key={c.id} className={isYou ? 'wm-city you' : 'wm-city'} onClick={() => setSelectedCity(c.id)}>
               {/* generous invisible hit target */}
@@ -1755,6 +1891,14 @@ function WorldMap({
               {/* status banner: pole + colored flag */}
               <line x1={poleX} y1={c.y + 0.6} x2={poleX} y2={poleTop} stroke="currentColor" strokeWidth={0.25} />
               <circle className="wm-flag" cx={poleX} cy={poleTop - 0.9} r={1.1} fill={st.color} />
+              {medaled && (
+                <g className={`wm-medal wm-medal-${c.rank}`} pointerEvents="none">
+                  <circle cx={sealX} cy={sealY} r={1.15} />
+                  <text x={sealX} y={sealY} fontSize={1.5} textAnchor="middle" dominantBaseline="central">
+                    {c.rank}
+                  </text>
+                </g>
+              )}
               <text className="wm-name" x={c.x} y={c.y + (isYou ? 6.2 : 4.8)} fontSize={isYou ? 3 : 2.7} textAnchor="middle">
                 {c.name}
               </text>
@@ -1788,6 +1932,11 @@ function WorldMap({
               ⤴ TRAVEL TO {sel.name.toUpperCase()}
             </button>
           )}
+        </div>
+      )}
+      {liveMode && rivalCount === 0 && (
+        <div className="wm-empty-note">
+          No rival cities yet — you are charting the known world alone. Others appear here as more subreddits raise their walls.
         </div>
       )}
       {note && <div className="mini-cap">{note}</div>}
@@ -1957,6 +2106,8 @@ function CityDashboard({
   worldCities,
   worldNote,
   worldLive,
+  worldYourRank,
+  worldTotalCities,
   pois,
   levels,
   vitals,
@@ -1966,6 +2117,8 @@ function CityDashboard({
   live,
   contribs,
   lb,
+  scouts,
+  you,
   lbUnavailable,
   build,
   onAddLabor,
@@ -1999,6 +2152,8 @@ function CityDashboard({
   worldYouStatus: WorldStatus;
   worldCities: WorldCity[] | null;
   worldNote: string | null;
+  worldYourRank: number | null;
+  worldTotalCities: number | null;
   worldLive: boolean;
   pois: PoiInfo[];
   levels: Record<string, number>;
@@ -2009,6 +2164,8 @@ function CityDashboard({
   live: LiveState;
   contribs: Record<string, Contrib>;
   lb: LeaderboardEntry[] | null;
+  scouts: LeaderboardEntry[] | null;
+  you: string;
   lbUnavailable: boolean;
   build: BuildStatus | null;
   onAddLabor: () => void;
@@ -2075,14 +2232,21 @@ function CityDashboard({
             {mapView === 'town' ? (
               <MiniMap mapData={mapData} view={view} onFocusDistrict={onFocusDistrict} onFocusPoint={onFocusPoint} />
             ) : (
-              <WorldMap youStatus={worldYouStatus} liveCities={worldCities} liveMode={worldLive} note={worldNote} />
+              <WorldMap
+                youStatus={worldYouStatus}
+                liveCities={worldCities}
+                liveMode={worldLive}
+                note={worldNote}
+                yourRank={worldYourRank}
+                totalCities={worldTotalCities}
+              />
             )}
           </>
         )}
 
         {tab === 'live' && <LiveTab {...live} />}
 
-        {tab === 'top' && <TopTab contribs={contribs} lb={lb} unavailable={lbUnavailable} />}
+        {tab === 'top' && <TopTab contribs={contribs} lb={lb} scouts={scouts} you={you} unavailable={lbUnavailable} />}
 
         {tab === 'shop' && (
           <ShopTab
@@ -3110,7 +3274,11 @@ export function App() {
   const [worldCities, setWorldCities] = useState<WorldCity[] | null>(null);
   const [worldNote, setWorldNote] = useState<string | null>(null);
   const [liveLb, setLiveLb] = useState<LeaderboardEntry[] | null>(null);
+  const [liveScouts, setLiveScouts] = useState<LeaderboardEntry[] | null>(null);
   const [liveLbUnavailable, setLiveLbUnavailable] = useState(false);
+  // Your city's standing in the world (from /api/world) — surfaced on the WORLD map.
+  const [worldYourRank, setWorldYourRank] = useState<number | null>(null);
+  const [worldTotalCities, setWorldTotalCities] = useState<number | null>(null);
   // BUILD FROM ZERO, live: server payload; demo: local counters synth a state.
   const [liveBuild, setLiveBuild] = useState<BuildStatus | null>(null);
   const [demoUnlocked, setDemoUnlocked] = useState<string[]>([]);
@@ -3657,14 +3825,20 @@ export function App() {
         if (unavailable) {
           setWorldCities(null);
           setWorldNote(unavailable);
+          setWorldYourRank(null);
+          setWorldTotalCities(null);
         } else {
           setWorldCities(w.cities);
           setWorldNote(null);
+          setWorldYourRank(w.yourRank);
+          setWorldTotalCities(w.totalCities);
         }
       })
       .catch(() => {
         setWorldCities(null);
         setWorldNote('The world registry could not be reached. Your city is still playable.');
+        setWorldYourRank(null);
+        setWorldTotalCities(null);
       });
   }, []);
 
@@ -3672,6 +3846,7 @@ export function App() {
     getLeaderboard()
       .then((r) => {
         setLiveLb(r.contributors);
+        setLiveScouts(r.scouts);
         setLiveLbUnavailable(false);
       })
       .catch(() => {
@@ -5151,6 +5326,8 @@ export function App() {
         worldCities={worldCities}
         worldNote={worldNote}
         worldLive={isLive}
+        worldYourRank={isLive ? worldYourRank : null}
+        worldTotalCities={isLive ? worldTotalCities : null}
         pois={gatedPois}
         levels={levels}
         vitals={vitals}
@@ -5185,6 +5362,8 @@ export function App() {
         }}
         contribs={contribs}
         lb={liveLeaderboard}
+        scouts={isLive ? liveScouts : null}
+        you={isLive ? liveUsername : ''}
         lbUnavailable={isLive && liveLbUnavailable}
         build={build}
         onAddLabor={onAddLabor}
